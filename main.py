@@ -16,7 +16,7 @@ app = FastAPI(
     title="Will's Sports Models",
     description="Models to predict sports outcomes",
     version="0.0.1",
-    contact={"name": "Will", "email": "willboyd970@gmail.com"},
+    contact={"name": "Will"},
 )
 
 API_KEY = os.getenv("API_KEY")
