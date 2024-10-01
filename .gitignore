@@ -79,6 +79,9 @@ docker-compose.yml
 # AWS CLI package
 AWSCLIV2.pkg
 
+#MAC os files
+.DS_Store
+
 # Ignore tests' compiled files
 tests/__pycache__/
 tests/*.pyc

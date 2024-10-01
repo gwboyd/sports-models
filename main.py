@@ -36,10 +36,16 @@ def health_check():
 def api_key_auth(api_key: str = Depends(api_key_header)):
     if os.getenv("LOCALHOST") == "True":
         return True
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing"
+        )
 
     if api_key.strip() not in api_keys:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Forbidden"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key"
         )
     
 
