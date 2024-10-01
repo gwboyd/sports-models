@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AWS SAM Template for your FastAPI application
+
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  FastAPILambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      FunctionName: FastAPILambdaFunction
+      ImageUri: lambda-sports-models-docker:latest
+      Environment:
+        Variables:
+          API_KEY: "jake"
+          LOCALHOST: "False"
+      Events:
+        FastAPI:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY

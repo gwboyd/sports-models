@@ -1,0 +1,91 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+#.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyCharm
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# AWS credentials and sensitive files
+*.pem
+*.key
+#*.json
+
+# Docker files
+docker-compose.yml
+#Dockerfile
+
+# Local AWS Lambda build artifacts
+.aws-sam/
+
+# Log files
+*.log
+
+# AWS CLI package
+AWSCLIV2.pkg
+
+# Ignore tests' compiled files
+tests/__pycache__/
+tests/*.pyc
+
+# Ignore google api
+src/utils/google_api/
+
+# Ignore compiled Python files in src
+src/__pycache__/
+src/**/*.pyc
