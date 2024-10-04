@@ -38,21 +38,29 @@ export default function Index() {
   const totalLocks = data.filter((game) => game["total_lock"]);
 
   return (
-    <>
-      <table>
+    <div className="bg-amber-50 p-4">
+      <table className="table-auto border-collapse border border-red-800 w-full text-center">
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column}>{column}</th>
+              <th
+                key={column}
+                className="border border-red-800 p-2 bg-green-800 text-white"
+              >
+                {column}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, rowIndex) => (
-            <tr key={rowIndex}>
+            <tr key={rowIndex} className="bg-amber-100">
               {columns.map((column) => (
-                <td key={column}>
-                  {column.includes("pred") || column.includes("prob")
+                <td key={column} className="border border-red-800 p-2">
+                  {column.includes("spread_pred") ||
+                  column.includes("spread_line")
+                    ? displaySpread(row[column])
+                    : column.includes("pred") || column.includes("prob")
                     ? row[column].toFixed(2)
                     : row[column]}
                 </td>
@@ -61,29 +69,33 @@ export default function Index() {
           ))}
         </tbody>
       </table>
-      <strong>Spread Plays</strong>
-      {spreadLocks.map((game) => (
-        <p key={game["spread_win_prob"]}>
-          {`${game["home_team"]}/${game["away_team"]}: ${displaySpread(
-            game["spread_line"]
-          )}
-          (model ${game["spread_play"]} ${displaySpread(
-            game["spread_pred"]
-          )}, ${game["spread_win_prob"].toFixed(2)}% win
-          probability)`}
-        </p>
-      ))}
-      <strong>Total Plays</strong>
-      {totalLocks.map((game) => (
-        <p key={game["total_win_prob"]}>
-          {`${game["home_team"]}/${game["away_team"]}: ${game["total_play"]} ${
-            game["total_line"]
-          } (model ${game["total_pred"].toFixed(2)}, ${game[
-            "total_win_prob"
-          ].toFixed(2)}% win probability)`}
-        </p>
-      ))}
-    </>
+      <div className="mt-4 bg-red-100 p-3 rounded-md">
+        <strong className="text-red-900 block mb-2">Spread Plays</strong>
+        {spreadLocks.map((game) => (
+          <p key={game["spread_win_prob"]} className="text-green-800 mb-1">
+            {`${game["home_team"]}/${game["away_team"]}: ${displaySpread(
+              game["spread_line"]
+            )}
+            (model ${game["spread_play"]} ${displaySpread(
+              game["spread_pred"]
+            )}, ${game["spread_win_prob"].toFixed(2)}% win
+            probability)`}
+          </p>
+        ))}
+      </div>
+      <div className="mt-4 bg-green-100 p-3 rounded-md">
+        <strong className="text-red-900 block mb-2">Total Plays</strong>
+        {totalLocks.map((game) => (
+          <p key={game["total_win_prob"]} className="text-green-800 mb-1">
+            {`${game["home_team"]}/${game["away_team"]}: ${
+              game["total_play"]
+            } ${game["total_line"]} (model ${game["total_pred"].toFixed(
+              2
+            )}, ${game["total_win_prob"].toFixed(2)}% win probability)`}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
 
