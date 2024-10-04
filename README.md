@@ -47,3 +47,7 @@ brew install python-certifi
 ```shell
 pip3 install -r requirements.txt
 ```
+
+### Step 5: Configure Dynamo DB set up
+
+Reach out to Will to give you an AWS IAM role for the tables

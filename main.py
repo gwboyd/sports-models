@@ -66,6 +66,8 @@ def unicorn_exception_handler(request: Request, exc: UnicornException):
     return JSONResponse(status_code=400, content=result_response)
 
 app.include_router(nfl_expected_points_handler.picks, dependencies=[Depends(api_key_auth)])
+app.include_router(nfl_expected_points_handler.pick_results, dependencies=[Depends(api_key_auth)])
+
 
 
 
