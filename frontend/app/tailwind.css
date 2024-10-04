@@ -4,7 +4,11 @@
 
 @layer base {
   body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
     overflow: hidden;
+    background-color: rgb(24 32 43);
   }
   * {
     scrollbar-width: thin;
