@@ -34,28 +34,61 @@ export default function Index() {
   if (!Array.isArray(data) || data.length === 0) {
     return <div>No data available</div>;
   }
+  const spreadLocks = data.filter((game) => game["spread_lock"]);
+  const totalLocks = data.filter((game) => game["total_lock"]);
 
   return (
-    <table>
-      <thead>
-        <tr>
-          {columns.map((column) => (
-            <th key={column}>{column}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((row, rowIndex) => (
-          <tr key={rowIndex}>
+    <>
+      <table>
+        <thead>
+          <tr>
             {columns.map((column) => (
-              <td key={column}>{row[column]}</td>
+              <th key={column}>{column}</th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {data.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {columns.map((column) => (
+                <td key={column}>
+                  {column.includes("pred") || column.includes("prob")
+                    ? row[column].toFixed(2)
+                    : row[column]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <strong>Spread Plays</strong>
+      {spreadLocks.map((game) => (
+        <p key={game["spread_win_prob"]}>
+          {`${game["home_team"]}/${game["away_team"]}: ${displaySpread(
+            game["spread_line"]
+          )}
+          (model ${game["spread_play"]} ${displaySpread(
+            game["spread_pred"]
+          )}, ${game["spread_win_prob"].toFixed(2)}% win
+          probability)`}
+        </p>
+      ))}
+      <strong>Total Plays</strong>
+      {totalLocks.map((game) => (
+        <p key={game["total_win_prob"]}>
+          {`${game["home_team"]}/${game["away_team"]}: ${game["total_play"]} ${
+            game["total_line"]
+          } (model ${game["total_pred"].toFixed(2)}, ${game[
+            "total_win_prob"
+          ].toFixed(2)}% win probability)`}
+        </p>
+      ))}
+    </>
   );
 }
+
+const displaySpread = (spread: number) =>
+  spread > 0 ? `+${spread.toFixed(2)}` : spread.toFixed(2);
 
 const columns = [
   "season",
