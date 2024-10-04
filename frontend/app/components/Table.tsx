@@ -31,14 +31,34 @@ export function Table<TData>({
     <div
       className={`overflow-x-auto min-h-[350px] border-y ${theme.borderColor}`}
     >
-      <table className="table-auto border-collapse w-full text-center">
+      <table
+        className={`table-auto w-full text-center 
+            ${
+              stickyHeader
+                ? "border-separate border-spacing-0"
+                : "border-collapse"
+            }`}
+      >
         <thead className={`${stickyHeader ? "sticky top-0 z-10" : ""}`}>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
+              {headerGroup.headers.map((header, index) => (
                 <th
                   key={header.id}
-                  className={`border-x ${theme.borderColor} p-2 ${theme.headerBackground} ${theme.headerText} cursor-pointer select-none hover:bg-gray-500 transition-colors duration-[100ms]`}
+                  className={`
+                    ${theme.headerBackground} 
+                    ${theme.headerText} 
+                    ${theme.borderColor} 
+                    border-b 
+                    ${index === 0 ? "border-l" : ""} 
+                    border-r 
+                    p-2 
+                    cursor-pointer 
+                    select-none 
+                    hover:bg-gray-500 
+                    transition-colors 
+                    duration-[100ms]
+                  `}
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   <div className="flex justify-center items-center gap-4">
@@ -63,10 +83,17 @@ export function Table<TData>({
         <tbody>
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id} className={theme.cellBackground}>
-              {row.getVisibleCells().map((cell) => (
+              {row.getVisibleCells().map((cell, index) => (
                 <td
                   key={cell.id}
-                  className={`border ${theme.borderColor} p-2 ${theme.cellText}`}
+                  className={`
+                    ${theme.cellText} 
+                    ${theme.borderColor} 
+                    border-b 
+                    ${index === 0 ? "border-l" : ""} 
+                    border-r 
+                    p-2
+                  `}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>

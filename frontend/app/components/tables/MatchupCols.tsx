@@ -1,5 +1,6 @@
 import { createColumnHelper } from "@tanstack/react-table";
 import type { Matchup } from "~/types/apiData";
+import { displaySpread } from "~/utils";
 
 export const columnHelper = createColumnHelper<Matchup>();
 
@@ -24,43 +25,43 @@ export const AwayScorePred = columnHelper.accessor("away_score_pred", {
 });
 
 export const SpreadPred = columnHelper.accessor("spread_pred", {
-  header: "Spread Pred",
+  header: "Prediction",
   cell: (info) =>
-    `${info.row.original.home_team} (${info.getValue().toFixed(2)})`,
+    `${info.row.original.home_team} (${displaySpread(info.getValue(), 2)})`,
 });
 
 export const SpreadLine = columnHelper.accessor("spread_line", {
-  header: "Spread Line",
+  header: "Line",
   cell: (info) =>
-    `${info.row.original.home_team} (${info.getValue().toFixed(1)})`,
+    `${info.row.original.home_team} (${displaySpread(info.getValue())})`,
 });
 
 export const SpreadPlay = columnHelper.accessor("spread_play", {
-  header: "Spread Play",
+  header: "Play",
   cell: (info) => info.getValue(),
 });
 
 export const SpreadWinProb = columnHelper.accessor("spread_win_prob", {
-  header: "Spread Win Prob",
-  cell: (info) => info.getValue().toFixed(2),
+  header: "Win Prob",
+  cell: (info) => `${info.getValue().toFixed(2)}%`,
 });
 
 export const TotalPred = columnHelper.accessor("total_pred", {
-  header: "Total Pred",
+  header: "Prediction",
   cell: (info) => info.getValue().toFixed(2),
 });
 
 export const TotalLine = columnHelper.accessor("total_line", {
-  header: "Total Line",
+  header: "Line",
   cell: (info) => info.getValue().toFixed(2),
 });
 
 export const TotalPlay = columnHelper.accessor("total_play", {
-  header: "Total Play",
+  header: "Play",
   cell: (info) => info.getValue(),
 });
 
 export const TotalWinProb = columnHelper.accessor("total_win_prob", {
-  header: "Total Win Prob",
-  cell: (info) => info.getValue().toFixed(2),
+  header: "Win Prob",
+  cell: (info) => `${info.getValue().toFixed(2)}%`,
 });

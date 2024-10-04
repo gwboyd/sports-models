@@ -4,7 +4,7 @@ import { useLoaderData } from "@remix-run/react";
 import type { Matchup } from "~/types/apiData";
 import { SpreadTable } from "~/components/tables/SpreadTable";
 import { TotalTable } from "~/components/tables/TotalTable";
-import { displaySpread } from "~/utils";
+import { convertDateTime, displaySpread } from "~/utils";
 
 export const meta: MetaFunction = () => {
   return [
@@ -27,7 +27,15 @@ export const loader = async () => {
     throw new Response("Failed to fetch data", { status: response.status });
   }
 
-  const data: Matchup[] = await response.json();
+  const data: Matchup[] = await response
+    .json()
+    .then((data: Matchup[]) =>
+      data.sort(
+        (a, b) =>
+          convertDateTime(a.date_time).getTime() -
+          convertDateTime(b.date_time).getTime()
+      )
+    );
   const spreadLocks = data
     .filter((game: Matchup) => game["spread_lock"])
     .sort((a, b) => b["spread_win_prob"] - a["spread_win_prob"]);
@@ -46,24 +54,25 @@ export default function Index() {
   }
 
   return (
-    <div className="overflow-y-auto flex flex-col gap-4 p-12">
+    <div className="overflow-y-auto flex flex-col gap-4 p-6 pb-24 lg:p-12">
       <h2 className="text-gray-300 text-2xl font-bold mb-4">
         {data[0].season}, Week {data[0].week}
       </h2>
-      <SpreadTable data={data} />
-      <TotalTable data={data} />
       <div className="border border-gray-700 bg-gray-800 rounded p-3 flex flex-col gap-2">
         <strong className="text-gray-300">Spread Plays</strong>
         <div>
           {spreadLocks.map((game) => (
             <p key={game["spread_win_prob"]} className="text-gray-400 mb-1">
-              {`${game["home_team"]}/${game["away_team"]}: ${displaySpread(
-                game["spread_line"]
+              {`${game["home_team"]}/${game["away_team"]}: ${
+                game["spread_play"]
+              } ${displaySpread(
+                (game["spread_play"] === game["away_team"] ? -1 : 1) *
+                  game["spread_line"]
               )}
             (model ${game["spread_play"]} ${displaySpread(
-                game["spread_pred"]
-              )}, ${game["spread_win_prob"].toFixed(2)}% win
-            probability)`}
+                (game["spread_play"] === game["away_team"] ? -1 : 1) *
+                  game["spread_pred"]
+              )}, ${game["spread_win_prob"].toFixed(2)}%)`}
             </p>
           ))}
         </div>
@@ -77,11 +86,15 @@ export default function Index() {
                 game["total_play"]
               } ${game["total_line"]} (model ${game["total_pred"].toFixed(
                 2
-              )}, ${game["total_win_prob"].toFixed(2)}% win probability)`}
+              )}, ${game["total_win_prob"].toFixed(2)}%)`}
             </p>
           ))}
         </div>
       </div>
+      <h4 className="text-gray-300 text-xl font-bold">Spreads</h4>
+      <SpreadTable data={data} />
+      <h4 className="text-gray-300 text-xl font-bold">Totals</h4>
+      <TotalTable data={data} />
     </div>
   );
 }

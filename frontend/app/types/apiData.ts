@@ -7,7 +7,6 @@ export type Matchup = {
   total_play: string;
   home_score_pred: number;
   total_pred: number;
-  order: number;
   week: string;
   spread_play: string;
   away_score_pred: number;
@@ -18,4 +17,5 @@ export type Matchup = {
   spread_lock: number;
   year_week: string;
   game_id: string;
+  date_time: string;
 };
