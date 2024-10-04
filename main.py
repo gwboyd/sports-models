@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from mangum import Mangum
 import json
 
+
 from src.nfl.nfl_expected_points import handler as nfl_expected_points_handler
 
 load_dotenv()
