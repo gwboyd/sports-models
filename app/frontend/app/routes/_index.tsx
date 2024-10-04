@@ -74,8 +74,10 @@ export default function Index() {
                       {column.includes("spread_pred") ||
                       column.includes("spread_line")
                         ? displaySpread(row[column] as number)
-                        : column.includes("pred") || column.includes("prob")
+                        : column.includes("pred")
                         ? (row[column] as number).toFixed(2)
+                        : column.includes("prob")
+                        ? `${(row[column] as number).toFixed(2)}%`
                         : row[column]}
                     </td>
                   ))}
@@ -115,7 +117,7 @@ export default function Index() {
 }
 
 const displaySpread = (spread: number) =>
-  spread > 0 ? `+${spread.toFixed(2)}` : spread.toFixed(2);
+  spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
 
 const columns: (keyof Matchup)[] = [
   "home_team",
@@ -126,10 +128,8 @@ const columns: (keyof Matchup)[] = [
   "spread_line",
   "spread_play",
   "spread_win_prob",
-  "spread_lock",
   "total_pred",
   "total_line",
   "total_play",
   "total_win_prob",
-  "total_lock",
 ];
