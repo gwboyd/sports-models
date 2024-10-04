@@ -1,0 +1,21 @@
+export type Matchup = {
+  spread_pred: number;
+  total_win_prob: number;
+  season: number;
+  total_line: number;
+  away_team: string;
+  total_play: string;
+  home_score_pred: number;
+  total_pred: number;
+  order: number;
+  week: string;
+  spread_play: string;
+  away_score_pred: number;
+  spread_line: number;
+  total_lock: number;
+  spread_win_prob: number;
+  home_team: string;
+  spread_lock: number;
+  year_week: string;
+  game_id: string;
+};

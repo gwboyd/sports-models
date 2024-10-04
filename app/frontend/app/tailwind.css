@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    overflow: hidden;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(55, 65, 81, 0.8) rgba(31, 41, 55, 0.5);
+  }
+}
