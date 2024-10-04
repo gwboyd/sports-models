@@ -34,8 +34,12 @@ export default function Index() {
   if (!Array.isArray(data) || data.length === 0) {
     return <div>No data available</div>;
   }
-  const spreadLocks = data.filter((game) => game["spread_lock"]);
-  const totalLocks = data.filter((game) => game["total_lock"]);
+  const spreadLocks = data
+    .filter((game) => game["spread_lock"])
+    .sort((a, b) => b["spread_win_prob"] - a["spread_win_prob"]);
+  const totalLocks = data
+    .filter((game) => game["total_lock"])
+    .sort((a, b) => b["total_win_prob"] - a["total_win_prob"]);
 
   return (
     <div className="bg-amber-50 p-4">
@@ -53,20 +57,22 @@ export default function Index() {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, rowIndex) => (
-            <tr key={rowIndex} className="bg-amber-100">
-              {columns.map((column) => (
-                <td key={column} className="border border-red-800 p-2">
-                  {column.includes("spread_pred") ||
-                  column.includes("spread_line")
-                    ? displaySpread(row[column])
-                    : column.includes("pred") || column.includes("prob")
-                    ? row[column].toFixed(2)
-                    : row[column]}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data
+            .sort((a, b) => a["order"] - b["order"])
+            .map((row, rowIndex) => (
+              <tr key={rowIndex} className="bg-amber-100">
+                {columns.map((column) => (
+                  <td key={column} className="border border-red-800 p-2">
+                    {column.includes("spread_pred") ||
+                    column.includes("spread_line")
+                      ? displaySpread(row[column])
+                      : column.includes("pred") || column.includes("prob")
+                      ? row[column].toFixed(2)
+                      : row[column]}
+                  </td>
+                ))}
+              </tr>
+            ))}
         </tbody>
       </table>
       <div className="mt-4 bg-red-100 p-3 rounded-md">
