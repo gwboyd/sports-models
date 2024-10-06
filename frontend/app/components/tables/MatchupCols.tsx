@@ -38,7 +38,11 @@ export const SpreadLine = columnHelper.accessor("spread_line", {
 
 export const SpreadPlay = columnHelper.accessor("spread_play", {
   header: "Play",
-  cell: (info) => info.getValue(),
+  cell: (info) =>
+    `${info.getValue()} (${displaySpread(
+      (info.getValue() === info.row.original.away_team ? -1 : 1) *
+        info.row.original.spread_line
+    )})`,
 });
 
 export const SpreadWinProb = columnHelper.accessor("spread_win_prob", {
