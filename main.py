@@ -5,10 +5,10 @@ from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from dotenv import load_dotenv
 from mangum import Mangum
-import json
 
 
 from src.nfl.nfl_expected_points import handler as nfl_expected_points_handler
+from src.nba.first_basket_model import handler as nba_first_basket_handler
 
 load_dotenv()
 
@@ -16,8 +16,9 @@ load_dotenv()
 app = FastAPI(
     title="Will's Sports Models",
     description="Models to predict sports outcomes",
-    version="0.0.1",
+    version="0.1.0",
     contact={"name": "Will"},
+    openapi_url="/openapi.json",
 )
 
 API_KEY = os.getenv("API_KEY")
@@ -25,12 +26,12 @@ api_keys = [API_KEY]
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
-@app.get("/")
+@app.get("/", tags=["default"])
 def index():
     return JSONResponse(status_code=200, content={"msg": "ok"})
 
 
-@app.get("/health")
+@app.get("/health", tags=["default"])
 def health_check():
     return JSONResponse(status_code=200, content={"msg": "ok"})
 
@@ -66,6 +67,11 @@ def unicorn_exception_handler(request: Request, exc: UnicornException):
     return JSONResponse(status_code=400, content=result_response)
 
 app.include_router(nfl_expected_points_handler.picks, dependencies=[Depends(api_key_auth)])
+app.include_router(nfl_expected_points_handler.pick_results, dependencies=[Depends(api_key_auth)])
+
+app.include_router(nba_first_basket_handler.pick_upload, dependencies=[Depends(api_key_auth)])
+app.include_router(nba_first_basket_handler.picks, dependencies=[Depends(api_key_auth)])
+
 
 
 
