@@ -27,7 +27,7 @@ def delete_dynamo_enteries(table, keys):
             
 def dynamo_add_column(table, df, column_name, new_write_function, delete_function, keys):
 
-    saved_table = pd.DataFrame(table.scan().get('Items'))
+    original_saved_table = pd.DataFrame(table.scan().get('Items'))
     
     if len(saved_table)>0:
         print(f"{len(saved_table)} rows saved. DF has {saved_table.shape[1]} columns")
@@ -35,12 +35,14 @@ def dynamo_add_column(table, df, column_name, new_write_function, delete_functio
     delete_function(table, keys)
     print("Table deleted")
 
-    saved_table = saved_table.merge(df[['game_id', column_name]], on='game_id', how='left')
+    saved_table = original_saved_table.merge(df[['game_id', column_name]], on='game_id', how='left')
     print(f"Now {len(saved_table)} rows and {saved_table.shape[1]} columns")
 
     new_write_function(saved_table, table)
     updated_dynamo_table = pd.DataFrame(table.scan().get('Items'))
     print(f"Write done, updated dynamo table has {len(updated_dynamo_table)} rows and {updated_dynamo_table.shape[1]} columns")
+
+    return saved_table
     
 
 def query_results(table, key_object):
