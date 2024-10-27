@@ -1,8 +1,8 @@
 import { createColumnHelper } from "@tanstack/react-table";
-import type { Matchup } from "~/types/apiData";
+import type { NFLPick } from "~/types/types";
 import { displaySpread } from "~/utils";
 
-export const columnHelper = createColumnHelper<Matchup>();
+export const columnHelper = createColumnHelper<NFLPick>();
 
 export const HomeTeam = columnHelper.accessor("home_team", {
   header: "Home Team",

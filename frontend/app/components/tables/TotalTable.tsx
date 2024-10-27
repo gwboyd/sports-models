@@ -1,4 +1,4 @@
-import type { Matchup } from "~/types/apiData";
+import type { NFLPick } from "~/types/types";
 import { Table } from "../Table";
 import {
   AwayTeam,
@@ -9,7 +9,7 @@ import {
   TotalWinProb,
 } from "./MatchupCols";
 
-export function TotalTable({ data }: { data: Matchup[] }) {
+export function TotalTable({ data }: { data: NFLPick[] }) {
   return <Table stickyHeader columns={columns} data={data} />;
 }
 

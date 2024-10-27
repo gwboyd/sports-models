@@ -29,7 +29,7 @@ export function Table<TData>({
 
   return (
     <div
-      className={`overflow-x-auto min-h-[350px] border-y ${theme.borderColor}`}
+      className={`overflow-auto min-h-[350px] border-y ${theme.borderColor} rounded-md`}
     >
       <table
         className={`table-auto w-full text-center 

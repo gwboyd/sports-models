@@ -4,8 +4,9 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "build": "remix vite:build",
+    "build": "tsc && remix vite:build",
     "dev": "remix vite:dev --host",
+    "codegen": "openapi-typescript https://j1neh7th0m.execute-api.us-east-1.amazonaws.com/openapi.json --output app/types/generated/openapi.ts",
     "typecheck": "tsc"
   },
   "dependencies": {
@@ -26,9 +27,10 @@
     "@types/react-dom": "^18.2.7",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.38.0",
+    "openapi-typescript": "^7.4.2",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
-    "typescript": "^5.1.6",
+    "typescript": "^5.6.3",
     "vite": "^5.1.0",
     "vite-tsconfig-paths": "^4.2.1"
   },
