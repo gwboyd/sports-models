@@ -1,12 +1,18 @@
-import type { MetaFunction } from "@vercel/remix";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
+import type { MetaFunction } from "@vercel/remix";
 
-import { SpreadTable } from "~/components/tables/SpreadTable";
-import { TotalTable } from "~/components/tables/TotalTable";
+import {
+  NFL_PICKS_KEY,
+  NFL_PICK_RESULTS_KEY,
+  fetchWithCache,
+} from "~/api/data-utils";
+import { Card } from "~/components/Card";
+import { BodyText, SectionTitle } from "~/components/Typography";
+import { SpreadTable } from "~/routes/models.nfl/SpreadTable";
+import { TotalTable } from "~/routes/models.nfl/TotalTable";
+import type { NFLPick, NFLResultsResponse } from "~/types/types";
 import { convertDateTime, displaySpread } from "~/utils";
-import type { NFLPick, OverallNFLResults } from "~/types/types";
-import { createCache, fetchWithCache } from "~/api/cache";
 
 export const meta: MetaFunction = () => {
   return [
@@ -15,13 +21,10 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-const picksCache = createCache<NFLPick[]>();
-const resultsCache = createCache<{ data: OverallNFLResults }>();
-
 export const loader = async () => {
   const [picksData, resultsData] = await Promise.all([
-    fetchWithCache("/nfl-picks", picksCache),
-    fetchWithCache("/nfl-pick-results", resultsCache),
+    fetchWithCache<NFLPick[]>(NFL_PICKS_KEY),
+    fetchWithCache<NFLResultsResponse>(NFL_PICK_RESULTS_KEY),
   ]);
 
   const picks = picksData.sort(
@@ -58,7 +61,7 @@ export default function NFLModel() {
       </h2>
       <Card title="Spread Plays">
         {spreadLocks.map((game: NFLPick) => (
-          <p key={game.spread_win_prob} className="text-gray-400 mb-1">
+          <BodyText key={game.spread_win_prob}>
             {`${game.home_team}/${game.away_team}: ${
               game.spread_play
             } ${displaySpread(
@@ -67,25 +70,24 @@ export default function NFLModel() {
             (model ${game.spread_play} ${displaySpread(
               (game.spread_play === game.away_team ? -1 : 1) * game.spread_pred
             )}, ${game.spread_win_prob.toFixed(2)}%)`}
-          </p>
+          </BodyText>
         ))}
       </Card>
       <Card title="Total Plays">
         {totalLocks.map((game: NFLPick) => (
-          <p key={game.total_win_prob} className="text-gray-400 mb-1">
+          <BodyText key={game.total_win_prob}>
             {`${game.home_team}/${game.away_team}: ${game.total_play} ${
               game.total_line
             } (model ${game.total_pred.toFixed(
               2
             )}, ${game.total_win_prob.toFixed(2)}%)`}
-          </p>
+          </BodyText>
         ))}
       </Card>
-      <h4 className="text-gray-300 text-xl font-bold">Spreads</h4>
+      <SectionTitle>Spreads</SectionTitle>
       <SpreadTable data={data} />
-      <h4 className="text-gray-300 text-xl font-bold">Totals</h4>
+      <SectionTitle>Totals</SectionTitle>
       <TotalTable data={data} />
-
       <Card title="Overall Results 2024">
         <BodyText>{`Total predicted games: ${overallResults.predicted_games}`}</BodyText>
         <BodyText>{`Spread play record: ${overallResults.spread_lock_wins} - ${
@@ -114,20 +116,3 @@ export default function NFLModel() {
     </div>
   );
 }
-
-const Card = ({
-  title,
-  children,
-}: {
-  title?: string;
-  children: React.ReactNode;
-}) => (
-  <div className="border border-gray-700 bg-gray-800 rounded p-3 flex flex-col gap-2">
-    {title && <strong className="text-gray-300">{title}</strong>}
-    <div>{children}</div>
-  </div>
-);
-
-const BodyText = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-gray-400 mb-1">{children}</p>
-);

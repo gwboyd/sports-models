@@ -1,5 +1,5 @@
 import type { NFLPick } from "~/types/types";
-import { Table } from "../Table";
+import { Table } from "../../components/Table";
 import {
   AwayTeam,
   HomeTeam,
