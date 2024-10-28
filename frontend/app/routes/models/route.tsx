@@ -13,7 +13,7 @@ export const loader = ({ request }: LoaderFunctionArgs) => {
 export default function Models() {
   return (
     <div className="flex flex-col overflow-hidden">
-      <div className="flex  border-gray-700">
+      <div className="flex border-gray-700 pt-1 px-4 gap-1">
         <Tab to="nfl">NFL</Tab>
         <Tab to="nba">NBA</Tab>
       </div>
@@ -30,7 +30,7 @@ const Tab = ({ to, children }: { to: string; children: React.ReactNode }) => {
         `px-4 py-2 text-sm font-medium rounded-lg ${
           isActive
             ? "text-white bg-gray-700"
-            : "text-gray-300 transition-all hover:text-white hover:bg-gray-700"
+            : "text-gray-300 transition-all hover:text-white hover:bg-gray-800"
         }`
       }
     >

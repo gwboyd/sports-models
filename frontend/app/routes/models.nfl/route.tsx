@@ -55,7 +55,7 @@ export default function NFLModel() {
   }
 
   return (
-    <div className="overflow-y-auto flex flex-col gap-4 p-6 pb-24 lg:p-12">
+    <div className="overflow-y-auto flex flex-col gap-4 p-6 pb-36 lg:pb-24 lg:px-12">
       <h2 className="text-gray-300 text-2xl font-bold mb-4">
         {data[0].season}, Week {data[0].week}
       </h2>

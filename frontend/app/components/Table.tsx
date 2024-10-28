@@ -1,4 +1,9 @@
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
+import type {
+  ColumnDef,
+  RowData,
+  SortingState,
+  TableMeta,
+} from "@tanstack/react-table";
 import {
   useReactTable,
   flexRender,
@@ -7,14 +12,23 @@ import {
 } from "@tanstack/react-table";
 import { useState } from "react";
 
+declare module "@tanstack/table-core" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface TableMeta<TData extends RowData> {
+    bankroll?: number;
+  }
+}
+
 export function Table<TData>({
   columns,
   data,
   stickyHeader = false,
+  meta,
 }: {
   columns: ColumnDef<TData, any>[];
   data: TData[];
   stickyHeader?: boolean;
+  meta?: TableMeta<TData>;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -25,6 +39,7 @@ export function Table<TData>({
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    meta,
   });
 
   return (

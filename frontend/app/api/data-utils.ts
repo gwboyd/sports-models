@@ -8,7 +8,6 @@ const redis = Redis.fromEnv();
 export async function fetchWithCache<T>(key: string): Promise<T> {
   let data = await redis.get<T>(key);
   if (data) return data;
-
   const response = await fetch(`${process.env.ENDPOINT}/${key}`, {
     headers: {
       Authorization: process.env.AUTHORIZATION_TOKEN ?? "",
@@ -29,3 +28,4 @@ export async function fetchWithCache<T>(key: string): Promise<T> {
 
 export const NFL_PICKS_KEY = "nfl-picks";
 export const NFL_PICK_RESULTS_KEY = "nfl-pick-results";
+export const NBA_FIRST_BASKET_PICKS_KEY = "nba-first-basket-picks";
