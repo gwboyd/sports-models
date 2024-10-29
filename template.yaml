@@ -5,7 +5,7 @@ Description: >
 
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 720
 
 Resources:
   FastAPILambdaFunction:
@@ -13,11 +13,18 @@ Resources:
     Properties:
       PackageType: Image
       FunctionName: FastAPILambdaFunction
-      ImageUri: lambda-sports-models-docker:latest
+      ImageUri: sports-model-lambda
+      MemorySize: 3008
       Environment:
         Variables:
-          API_KEY: "jake"
           LOCALHOST: "False"
+          ENVIRONMENT: "PROD"
+          ADMIN_API_KEY: "s8y8dfcqcfXarutIS6EqCreVzaBsDI9S"
+          FRONT_END_API_KEY: "KAYBxlOSgwIbxaoGxfqG0n1IHW0vbLRX"
+          READ_API_KEY: "gYa5FgUYw2CdcxpKqoTo0VgZRisiooQV"
+          NBA_API_KEY: "gO1bWOaTuq8mdmoLPNut9TmM9qjEzmA0"
+          AWS_API_KEY: "ApeJmM3hS9k53Ya2zqMPcXuMFsn1Ksny"
+
       Events:
         FastAPI:
           Type: Api

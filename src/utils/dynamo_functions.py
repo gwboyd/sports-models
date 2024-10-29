@@ -10,6 +10,12 @@ def convert_to_decimal(value):
         return Decimal(str(value))
     return value
 
+def convert_floats_to_decimal(item: dict) -> dict:
+    for key, value in item.items():
+        if isinstance(value, float):
+            item[key] = Decimal(str(value))  # Convert float to Decimal
+    return item
+
 def delete_dynamo_enteries(table, keys):
 
     partition_key=keys['PartitionKey']
@@ -59,6 +65,7 @@ def scan_table(table):
     response = table.scan()
 
     return response.get('Items', [])
+
 
 
     

@@ -1,16 +1,27 @@
 import os
 import uvicorn
+import logging
+import sys
+import hashlib
+import secrets
 from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from dotenv import load_dotenv
 from mangum import Mangum
+from typing import List
 
 
 from src.nfl.nfl_expected_points import handler as nfl_expected_points_handler
 from src.nba.first_basket_model import handler as nba_first_basket_handler
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s',
+    stream=sys.stdout
+)
 
 
 app = FastAPI(
@@ -21,8 +32,23 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-API_KEY = os.getenv("API_KEY")
-api_keys = [API_KEY]
+
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+FRONT_END_API_KEY = os.getenv("FRONT_END_API_KEY")
+READ_API_KEY = os.getenv("READ_API_KEY")
+NBA_API_KEY = os.getenv("NBA_API_KEY")
+AWS_API_KEY = os.getenv("AWS_API_KEY")
+
+def hash_key(key):
+    return hashlib.sha256(key.encode()).hexdigest()
+
+API_KEYS = {
+    hash_key(ADMIN_API_KEY): ["admin"],
+    hash_key(FRONT_END_API_KEY): ["read"],
+    hash_key(READ_API_KEY): ["read"],
+    hash_key(NBA_API_KEY): ["nba", "read"],
+    hash_key(AWS_API_KEY): ["admin"]
+}
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
@@ -37,18 +63,42 @@ def health_check():
 
 def api_key_auth(api_key: str = Depends(api_key_header)):
     if os.getenv("LOCALHOST") == "True":
-        return True
+        return ["admin", "read", "nba"]
     
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header missing"
         )
+    
+    hashed_input_key = hash_key(api_key.strip())
+    for stored_hashed_key in API_KEYS:
+        if secrets.compare_digest(hashed_input_key, stored_hashed_key):
+            return API_KEYS[stored_hashed_key]
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+    )
 
-    if api_key.strip() not in api_keys:
+
+def require_permission(*required_permissions: str):
+    async def permission_dependency(
+        request: Request,
+        permissions: List[str] = Depends(api_key_auth)
+    ):
+        # Admin users have access to all endpoints
+        if "admin" in permissions:
+            return
+
+        # Check if the user's permissions include any of the required permissions
+        if any(permission in permissions for permission in required_permissions):
+            return
+        
+        # If none of the above conditions are met, deny access
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to access this endpoint."
         )
+    return permission_dependency
     
 
 
@@ -66,11 +116,12 @@ def unicorn_exception_handler(request: Request, exc: UnicornException):
     result_response = {"meta": result_info, "result": {}}
     return JSONResponse(status_code=400, content=result_response)
 
-app.include_router(nfl_expected_points_handler.picks, dependencies=[Depends(api_key_auth)])
-app.include_router(nfl_expected_points_handler.pick_results, dependencies=[Depends(api_key_auth)])
+app.include_router(nfl_expected_points_handler.picks, dependencies=[Depends(require_permission("read"))])
+app.include_router(nfl_expected_points_handler.pick_results, dependencies=[Depends(require_permission("read"))])
+app.include_router(nfl_expected_points_handler.update, dependencies=[Depends(require_permission())])
 
-app.include_router(nba_first_basket_handler.pick_upload, dependencies=[Depends(api_key_auth)])
-app.include_router(nba_first_basket_handler.picks, dependencies=[Depends(api_key_auth)])
+app.include_router(nba_first_basket_handler.pick_upload, dependencies=[Depends(require_permission("nba"))])
+app.include_router(nba_first_basket_handler.picks, dependencies=[Depends(require_permission("nba","read"))])
 
 
 
@@ -85,5 +136,6 @@ if __name__ == "__main__":
 handler = Mangum(app)
 
 # uvicorn main:app --host 0.0.0.0 --port 3000 --reload --log-level warning
+# sam local invoke "FastAPILambdaFunction"
 
 
