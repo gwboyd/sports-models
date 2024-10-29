@@ -32,7 +32,5 @@ export const Units = columnHelper.accessor("units", {
 export const BetAmount = columnHelper.accessor("units", {
   header: "Amt",
   cell: ({ getValue, table }) =>
-    `$${((table.options.meta?.bankroll ?? 0) * (5 / 600) * getValue()).toFixed(
-      2
-    )}`,
+    `$${Math.round((table.options.meta?.bankroll ?? 0) * (5 / 600) * getValue())}`,
 });
