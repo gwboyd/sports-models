@@ -12,7 +12,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const picks = await fetchWithCache<NBAFirstBasketPick[]>(
     NBA_FIRST_BASKET_PICKS_KEY
   );
-  return json({ picks });
+
+  return json({
+    picks: picks.sort((a, b) => a.sportsbook.localeCompare(b.sportsbook)),
+  });
 };
 
 export function shouldRevalidate({
