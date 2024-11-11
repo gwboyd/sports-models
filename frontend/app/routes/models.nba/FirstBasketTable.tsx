@@ -1,6 +1,6 @@
 import type { NBAFirstBasketPick } from "~/types/types";
 import { Table } from "../../components/Table";
-import { BetAmount, Date, Odds, PlayerName, Sportsbook } from "./Cols";
+import { BetAmount, Date, Odds, PlayerName, Sportsbook, Team } from "./Cols";
 
 export function FirstBasketTable({
   data,
@@ -14,4 +14,4 @@ export function FirstBasketTable({
   );
 }
 
-const columns = [Date, PlayerName, Sportsbook, BetAmount, Odds];
+const columns = [Date, PlayerName, Team, Sportsbook, BetAmount, Odds];

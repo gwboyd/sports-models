@@ -195,14 +195,18 @@ export interface components {
             date: string;
             /** Player Name */
             player_name: string;
-            /** Sportsbook */
-            sportsbook: string;
+            /** Team */
+            team: string;
+            /** Fb Model Prob */
+            fb_model_prob: number;
+            /** Fb Model Odds */
+            fb_model_odds: number;
             /** Odds */
             odds: number;
+            /** Sportsbook */
+            sportsbook: string;
             /** Units */
             units: number;
-            /** Bankroll */
-            bankroll: number;
         };
         /** PickResponse */
         PickResponse: {

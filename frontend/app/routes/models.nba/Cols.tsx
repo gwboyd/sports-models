@@ -14,6 +14,11 @@ export const PlayerName = columnHelper.accessor("player_name", {
   cell: (info) => info.getValue(),
 });
 
+export const Team = columnHelper.accessor("team", {
+  header: "Team",
+  cell: (info) => info.getValue(),
+});
+
 export const Sportsbook = columnHelper.accessor("sportsbook", {
   header: "Sportsbook",
   cell: (info) => info.getValue(),
