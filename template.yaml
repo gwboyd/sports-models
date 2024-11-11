@@ -14,7 +14,7 @@ Resources:
       PackageType: Image
       FunctionName: FastAPILambdaFunction
       ImageUri: sports-model-lambda
-      MemorySize: 3008
+      MemorySize: 8000
       Environment:
         Variables:
           LOCALHOST: "False"

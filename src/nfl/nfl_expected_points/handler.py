@@ -20,6 +20,7 @@ picks_table = dynamodb.Table('nfl_expected_points_picks')
 results_table = dynamodb.Table('nfl_expected_points_results')
 
 logger = logging.getLogger(__name__)
+logger.setLevel("INFO")
 
 
 
@@ -61,7 +62,7 @@ def train_model_and_update_picks(
     if client_name is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Header 'requesting_entity' is required"
+            detail="Header 'client_name' is required"
         )
     
     try:

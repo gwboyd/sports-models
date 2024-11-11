@@ -20,9 +20,8 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s',
-    stream=sys.stdout
+    stream=sys.stderr
 )
-
 
 app = FastAPI(
     title="Will's Sports Models",

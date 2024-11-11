@@ -5,7 +5,7 @@ import os
 import sys
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel("INFO")
 
 def main(request_body, client_name):
 
@@ -39,8 +39,17 @@ def main(request_body, client_name):
 
                 logger.info("Picks updated")
                 logger.info(json.dumps(output_data))
-                os.remove(result_path)
-                os.remove(output_path)
+
+                try:
+                    os.remove(result_path)
+                except:
+                    pass
+
+                try:
+                    os.remove(output_path)
+                except:
+                    pass
+
                 # Exit successfully
                 return output_data
 

@@ -1,10 +1,22 @@
 from pydantic import BaseModel
 from typing import List, Dict
 
+
 class NBAFirstBasketPick(BaseModel):
     date: str
     player_name: str
-    sportsbook: str
+    team: str
+    fb_model_prob: float
+    fb_model_odds: float
     odds: float
+    sportsbook: str
     units: float
-    bankroll: int
+
+
+# class NBAFirstBasketPick(BaseModel):
+#     date: str
+#     player_name: str
+#     odds: float
+#     sportsbook: str
+#     units: float
+#     bankroll: float
