@@ -21,3 +21,4 @@ class PickResponse(BaseModel):
     game_id: str
     year_week: str
     date_time: str = Field(..., pattern=r"\d{4}-\d{2}-\d{2}-\d{2}:\d{2}")
+    write_time: str
