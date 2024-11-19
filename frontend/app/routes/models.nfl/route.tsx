@@ -113,6 +113,21 @@ export default function NFLModel() {
           } (${overallResults.total_win_pct.toFixed(2)}%)`}
         </BodyText>
       </Card>
+      <SectionTitle>Assorted Charts</SectionTitle>
+      <div className="flex flex-col max-w-[512px] gap-4">
+        <img
+          src="https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/power_rankings.png"
+          alt="NFL Power Rankings"
+        />
+        <img
+          src="https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/offensive_epa.png"
+          alt="NFL Offensive EPA"
+        />
+        <img
+          src="https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/defensive_epa.png"
+          alt="NFL Defensive EPA"
+        />
+      </div>
     </div>
   );
 }
