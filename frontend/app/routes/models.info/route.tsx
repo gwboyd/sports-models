@@ -1,16 +1,10 @@
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { Card } from "~/components/Card";
-import fs from "fs";
-import path from "path";
 import Markdown from "react-markdown";
+import readme from "../../../../src/nfl/nfl_expected_points/README.md?raw";
 
 export const loader = async () => {
-  const readmePath = path.join(
-    process.cwd(),
-    "../src/nfl/nfl_expected_points/README.md"
-  );
-  const readme = await fs.promises.readFile(readmePath, "utf-8");
   return json({ readme });
 };
 

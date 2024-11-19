@@ -114,16 +114,19 @@ export default function NFLModel() {
         </BodyText>
       </Card>
       <SectionTitle>Assorted Charts</SectionTitle>
-      <div className="flex flex-col max-w-[512px] gap-4">
+      <div className="grid max-w-[768px] gap-4 grid-cols-1 md:grid-cols-2">
         <img
+          className="col-span-1 w-full md:col-span-2"
           src="https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/power_rankings.png"
           alt="NFL Power Rankings"
         />
         <img
+          className="w-full"
           src="https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/offensive_epa.png"
           alt="NFL Offensive EPA"
         />
         <img
+          className="w-full"
           src="https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/defensive_epa.png"
           alt="NFL Defensive EPA"
         />
