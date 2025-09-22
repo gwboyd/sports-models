@@ -35,6 +35,10 @@ def main(request_body, client_name):
         if os.path.exists(result_path):
             with open(result_path, 'r') as f:
                 output_data = json.load(f)
+
+                if not output_data.get("environment"):
+                    fallback_environment = os.getenv("ENVIRONMENT") or "FALLBACK"
+                    output_data["environment"] = fallback_environment
                 logger.info(f"Output data loaded successfully from {result_path}.")
 
                 logger.info("Picks updated")
@@ -67,4 +71,3 @@ def main(request_body, client_name):
 
 # if __name__ == "__main__":
 #     result = main()
-
