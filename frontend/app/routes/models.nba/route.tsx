@@ -7,6 +7,7 @@ import { FirstBasketTable } from "./FirstBasketTable";
 import { SectionTitle } from "~/components/Typography";
 import { Input } from "~/components/Input";
 import { Card } from "~/components/Card";
+import { RouteErrorBoundary } from "~/components/RouteErrorBoundary";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const picks = await fetchWithCache<NBAFirstBasketPick[]>(
@@ -53,4 +54,8 @@ export default function NBAModel() {
       <FirstBasketTable data={picks} bankroll={bankroll} />
     </div>
   );
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary sport="NBA" />;
 }

@@ -8,6 +8,7 @@ import {
   fetchWithCache,
 } from "~/api/data-utils";
 import { Card } from "~/components/Card";
+import { RouteErrorBoundary } from "~/components/RouteErrorBoundary";
 import { BodyText, SectionTitle } from "~/components/Typography";
 import { SpreadTable } from "~/routes/models.nfl/SpreadTable";
 import { TotalTable } from "~/routes/models.nfl/TotalTable";
@@ -133,4 +134,8 @@ export default function NFLModel() {
       </div>
     </div>
   );
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary sport="NFL" />;
 }
