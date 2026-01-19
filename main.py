@@ -135,6 +135,10 @@ if __name__ == "__main__":
 handler = Mangum(app)
 
 # uvicorn main:app --host 0.0.0.0 --port 3000 --reload --log-level warning
+
+
 # sam local invoke "FastAPILambdaFunction"
+# sam local start-api
+# sam local invoke FastAPILambdaFunction -e events/get-health-event.json  
 
 
