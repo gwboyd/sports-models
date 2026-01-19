@@ -1,0 +1,25 @@
+{
+  "resource": "/health",
+  "path": "/health",
+  "httpMethod": "GET",
+  "headers": {
+    "Authorization": "dummy"
+  },
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/health",
+    "httpMethod": "GET",
+    "path": "/health",
+    "protocol": "HTTP/1.1",
+    "stage": "$default",
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "sam-cli"
+    }
+  },
+  "body": null,
+  "isBase64Encoded": false
+}
