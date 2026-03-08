@@ -93,6 +93,9 @@ src/utils/google_api/
 src/__pycache__/
 src/**/*.pyc
 
+__pycache__/
+*.py[cod]
+
 #Agentic guides
 **/AGENTS.md
 **/AGENTS.override.md
