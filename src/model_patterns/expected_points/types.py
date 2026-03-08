@@ -24,6 +24,8 @@ class ExpectedPointsConfig:
     spread_class_features: List[str]
     total_class_features: List[str]
     cat_features: List[str]
+    spread_class_cat_features: List[str] = field(default_factory=list)
+    total_class_cat_features: List[str] = field(default_factory=list)
     season_col: str = "season"
     week_col: str = "week"
     split_strategy: str = "random"

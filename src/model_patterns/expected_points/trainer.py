@@ -84,10 +84,13 @@ def run_expected_points(df, config: ExpectedPointsConfig) -> ExpectedPointsRunRe
         eval_results,
         config.spread_class_features,
         config.total_class_features,
+        config.spread_class_cat_features,
+        config.total_class_cat_features,
         config.confidence_param_grid,
         cv=config.confidence_cv,
         n_jobs=config.confidence_n_jobs,
     )
+
 
     score_model = fit_score_model(
         X, y, score_pipeline, config.score_param_grid, cv=config.score_cv, n_jobs=config.score_n_jobs

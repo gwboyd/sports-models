@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, status, Header
 import logging
 from src.utils.dynamo_functions import dynamodb, scan_table
-from src.nfl.utils.expected_points_functions import get_result_stats
+from src.sports.football.nfl.utils.expected_points_functions import get_result_stats
 from typing import List
 
-from src.nfl.nfl_expected_points import update_picks
+from src.sports.football.nfl.expected_points import update_picks
 
 from src.utils.data_models.picks_response import PickResponse
 from src.utils.data_models.picks_results_response import GameResult, PickResultsData, PickResultsResponse

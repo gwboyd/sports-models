@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException
 from src.utils.dynamo_functions import dynamodb, scan_table
 from typing import List
 
-from src.nba.first_basket_model.dynamo_functions import new_picks
+from src.sports.basketball.nba.first_basket_model.dynamo_functions import new_picks
 
-from src.nba.first_basket_model.data_model import NBAFirstBasketPick
+from src.sports.basketball.nba.first_basket_model.data_model import NBAFirstBasketPick
 
 
 pick_upload = APIRouter()
@@ -36,5 +36,4 @@ def get_picks():
     
     
     return [NBAFirstBasketPick(**item) for item in results]
-
 

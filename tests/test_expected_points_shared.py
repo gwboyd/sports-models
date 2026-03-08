@@ -4,7 +4,7 @@ import pandas as pd
 from src.model_patterns.expected_points.betting import determine_plays, scores_to_bets
 from src.model_patterns.expected_points.trainer import run_expected_points
 from src.model_patterns.expected_points.types import ExpectedPointsConfig, PlayThresholds
-from src.model_patterns.sports.football.transforms.common import get_averaged_game_stats
+from src.sports.football.transforms.common import get_averaged_game_stats
 
 
 def test_get_averaged_game_stats_generates_all_requested_columns():
