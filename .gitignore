@@ -92,3 +92,7 @@ src/utils/google_api/
 # Ignore compiled Python files in src
 src/__pycache__/
 src/**/*.pyc
+
+#Agentic guides
+**/AGENTS.md
+**/AGENTS.override.md
