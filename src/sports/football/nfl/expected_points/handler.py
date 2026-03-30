@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Header
 import logging
-from src.utils.dynamo_functions import dynamodb, scan_table
 from src.sports.football.nfl.utils.expected_points_functions import get_result_stats
 from typing import List
 
@@ -9,15 +8,12 @@ from src.sports.football.nfl.expected_points import update_picks
 from src.utils.data_models.picks_response import PickResponse
 from src.utils.data_models.picks_results_response import GameResult, PickResultsData, PickResultsResponse
 from src.utils.data_models.update_picks_models import UpdatePicksResponse, UpdatePicksRequest
+from src.utils.db.sports_models_db import get_latest_nfl_picks, get_nfl_results
 
 
 picks = APIRouter()
 pick_results = APIRouter()
 update = APIRouter()
-
-
-picks_table = dynamodb.Table('nfl_expected_points_picks')
-results_table = dynamodb.Table('nfl_expected_points_results')
 
 logger = logging.getLogger(__name__)
 logger.setLevel("INFO")
@@ -29,10 +25,10 @@ logger.setLevel("INFO")
 def get_picks():
 
     try:
-        results = scan_table(picks_table)
+        results = get_latest_nfl_picks()
 
     except Exception as e:
-        log_msg = f"Error occurred during DynamoDB scan: {str(e)}"
+        log_msg = f"Error occurred during database read: {str(e)}"
         raise HTTPException(status_code=500, detail=log_msg)
     
     if not results:
@@ -44,7 +40,11 @@ def get_picks():
 @pick_results.get("/nfl-pick-results", response_model=PickResultsResponse, tags=["NFL"])
 def get_pick_results():
     
-    results = scan_table(results_table)
+    try:
+        results = get_nfl_results()
+    except Exception as e:
+        log_msg = f"Error occurred during database read: {str(e)}"
+        raise HTTPException(status_code=500, detail=log_msg)
     
     if not results:
         raise HTTPException(status_code=404, detail="No picks found for the specified week.")

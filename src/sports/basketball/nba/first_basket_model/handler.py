@@ -1,34 +1,35 @@
 from fastapi import APIRouter, HTTPException
-from src.utils.dynamo_functions import dynamodb, scan_table
 from typing import List
 
-from src.sports.basketball.nba.first_basket_model.dynamo_functions import new_picks
-
 from src.sports.basketball.nba.first_basket_model.data_model import NBAFirstBasketPick
+from src.utils.db.sports_models_db import (
+    get_nba_first_basket_picks,
+    replace_nba_first_basket_picks,
+)
 
 
 pick_upload = APIRouter()
 picks = APIRouter()
 
-picks_table = dynamodb.Table('nba_first_basket_picks')
-
 
 @pick_upload.post("/nba-first-basket-upload", tags=["NBA"])
 def nba_first_basket_upload(data: List[NBAFirstBasketPick]):
+    try:
+        row_count = replace_nba_first_basket_picks([item.dict() for item in data])
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database write failed: {exc}") from exc
 
-    new_picks(picks_table, {'PartitionKey': 'date', 'SortKey': 'player_name'}, data)
-    
-    return {"message": "Data uploaded successfully", "row_count": len(data)}
+    return {"message": "Data uploaded successfully", "row_count": row_count}
 
 
 @picks.get("/nba-first-basket-picks", response_model=List[NBAFirstBasketPick], tags=["NBA"])
 def get_picks():
 
     try:
-        results = scan_table(picks_table)
+        results = get_nba_first_basket_picks()
 
     except Exception as e:
-        log_msg = f"Error occurred during DynamoDB scan: {str(e)}"
+        log_msg = f"Error occurred during database read: {str(e)}"
         raise HTTPException(status_code=500, detail=log_msg)
     
     if not results:
@@ -36,4 +37,3 @@ def get_picks():
     
     
     return [NBAFirstBasketPick(**item) for item in results]
-

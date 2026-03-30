@@ -3,6 +3,35 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   AWS SAM Template for your FastAPI application
 
+Parameters:
+  Localhost:
+    Type: String
+    Default: "False"
+  EnvironmentName:
+    Type: String
+    Default: "PROD"
+  AdminApiKey:
+    Type: String
+    NoEcho: true
+  FrontEndApiKey:
+    Type: String
+    NoEcho: true
+  ReadApiKey:
+    Type: String
+    NoEcho: true
+  NbaApiKey:
+    Type: String
+    NoEcho: true
+  AwsApiKey:
+    Type: String
+    NoEcho: true
+  SupabaseDbUrl:
+    Type: String
+    NoEcho: true
+  SupabaseSchema:
+    Type: String
+    Default: sports_models
+
 Globals:
   Function:
     Timeout: 720
@@ -17,13 +46,15 @@ Resources:
       MemorySize: 8000
       Environment:
         Variables:
-          LOCALHOST: "False"
-          ENVIRONMENT: "PROD"
-          ADMIN_API_KEY: "s8y8dfcqcfXarutIS6EqCreVzaBsDI9S"
-          FRONT_END_API_KEY: "KAYBxlOSgwIbxaoGxfqG0n1IHW0vbLRX"
-          READ_API_KEY: "gYa5FgUYw2CdcxpKqoTo0VgZRisiooQV"
-          NBA_API_KEY: "gO1bWOaTuq8mdmoLPNut9TmM9qjEzmA0"
-          AWS_API_KEY: "ApeJmM3hS9k53Ya2zqMPcXuMFsn1Ksny"
+          LOCALHOST: !Ref Localhost
+          ENVIRONMENT: !Ref EnvironmentName
+          ADMIN_API_KEY: !Ref AdminApiKey
+          FRONT_END_API_KEY: !Ref FrontEndApiKey
+          READ_API_KEY: !Ref ReadApiKey
+          NBA_API_KEY: !Ref NbaApiKey
+          AWS_API_KEY: !Ref AwsApiKey
+          SUPABASE_DB_URL: !Ref SupabaseDbUrl
+          SUPABASE_SCHEMA: !Ref SupabaseSchema
 
       Events:
         FastAPI:

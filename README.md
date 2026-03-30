@@ -1,53 +1,104 @@
 # sports-models
 
-Welcome to Will's **sports-model** – a set of models that can be used to predict the outcomes of sporting events.
+Backend services for sports prediction models, deployed on AWS API Gateway + Lambda and backed by Supabase Postgres.
+
+## Architecture
+
+- AWS API Gateway
+- AWS Lambda running FastAPI
+- Supabase Postgres for persisted picks/results data
+
+The database schema for operational data is `sports_models` inside a Supabase project.
+
+Database access is centralized in `src/utils/db/` so handlers and notebooks do not embed SQL directly.
 
 ## Getting Started
 
-To ensure a clean, isolated Python environment, it is highly recommended to create a virtual environment before proceeding with project setup.
+Use Python `3.12.x`.
 
-### Setting up a Virtual Environment
-
-#### Step 1: Create a Virtual Environment
-
-Make sure you are using python 3.12.5
-
-Create a virtual environment folder `.venv` in the root directory of the repository:
+### Create and activate a virtual environment
 
 ```shell
 python3 -m venv .venv
-```
-
-Alternatively, you can setup the virtual environment using Visual Studio Code (VSCode).
-
-#### Step 2: Activate the Virtual Environment
-
-On Unix or MacOS, using the terminal:
-
-```shell
 source .venv/bin/activate
 ```
 
-### Installing Dependencies
-
-#### Step 3: Install OpenMP for xgboost
+### Install system dependencies
 
 ```shell
 brew install libomp
-```
-
-#### Step 4: Update Python Certification
-
-
-```shell
 brew install python-certifi
 ```
 
-#### Step 4: Install All Other Required Packages
+### Install Python dependencies
+
 ```shell
 pip3 install -r requirements.txt
 ```
 
-### Step 5: Configure Dynamo DB set up
+## Environment Variables
 
-Reach out to Will to give you an AWS IAM role for the tables
+Copy `.env.example` to `.env` and fill in the required values:
+
+```shell
+cp .env.example .env
+```
+
+Required values:
+- `ADMIN_API_KEY`
+- `FRONT_END_API_KEY`
+- `READ_API_KEY`
+- `NBA_API_KEY`
+- `AWS_API_KEY`
+- `SUPABASE_DB_URL`
+- `SUPABASE_SCHEMA`
+
+Use the pooled Supabase Postgres connection string for `SUPABASE_DB_URL`.
+
+## Supabase Setup
+
+Run the SQL in:
+
+```text
+db/sql/001_create_sports_models_schema.sql
+```
+
+This creates the `sports_models` schema and the operational tables/views used by the app:
+- `nfl_expected_points_picks`
+- `nfl_expected_points_latest_picks`
+- `nfl_expected_points_results`
+- `nfl_expected_points_pick_updates`
+- `nfl_expected_points_latest_updates`
+- `nba_first_basket_picks`
+
+Current NFL data model:
+- `nfl_expected_points_picks`: latest pick per `(year_week, game_id)`
+- `nfl_expected_points_latest_picks`: view of picks for the most recent `year_week`
+- `nfl_expected_points_pick_updates`: run history, diffs, and JSON snapshots for each update
+- `nfl_expected_points_results`: graded outcomes for completed games
+
+## Local Development
+
+Run the API locally with:
+
+```shell
+uvicorn main:app --host 0.0.0.0 --port 3000 --reload
+```
+
+## AWS SAM Deployment
+
+The SAM template expects secrets to be supplied as parameters rather than hardcoded in the template.
+
+Example:
+
+```shell
+sam deploy \
+  --parameter-overrides \
+    AdminApiKey=... \
+    FrontEndApiKey=... \
+    ReadApiKey=... \
+    NbaApiKey=... \
+    AwsApiKey=... \
+    SupabaseDbUrl=... \
+    SupabaseSchema=sports_models
+```
