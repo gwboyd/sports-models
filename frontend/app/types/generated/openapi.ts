@@ -158,9 +158,9 @@ export interface components {
             /** Spread Lock */
             spread_lock: number;
             /** Correct Spread Play */
-            correct_spread_play: string | null;
+            correct_spread_play?: string;
             /** Spread Win */
-            spread_win: number | null;
+            spread_win?: number;
             /** Total Pred */
             total_pred: number;
             /** Total Line */
@@ -174,9 +174,9 @@ export interface components {
             /** Total Lock */
             total_lock: number;
             /** Correct Total Play */
-            correct_total_play: string | null;
+            correct_total_play?: string;
             /** Total Win */
-            total_win: number | null;
+            total_win?: number;
             /** Year Week */
             year_week: string;
             /** Game Id */
@@ -248,6 +248,8 @@ export interface components {
             year_week: string;
             /** Date Time */
             date_time: string;
+            /** Write Time */
+            write_time: string;
         };
         /** PickResultsData */
         PickResultsData: {
@@ -338,7 +340,7 @@ export interface components {
             status: string;
             /** Message */
             message: string;
-            data?: components["schemas"]["UpdatePicksData"] | null;
+            data?: components["schemas"]["UpdatePicksData"];
         };
         /** ValidationError */
         ValidationError: {

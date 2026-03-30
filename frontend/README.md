@@ -1,38 +1,75 @@
-# Remix
+# Frontend
 
-This directory is a brief example of a [Remix](https://remix.run/docs) site that can be deployed to Vercel with zero configuration.
+Remix frontend for viewing NFL and NBA model outputs.
 
-To get started, run the Remix cli with this template
+## Setup
 
-```sh
-npx create-remix@latest --template vercel/vercel/examples/remix
-```
+Install dependencies:
 
-## Deploy Your Own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/vercel/tree/main/examples/remix&template=remix)
-
-_Live Example: https://remix-run-template.vercel.app_
-
-You can also deploy using the [Vercel CLI](https://vercel.com/docs/cli):
-
-```sh
-npm i -g vercel
-vercel
-```
-
-## Development
-
-To run your Remix app locally, make sure your project's local dependencies are installed:
-
-```sh
+```shell
 npm install
 ```
 
-Afterwards, start the Remix development server like so:
+Create `frontend/.env`:
 
-```sh
+```shell
+ENDPOINT=http://127.0.0.1:3000
+AUTHORIZATION_TOKEN=
+```
+
+- `ENDPOINT` is the backend base URL the Remix loaders call
+- `AUTHORIZATION_TOKEN` is sent as the backend `Authorization` header when present
+
+## Local Testing
+
+Run the frontend using the values in `frontend/.env`:
+
+```shell
+make frontend
+```
+
+That is the right choice when `frontend/.env` points at a deployed API.
+
+Override the backend target for direct local backend testing:
+
+```shell
+make frontend-local
+```
+
+That uses `http://127.0.0.1:3000`.
+
+Override the backend target for local SAM testing:
+
+```shell
+make frontend-sam
+```
+
+That uses `http://127.0.0.1:3001`.
+
+If you prefer not to use `make`:
+
+```shell
 npm run dev
 ```
 
-Open up [http://localhost:5173](http://localhost:5173) and you should be ready to go!
+The frontend dev server runs at `http://127.0.0.1:5173`.
+
+Useful routes:
+
+- `http://127.0.0.1:5173/models/nfl`
+- `http://127.0.0.1:5173/models/nba?bankroll=500`
+- `http://127.0.0.1:5173/models/info`
+
+## Checks
+
+Typecheck:
+
+```shell
+npm run typecheck
+```
+
+Production build:
+
+```shell
+npm run build
+```

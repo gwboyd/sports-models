@@ -4,6 +4,15 @@ Description: >
   AWS SAM Template for your FastAPI application
 
 Parameters:
+  HttpApiName:
+    Type: String
+    Default: sports-models-http-api
+  ApiFunctionName:
+    Type: String
+    Default: sports-models-api
+  TrainingFunctionName:
+    Type: String
+    Default: sports-models-training
   Localhost:
     Type: String
     Default: "False"
@@ -34,36 +43,113 @@ Parameters:
 
 Globals:
   Function:
-    Timeout: 720
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        LOCALHOST: !Ref Localhost
+        ENVIRONMENT: !Ref EnvironmentName
+        ADMIN_API_KEY: !Ref AdminApiKey
+        FRONT_END_API_KEY: !Ref FrontEndApiKey
+        READ_API_KEY: !Ref ReadApiKey
+        NBA_API_KEY: !Ref NbaApiKey
+        AWS_API_KEY: !Ref AwsApiKey
+        SUPABASE_DB_URL: !Ref SupabaseDbUrl
+        SUPABASE_SCHEMA: !Ref SupabaseSchema
 
 Resources:
-  FastAPILambdaFunction:
+  SportsModelsHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Ref HttpApiName
+
+  ApiLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
-      FunctionName: FastAPILambdaFunction
-      Architectures:
-        - arm64
-      MemorySize: 8000
-      Environment:
-        Variables:
-          LOCALHOST: !Ref Localhost
-          ENVIRONMENT: !Ref EnvironmentName
-          ADMIN_API_KEY: !Ref AdminApiKey
-          FRONT_END_API_KEY: !Ref FrontEndApiKey
-          READ_API_KEY: !Ref ReadApiKey
-          NBA_API_KEY: !Ref NbaApiKey
-          AWS_API_KEY: !Ref AwsApiKey
-          SUPABASE_DB_URL: !Ref SupabaseDbUrl
-          SUPABASE_SCHEMA: !Ref SupabaseSchema
-
+      FunctionName: !Ref ApiFunctionName
+      Timeout: 30
+      MemorySize: 1024
       Events:
-        FastAPI:
-          Type: Api
+        Root:
+          Type: HttpApi
           Properties:
-            Path: /{proxy+}
-            Method: ANY
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /
+            Method: GET
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /health
+            Method: GET
+        OpenApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /openapi.json
+            Method: GET
+        Docs:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /docs
+            Method: GET
+        Redoc:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /redoc
+            Method: GET
+        NflPicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /nfl-picks
+            Method: GET
+        NflPickResults:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /nfl-pick-results
+            Method: GET
+        NbaFirstBasketUpload:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /nba-first-basket-upload
+            Method: POST
+        NbaFirstBasketPicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /nba-first-basket-picks
+            Method: GET
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: .
       DockerTag: python311-v1
+
+  TrainingLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      FunctionName: !Ref TrainingFunctionName
+      Timeout: 900
+      MemorySize: 10240
+      Events:
+        NflUpdatePicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /nfl-update-picks
+            Method: POST
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: python311-v1
+
+Outputs:
+  HttpApiUrl:
+    Description: Base URL for the deployed HTTP API
+    Value: !GetAtt SportsModelsHttpApi.ApiEndpoint

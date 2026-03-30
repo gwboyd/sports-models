@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc && remix vite:build",
     "dev": "remix vite:dev --host",
-    "codegen": "openapi-typescript https://j1neh7th0m.execute-api.us-east-1.amazonaws.com/openapi.json --output app/types/generated/openapi.ts",
+    "codegen": "openapi-typescript http://127.0.0.1:3000/openapi.json --output app/types/generated/openapi.ts",
     "typecheck": "tsc"
   },
   "dependencies": {
