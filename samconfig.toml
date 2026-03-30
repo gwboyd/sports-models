@@ -1,0 +1,15 @@
+version = 0.1
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.local_invoke.parameters]
+template_file = ".aws-sam/build/template.yaml"
+skip_pull_image = true
+
+[default.local_start_api.parameters]
+template_file = ".aws-sam/build/template.yaml"
+skip_pull_image = true
+host = "127.0.0.1"
+port = 3001

@@ -42,7 +42,8 @@ Resources:
     Properties:
       PackageType: Image
       FunctionName: FastAPILambdaFunction
-      ImageUri: sports-model-lambda
+      Architectures:
+        - arm64
       MemorySize: 8000
       Environment:
         Variables:
@@ -62,3 +63,7 @@ Resources:
           Properties:
             Path: /{proxy+}
             Method: ANY
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: python311-v1

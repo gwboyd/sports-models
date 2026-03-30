@@ -45,6 +45,7 @@ cp .env.example .env
 ```
 
 Required values:
+
 - `ADMIN_API_KEY`
 - `FRONT_END_API_KEY`
 - `READ_API_KEY`
@@ -64,6 +65,7 @@ db/sql/001_create_sports_models_schema.sql
 ```
 
 This creates the `sports_models` schema and the operational tables/views used by the app:
+
 - `nfl_expected_points_picks`
 - `nfl_expected_points_latest_picks`
 - `nfl_expected_points_results`
@@ -72,6 +74,7 @@ This creates the `sports_models` schema and the operational tables/views used by
 - `nba_first_basket_picks`
 
 Current NFL data model:
+
 - `nfl_expected_points_picks`: latest pick per `(year_week, game_id)`
 - `nfl_expected_points_latest_picks`: view of picks for the most recent `year_week`
 - `nfl_expected_points_pick_updates`: run history, diffs, and JSON snapshots for each update
@@ -89,6 +92,16 @@ uvicorn main:app --host 0.0.0.0 --port 3000 --reload
 
 This is the shortest path to run both the backend and frontend locally.
 
+If you prefer shortcuts, the repo has a `Makefile`:
+
+```shell
+make backend
+make frontend
+make sam-build
+make sam-invoke-health
+make sam-api
+```
+
 ### 1. Backend setup
 
 Create the backend env file if you have not already:
@@ -98,6 +111,7 @@ cp .env.example .env
 ```
 
 Set these values in `.env`:
+
 - `LOCALHOST=True`
 - `SUPABASE_DB_URL`
 - `SUPABASE_SCHEMA=sports_models`
@@ -142,6 +156,7 @@ npm run dev
 ```
 
 Open:
+
 - Backend: `http://127.0.0.1:3000`
 - Frontend: `http://127.0.0.1:5173`
 - NFL page: `http://127.0.0.1:5173/models/nfl`
@@ -157,12 +172,97 @@ Open:
 
 ## AWS SAM Deployment
 
-The SAM template expects secrets to be supplied as parameters rather than hardcoded in the template.
+The SAM template uses a Docker-based Lambda image build via `template.yaml` metadata and `Dockerfile`.
+
+### Local SAM
+
+`samconfig.toml` stores the local-safe defaults for:
+
+- `sam build`
+- `sam local invoke`
+- `sam local start-api`
+
+It does not store secrets. You still pass template parameter values from your loaded `.env`.
+
+Build the Lambda image and SAM artifacts:
+
+```shell
+sam build
+```
+
+or:
+
+```shell
+make sam-build
+```
+
+Invoke the Lambda handler with the sample health event:
+
+```shell
+set -a
+source .env
+set +a
+sam local invoke FastAPILambdaFunction \
+  -e events/get-health-event.json \
+  --parameter-overrides \
+    Localhost=True \
+    EnvironmentName=LOCAL \
+    AdminApiKey="$ADMIN_API_KEY" \
+    FrontEndApiKey="$FRONT_END_API_KEY" \
+    ReadApiKey="$READ_API_KEY" \
+    NbaApiKey="$NBA_API_KEY" \
+    AwsApiKey="$AWS_API_KEY" \
+    SupabaseDbUrl="$SUPABASE_DB_URL" \
+    SupabaseSchema="$SUPABASE_SCHEMA"
+```
+
+or:
+
+```shell
+make sam-invoke-health
+```
+
+Start the local API Gateway emulation:
+
+```shell
+set -a
+source .env
+set +a
+sam local start-api \
+  --parameter-overrides \
+    Localhost=True \
+    EnvironmentName=LOCAL \
+    AdminApiKey="$ADMIN_API_KEY" \
+    FrontEndApiKey="$FRONT_END_API_KEY" \
+    ReadApiKey="$READ_API_KEY" \
+    NbaApiKey="$NBA_API_KEY" \
+    AwsApiKey="$AWS_API_KEY" \
+    SupabaseDbUrl="$SUPABASE_DB_URL" \
+    SupabaseSchema="$SUPABASE_SCHEMA"
+```
+
+or:
+
+```shell
+make sam-api
+```
+
+The defaults from `samconfig.toml` mean:
+
+- `sam local start-api` binds to `127.0.0.1:3001`
+- both local commands use `.aws-sam/build/template.yaml`
+- `--skip-pull-image` is already supplied for local commands
+
+### Deploy with SAM
+
+For deploys, build first and then deploy. The image will be built from the local `Dockerfile` and published through SAM's normal image workflow.
 
 Example:
 
 ```shell
+sam build
 sam deploy \
+  --guided \
   --parameter-overrides \
     AdminApiKey=... \
     FrontEndApiKey=... \
