@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json, type HeadersFunction } from "@remix-run/node";
 import { useLoaderData, useRouteError } from "@remix-run/react";
 import type { MetaFunction } from "@vercel/remix";
 
@@ -21,6 +21,10 @@ export const meta: MetaFunction = () => {
     { name: "description", content: "Webpage for Sport Models" },
   ];
 };
+
+export const headers: HeadersFunction = () => ({
+  "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600",
+});
 
 export const loader = async () => {
   const [picksData, resultsData] = await Promise.all([

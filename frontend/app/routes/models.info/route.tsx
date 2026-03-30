@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json, type HeadersFunction } from "@remix-run/node";
 import { useLoaderData, useRouteError } from "@remix-run/react";
 import { Card } from "~/components/Card";
 import Markdown from "react-markdown";
@@ -8,6 +8,10 @@ import readme from "../../../../src/sports/football/nfl/expected_points/README.m
 export const loader = async () => {
   return json({ readme });
 };
+
+export const headers: HeadersFunction = () => ({
+  "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+});
 
 export default function Info() {
   const { readme } = useLoaderData<typeof loader>();

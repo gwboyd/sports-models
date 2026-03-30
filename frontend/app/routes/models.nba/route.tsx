@@ -1,4 +1,8 @@
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import {
+  json,
+  type HeadersFunction,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
 import type { ShouldRevalidateFunctionArgs } from "@remix-run/react";
 import { useLoaderData, useRouteError, useSearchParams } from "@remix-run/react";
 import { NBA_FIRST_BASKET_PICKS_KEY, fetchWithCache } from "~/api/data-utils";
@@ -18,6 +22,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     picks: picks.sort((a, b) => a.sportsbook.localeCompare(b.sportsbook)),
   });
 };
+
+export const headers: HeadersFunction = () => ({
+  "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600",
+});
 
 export function shouldRevalidate({
   currentUrl,

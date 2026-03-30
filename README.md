@@ -134,12 +134,6 @@ ENDPOINT=http://127.0.0.1:3000
 AUTHORIZATION_TOKEN=
 ```
 
-If you have Upstash Redis credentials, you can also add:
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
-
-If those Redis variables are omitted, the frontend will still run locally and will fall back to uncached backend requests.
-
 Start the frontend:
 
 ```shell
@@ -159,6 +153,7 @@ Open:
 - If the frontend shows a stale runtime error after a fix, do a hard refresh once.
 - If backend requests fail, confirm `SUPABASE_DB_URL` points at the pooled Supabase Postgres connection string.
 - If port `3000` or `5173` is already in use, stop the existing process or choose a different port.
+- When deployed on Vercel, the Remix route responses use `Cache-Control` headers so Vercel can cache the NFL/NBA pages for 5 minutes and the info page for 1 hour.
 
 ## AWS SAM Deployment
 
