@@ -1,8 +1,9 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRouteError } from "@remix-run/react";
 import { Card } from "~/components/Card";
 import Markdown from "react-markdown";
-import readme from "../../../../src/nfl/nfl_expected_points/README.md?raw";
+import { RouteErrorBoundary } from "~/components/RouteErrorBoundary";
+import readme from "../../../../src/sports/football/nfl/expected_points/README.md?raw";
 
 export const loader = async () => {
   return json({ readme });
@@ -57,4 +58,9 @@ export default function Info() {
       </Card>
     </div>
   );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  return <RouteErrorBoundary sport="Info" error={error} />;
 }

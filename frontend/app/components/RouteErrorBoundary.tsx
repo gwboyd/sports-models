@@ -1,8 +1,13 @@
-import { isRouteErrorResponse, useRouteError } from "@remix-run/react";
+import { isRouteErrorResponse } from "@remix-run/react";
 import { Card } from "~/components/Card";
 
-export function RouteErrorBoundary({ sport }: { sport: string }) {
-  const error = useRouteError();
+export function RouteErrorBoundary({
+  sport,
+  error,
+}: {
+  sport: string;
+  error: unknown;
+}) {
 
   let message = `Something went wrong loading ${sport} data.`;
   let details = "Please try again later.";

@@ -85,6 +85,81 @@ Run the API locally with:
 uvicorn main:app --host 0.0.0.0 --port 3000 --reload
 ```
 
+## Quickstart
+
+This is the shortest path to run both the backend and frontend locally.
+
+### 1. Backend setup
+
+Create the backend env file if you have not already:
+
+```shell
+cp .env.example .env
+```
+
+Set these values in `.env`:
+- `LOCALHOST=True`
+- `SUPABASE_DB_URL`
+- `SUPABASE_SCHEMA=sports_models`
+- API key values such as `ADMIN_API_KEY`, `FRONT_END_API_KEY`, `READ_API_KEY`, `NBA_API_KEY`, `AWS_API_KEY`
+
+`LOCALHOST=True` bypasses API auth checks for local development, but the values still need to be present so startup does not fail.
+
+Start the backend:
+
+```shell
+source .venv/bin/activate
+uvicorn main:app --host 127.0.0.1 --port 3000 --reload
+```
+
+Verify it:
+
+```shell
+curl http://127.0.0.1:3000/health
+```
+
+### 2. Frontend setup
+
+Install frontend dependencies:
+
+```shell
+cd frontend
+npm install
+```
+
+Create `frontend/.env` with:
+
+```shell
+ENDPOINT=http://127.0.0.1:3000
+AUTHORIZATION_TOKEN=
+```
+
+If you have Upstash Redis credentials, you can also add:
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+If those Redis variables are omitted, the frontend will still run locally and will fall back to uncached backend requests.
+
+Start the frontend:
+
+```shell
+cd frontend
+npm run dev
+```
+
+Open:
+- Backend: `http://127.0.0.1:3000`
+- Frontend: `http://127.0.0.1:5173`
+- NFL page: `http://127.0.0.1:5173/models/nfl`
+- NBA page: `http://127.0.0.1:5173/models/nba?bankroll=500`
+- Info page: `http://127.0.0.1:5173/models/info`
+
+### 3. Common local issues
+
+- If the frontend shows a stale runtime error after a fix, do a hard refresh once.
+- If backend requests fail, confirm `SUPABASE_DB_URL` points at the pooled Supabase Postgres connection string.
+- If port `3000` or `5173` is already in use, stop the existing process or choose a different port.
+
 ## AWS SAM Deployment
 
 The SAM template expects secrets to be supplied as parameters rather than hardcoded in the template.

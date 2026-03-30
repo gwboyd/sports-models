@@ -1,6 +1,6 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import type { ShouldRevalidateFunctionArgs } from "@remix-run/react";
-import { useLoaderData, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useRouteError, useSearchParams } from "@remix-run/react";
 import { NBA_FIRST_BASKET_PICKS_KEY, fetchWithCache } from "~/api/data-utils";
 import type { NBAFirstBasketPick } from "~/types/types";
 import { FirstBasketTable } from "./FirstBasketTable";
@@ -57,5 +57,6 @@ export default function NBAModel() {
 }
 
 export function ErrorBoundary() {
-  return <RouteErrorBoundary sport="NBA" />;
+  const error = useRouteError();
+  return <RouteErrorBoundary sport="NBA" error={error} />;
 }

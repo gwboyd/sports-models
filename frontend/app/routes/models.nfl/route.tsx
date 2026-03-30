@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRouteError } from "@remix-run/react";
 import type { MetaFunction } from "@vercel/remix";
 
 import {
@@ -137,5 +137,6 @@ export default function NFLModel() {
 }
 
 export function ErrorBoundary() {
-  return <RouteErrorBoundary sport="NFL" />;
+  const error = useRouteError();
+  return <RouteErrorBoundary sport="NFL" error={error} />;
 }

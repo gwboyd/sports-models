@@ -3,11 +3,18 @@ import { Redis } from "@upstash/redis";
 // cache responses for 5 minutes
 const CACHE_TTL = 5 * 60;
 
-const redis = Redis.fromEnv();
+const hasRedisEnv =
+  Boolean(process.env.UPSTASH_REDIS_REST_URL) &&
+  Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+
+const redis = hasRedisEnv ? Redis.fromEnv() : null;
 
 export async function fetchWithCache<T>(key: string): Promise<T> {
-  let data = await redis.get<T>(key);
-  if (data) return data;
+  if (redis) {
+    const cached = await redis.get<T>(key);
+    if (cached) return cached;
+  }
+
   const response = await fetch(`${process.env.ENDPOINT}/${key}`, {
     headers: {
       Authorization: process.env.AUTHORIZATION_TOKEN ?? "",
@@ -20,9 +27,12 @@ export async function fetchWithCache<T>(key: string): Promise<T> {
     });
   }
 
-  data = (await response.json()) as Awaited<T>;
+  const data = (await response.json()) as Awaited<T>;
 
-  await redis.setex(key, CACHE_TTL, data);
+  if (redis) {
+    await redis.setex(key, CACHE_TTL, data);
+  }
+
   return data;
 }
 
