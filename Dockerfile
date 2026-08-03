@@ -8,8 +8,13 @@ WORKDIR /var/task
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install setuptools wheel && \
+RUN yum install -y libgomp && \
+    yum clean all && \
+    pip install setuptools wheel && \
     pip install -r requirements.txt
+
+# LightGBM's OpenMP runtime must reserve its TLS block before Python loads other native modules on arm64.
+ENV LD_PRELOAD=/lib64/libgomp.so.1
 
 # Copy the rest of your application code
 COPY . .

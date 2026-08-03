@@ -6,7 +6,7 @@ Backend services for sports prediction models, deployed on AWS Lambda with SAM a
 
 - FastAPI app served locally with `uvicorn` and in AWS through Lambda + API Gateway
 - Supabase Postgres for persisted picks and results data
-- Separate SAM-managed Lambdas for API traffic and long-running NFL training/update work
+- Separate SAM-managed Lambdas for API traffic and long-running NFL/CFB training updates
 
 The operational database schema is `sports_models`.
 
@@ -47,6 +47,7 @@ Required values in `.env`:
 - `READ_API_KEY`
 - `NBA_API_KEY`
 - `AWS_API_KEY`
+- `CFBD_API_KEY`
 - `SUPABASE_DB_URL`
 - `SUPABASE_SCHEMA`
 
@@ -72,6 +73,11 @@ This creates the `sports_models` schema and the tables/views used by the backend
 - `nfl_expected_points_results`
 - `nfl_expected_points_pick_updates`
 - `nfl_expected_points_latest_updates`
+- `cfb_expected_points_picks`
+- `cfb_expected_points_latest_picks`
+- `cfb_expected_points_results`
+- `cfb_expected_points_pick_updates`
+- `cfb_expected_points_latest_updates`
 - `nba_first_basket_picks`
 
 ## Local Development
@@ -137,7 +143,7 @@ The SAM template deploys:
 
 - one HTTP API
 - one API Lambda for read/serve routes
-- one separate training Lambda for `POST /nfl-update-picks`
+- one separate training Lambda for `POST /nfl-update-picks` and `POST /cfb-update-picks`
 - one shared Docker image build used by both functions
 
 Repeat deploys:
@@ -178,6 +184,7 @@ sam deploy \
     ReadApiKey="$READ_API_KEY" \
     NbaApiKey="$NBA_API_KEY" \
     AwsApiKey="$AWS_API_KEY" \
+    CfbdApiKey="$CFBD_API_KEY" \
     SupabaseDbUrl="$SUPABASE_DB_URL" \
     SupabaseSchema="$SUPABASE_SCHEMA"
 ```

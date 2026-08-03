@@ -34,6 +34,9 @@ Parameters:
   AwsApiKey:
     Type: String
     NoEcho: true
+  CfbdApiKey:
+    Type: String
+    NoEcho: true
   SupabaseDbUrl:
     Type: String
     NoEcho: true
@@ -113,6 +116,18 @@ Resources:
             ApiId: !Ref SportsModelsHttpApi
             Path: /nfl-pick-results
             Method: GET
+        CfbPicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /cfb-picks
+            Method: GET
+        CfbPickResults:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /cfb-pick-results
+            Method: GET
         NbaFirstBasketUpload:
           Type: HttpApi
           Properties:
@@ -137,12 +152,21 @@ Resources:
       FunctionName: !Ref TrainingFunctionName
       Timeout: 900
       MemorySize: 10240
+      Environment:
+        Variables:
+          CFBD_API_KEY: !Ref CfbdApiKey
       Events:
         NflUpdatePicks:
           Type: HttpApi
           Properties:
             ApiId: !Ref SportsModelsHttpApi
             Path: /nfl-update-picks
+            Method: POST
+        CfbUpdatePicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /cfb-update-picks
             Method: POST
     Metadata:
       Dockerfile: Dockerfile

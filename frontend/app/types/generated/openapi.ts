@@ -81,8 +81,59 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Train Model And Update Picks */
-        post: operations["train_model_and_update_picks_nfl_update_picks_post"];
+        /** Update Picks */
+        post: operations["update_picks_nfl_update_picks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cfb-picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Picks */
+        get: operations["get_picks_cfb_picks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cfb-pick-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pick Results */
+        get: operations["get_pick_results_cfb_pick_results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cfb-update-picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update Picks */
+        post: operations["update_picks_cfb_update_picks_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -440,11 +491,87 @@ export interface operations {
             };
         };
     };
-    train_model_and_update_picks_nfl_update_picks_post: {
+    update_picks_nfl_update_picks_post: {
         parameters: {
             query?: never;
             header: {
-                /** @description Identifier for the requesting entity (lambda, jake, etc) */
+                /** @description Identifier for the requesting entity */
+                "client-name": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePicksRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatePicksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_picks_cfb_picks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickResponse"][];
+                };
+            };
+        };
+    };
+    get_pick_results_cfb_pick_results_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickResultsResponse"];
+                };
+            };
+        };
+    };
+    update_picks_cfb_update_picks_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Identifier for the requesting entity */
                 "client-name": string;
             };
             path?: never;

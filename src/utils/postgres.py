@@ -1,6 +1,8 @@
 import json
+import logging
 import math
 import os
+import time
 from contextlib import contextmanager
 from datetime import datetime, date
 from decimal import Decimal
@@ -11,6 +13,8 @@ from psycopg.rows import dict_row
 
 
 DEFAULT_SCHEMA = "sports_models"
+CONNECTION_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 
 def get_db_url() -> str:
@@ -26,12 +30,30 @@ def get_schema() -> str:
 
 @contextmanager
 def get_connection():
-    conn = psycopg.connect(
-        get_db_url(),
-        row_factory=dict_row,
-        options=f"-c search_path={get_schema()},public",
-        prepare_threshold=None,
-    )
+    conn = None
+    for attempt in range(CONNECTION_ATTEMPTS):
+        try:
+            conn = psycopg.connect(
+                get_db_url(),
+                row_factory=dict_row,
+                options=f"-c search_path={get_schema()},public",
+                prepare_threshold=None,
+            )
+            break
+        except psycopg.OperationalError:
+            if attempt == CONNECTION_ATTEMPTS - 1:
+                raise
+            delay = 0.5 * (2**attempt)
+            logger.warning(
+                "Postgres connection attempt %s/%s failed; retrying in %.1fs",
+                attempt + 1,
+                CONNECTION_ATTEMPTS,
+                delay,
+            )
+            time.sleep(delay)
+
+    if conn is None:  # Defensive guard; the loop either connects or raises.
+        raise RuntimeError("Postgres connection was not established")
     try:
         yield conn
         conn.commit()

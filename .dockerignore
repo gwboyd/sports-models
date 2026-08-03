@@ -17,6 +17,8 @@ README.md
 template.yaml
 samconfig.toml
 *.ipynb
+!src/sports/football/nfl/expected_points/notebook.ipynb
+!src/sports/football/cfb/expected_points/notebook.ipynb
 __pycache__
 *.pyc
 *.pyo

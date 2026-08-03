@@ -164,6 +164,8 @@ def test_run_expected_points_end_to_end():
         },
         score_cv=2,
         confidence_cv=2,
+        score_n_jobs=1,
+        confidence_n_jobs=1,
     )
 
     result = run_expected_points(df, config)
