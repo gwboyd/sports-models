@@ -178,6 +178,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CFBPickResponse */
+        CFBPickResponse: {
+            /** Season */
+            season: number;
+            /** Week */
+            week: string;
+            /** Home Team */
+            home_team: string;
+            /** Away Team */
+            away_team: string;
+            /** Home Score Pred */
+            home_score_pred: number;
+            /** Away Score Pred */
+            away_score_pred: number;
+            /** Spread Pred */
+            spread_pred: number;
+            /** Spread Line */
+            spread_line: number;
+            /** Spread Play */
+            spread_play: string;
+            /** Spread Win Prob */
+            spread_win_prob: number;
+            /** Spread Lock */
+            spread_lock: number;
+            /** Total Pred */
+            total_pred: number;
+            /** Total Line */
+            total_line: number;
+            /** Total Play */
+            total_play: string;
+            /** Total Win Prob */
+            total_win_prob: number;
+            /** Total Lock */
+            total_lock: number;
+            /** Game Id */
+            game_id: string;
+            /** Year Week */
+            year_week: string;
+            /** Date Time */
+            date_time: string;
+            /** Write Time */
+            write_time: string;
+            /** Home Conference */
+            home_conference?: string;
+            /** Away Conference */
+            away_conference?: string;
+        };
         /** GameResult */
         GameResult: {
             /** Season */
@@ -542,7 +589,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PickResponse"][];
+                    "application/json": components["schemas"]["CFBPickResponse"][];
                 };
             };
         };

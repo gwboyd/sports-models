@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { prepareNbaData, prepareNflData } from "@/app/lib/model-data";
+import { prepareCfbData, prepareNbaData, prepareNflData } from "@/app/lib/model-data";
 import { displaySpread } from "@/app/lib/formatting";
-import type { NBAFirstBasketPick, NFLPick, NFLResultsResponse } from "@/app/types/types";
+import type { CFBPick, NBAFirstBasketPick, NFLPick, NFLResultsResponse } from "@/app/types/types";
 
 const basePick: NFLPick = {
   season: 2024,
@@ -51,6 +51,14 @@ const results: NFLResultsResponse = {
   games: [],
 };
 
+const baseCfbPick: CFBPick = {
+  ...basePick,
+  season: 2026,
+  year_week: "2026_1",
+  home_conference: "SEC",
+  away_conference: "SEC",
+};
+
 describe("model data preparation", () => {
   it("sorts NFL games chronologically and locks by descending probability", () => {
     const later: NFLPick = { ...basePick, game_id: "later", date_time: "2024-09-08-16:00", spread_lock: 1, spread_win_prob: 60 };
@@ -70,6 +78,52 @@ describe("model data preparation", () => {
 
     expect(prepareNbaData(picks).map((pick) => pick.sportsbook)).toEqual(["Alpha", "Zulu"]);
     expect(picks.map((pick) => pick.sportsbook)).toEqual(["Zulu", "Alpha"]);
+  });
+
+  it("groups CFB games in display order and duplicates cross-conference games", () => {
+    const sameConference: CFBPick = {
+      ...baseCfbPick,
+      game_id: "sec-game",
+      date_time: "2026-09-05-10:00",
+    };
+    const crossConference: CFBPick = {
+      ...baseCfbPick,
+      game_id: "cross-game",
+      date_time: "2026-09-05-11:00",
+      away_conference: "Big Ten",
+      spread_lock: 1,
+      spread_win_prob: 60,
+    };
+    const otherConference: CFBPick = {
+      ...baseCfbPick,
+      game_id: "other-game",
+      date_time: "2026-09-05-12:00",
+      home_conference: "Big Sky",
+      away_conference: "Ivy",
+    };
+
+    const prepared = prepareCfbData([otherConference, crossConference, sameConference]);
+    const groups = Object.fromEntries(
+      prepared.conferenceGroups.map((group) => [
+        group.conference,
+        group.games.map((game) => game.game_id),
+      ]),
+    );
+
+    expect(prepared.data.map((game) => game.game_id)).toEqual([
+      "sec-game",
+      "cross-game",
+      "other-game",
+    ]);
+    expect(prepared.conferenceGroups.map((group) => group.conference)).toEqual([
+      "SEC",
+      "BIG 10",
+      "Others",
+    ]);
+    expect(groups.SEC).toEqual(["sec-game", "cross-game"]);
+    expect(groups["BIG 10"]).toEqual(["cross-game"]);
+    expect(groups.Others).toEqual(["other-game", "other-game"]);
+    expect(prepared.spreadLocks.map((game) => game.game_id)).toEqual(["cross-game"]);
   });
 
   it("retains spread formatting", () => {

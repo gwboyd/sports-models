@@ -2,6 +2,7 @@ import "server-only";
 
 export const NFL_PICKS_KEY = "nfl-picks";
 export const NFL_PICK_RESULTS_KEY = "nfl-pick-results";
+export const CFB_PICKS_KEY = "cfb-picks";
 export const NBA_FIRST_BASKET_PICKS_KEY = "nba-first-basket-picks";
 
 export class UpstreamApiError extends Error {

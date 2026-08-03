@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   { href: "/models/nfl", pathname: "/models/nfl", label: "NFL" },
+  { href: "/models/cfb", pathname: "/models/cfb", label: "CFB" },
   { href: "/models/nba?bankroll=500", pathname: "/models/nba", label: "NBA" },
   { href: "/models/info", pathname: "/models/info", label: "Info" },
 ];
