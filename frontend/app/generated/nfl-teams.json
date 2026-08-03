@@ -1,0 +1,486 @@
+{
+  "league": "nfl",
+  "source": "https://github.com/nflverse/nflfastR-data/raw/master/teams_colors_logos.csv",
+  "teams": [
+    {
+      "id": "ari",
+      "displayName": "Arizona Cardinals",
+      "abbreviation": "ARI",
+      "aliases": [
+        "Arizona Cardinals",
+        "Cardinals",
+        "ARI"
+      ],
+      "conference": "NFC",
+      "division": "NFC West",
+      "color": "#97233F",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/ari.png"
+    },
+    {
+      "id": "atl",
+      "displayName": "Atlanta Falcons",
+      "abbreviation": "ATL",
+      "aliases": [
+        "Atlanta Falcons",
+        "Falcons",
+        "ATL"
+      ],
+      "conference": "NFC",
+      "division": "NFC South",
+      "color": "#A71930",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/atl.png"
+    },
+    {
+      "id": "bal",
+      "displayName": "Baltimore Ravens",
+      "abbreviation": "BAL",
+      "aliases": [
+        "Baltimore Ravens",
+        "Ravens",
+        "BAL"
+      ],
+      "conference": "AFC",
+      "division": "AFC North",
+      "color": "#241773",
+      "alternateColor": "#9E7C0C",
+      "logoPath": "/teams/nfl/bal.png"
+    },
+    {
+      "id": "buf",
+      "displayName": "Buffalo Bills",
+      "abbreviation": "BUF",
+      "aliases": [
+        "Buffalo Bills",
+        "Bills",
+        "BUF"
+      ],
+      "conference": "AFC",
+      "division": "AFC East",
+      "color": "#00338D",
+      "alternateColor": "#C60C30",
+      "logoPath": "/teams/nfl/buf.png"
+    },
+    {
+      "id": "car",
+      "displayName": "Carolina Panthers",
+      "abbreviation": "CAR",
+      "aliases": [
+        "Carolina Panthers",
+        "Panthers",
+        "CAR"
+      ],
+      "conference": "NFC",
+      "division": "NFC South",
+      "color": "#0085CA",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/car.png"
+    },
+    {
+      "id": "chi",
+      "displayName": "Chicago Bears",
+      "abbreviation": "CHI",
+      "aliases": [
+        "Chicago Bears",
+        "Bears",
+        "CHI"
+      ],
+      "conference": "NFC",
+      "division": "NFC North",
+      "color": "#0B162A",
+      "alternateColor": "#E64100",
+      "logoPath": "/teams/nfl/chi.png"
+    },
+    {
+      "id": "cin",
+      "displayName": "Cincinnati Bengals",
+      "abbreviation": "CIN",
+      "aliases": [
+        "Cincinnati Bengals",
+        "Bengals",
+        "CIN"
+      ],
+      "conference": "AFC",
+      "division": "AFC North",
+      "color": "#FB4F14",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/cin.png"
+    },
+    {
+      "id": "cle",
+      "displayName": "Cleveland Browns",
+      "abbreviation": "CLE",
+      "aliases": [
+        "Cleveland Browns",
+        "Browns",
+        "CLE"
+      ],
+      "conference": "AFC",
+      "division": "AFC North",
+      "color": "#FF3C00",
+      "alternateColor": "#311D00",
+      "logoPath": "/teams/nfl/cle.png"
+    },
+    {
+      "id": "dal",
+      "displayName": "Dallas Cowboys",
+      "abbreviation": "DAL",
+      "aliases": [
+        "Dallas Cowboys",
+        "Cowboys",
+        "DAL"
+      ],
+      "conference": "NFC",
+      "division": "NFC East",
+      "color": "#002244",
+      "alternateColor": "#B0B7BC",
+      "logoPath": "/teams/nfl/dal.png"
+    },
+    {
+      "id": "den",
+      "displayName": "Denver Broncos",
+      "abbreviation": "DEN",
+      "aliases": [
+        "Denver Broncos",
+        "Broncos",
+        "DEN"
+      ],
+      "conference": "AFC",
+      "division": "AFC West",
+      "color": "#002244",
+      "alternateColor": "#FB4F14",
+      "logoPath": "/teams/nfl/den.png"
+    },
+    {
+      "id": "det",
+      "displayName": "Detroit Lions",
+      "abbreviation": "DET",
+      "aliases": [
+        "Detroit Lions",
+        "Lions",
+        "DET"
+      ],
+      "conference": "NFC",
+      "division": "NFC North",
+      "color": "#0076B6",
+      "alternateColor": "#B0B7BC",
+      "logoPath": "/teams/nfl/det.png"
+    },
+    {
+      "id": "gb",
+      "displayName": "Green Bay Packers",
+      "abbreviation": "GB",
+      "aliases": [
+        "Green Bay Packers",
+        "Packers",
+        "GB"
+      ],
+      "conference": "NFC",
+      "division": "NFC North",
+      "color": "#203731",
+      "alternateColor": "#FFB612",
+      "logoPath": "/teams/nfl/gb.png"
+    },
+    {
+      "id": "hou",
+      "displayName": "Houston Texans",
+      "abbreviation": "HOU",
+      "aliases": [
+        "Houston Texans",
+        "Texans",
+        "HOU"
+      ],
+      "conference": "AFC",
+      "division": "AFC South",
+      "color": "#03202F",
+      "alternateColor": "#A71930",
+      "logoPath": "/teams/nfl/hou.png"
+    },
+    {
+      "id": "ind",
+      "displayName": "Indianapolis Colts",
+      "abbreviation": "IND",
+      "aliases": [
+        "Indianapolis Colts",
+        "Colts",
+        "IND"
+      ],
+      "conference": "AFC",
+      "division": "AFC South",
+      "color": "#002C5F",
+      "alternateColor": "#a5acaf",
+      "logoPath": "/teams/nfl/ind.png"
+    },
+    {
+      "id": "jax",
+      "displayName": "Jacksonville Jaguars",
+      "abbreviation": "JAX",
+      "aliases": [
+        "Jacksonville Jaguars",
+        "Jaguars",
+        "JAX"
+      ],
+      "conference": "AFC",
+      "division": "AFC South",
+      "color": "#006778",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/jax.png"
+    },
+    {
+      "id": "kc",
+      "displayName": "Kansas City Chiefs",
+      "abbreviation": "KC",
+      "aliases": [
+        "Kansas City Chiefs",
+        "Chiefs",
+        "KC"
+      ],
+      "conference": "AFC",
+      "division": "AFC West",
+      "color": "#E31837",
+      "alternateColor": "#FFB612",
+      "logoPath": "/teams/nfl/kc.png"
+    },
+    {
+      "id": "lv",
+      "displayName": "Las Vegas Raiders",
+      "abbreviation": "LV",
+      "aliases": [
+        "Las Vegas Raiders",
+        "Raiders",
+        "LV"
+      ],
+      "conference": "AFC",
+      "division": "AFC West",
+      "color": "#000000",
+      "alternateColor": "#A5ACAF",
+      "logoPath": "/teams/nfl/lv.png"
+    },
+    {
+      "id": "lac",
+      "displayName": "Los Angeles Chargers",
+      "abbreviation": "LAC",
+      "aliases": [
+        "Los Angeles Chargers",
+        "Chargers",
+        "LAC"
+      ],
+      "conference": "AFC",
+      "division": "AFC West",
+      "color": "#007BC7",
+      "alternateColor": "#ffc20e",
+      "logoPath": "/teams/nfl/lac.png"
+    },
+    {
+      "id": "la",
+      "displayName": "Los Angeles Rams",
+      "abbreviation": "LA",
+      "aliases": [
+        "Los Angeles Rams",
+        "Rams",
+        "LA"
+      ],
+      "conference": "NFC",
+      "division": "NFC West",
+      "color": "#003594",
+      "alternateColor": "#FFD100",
+      "logoPath": "/teams/nfl/la.png"
+    },
+    {
+      "id": "mia",
+      "displayName": "Miami Dolphins",
+      "abbreviation": "MIA",
+      "aliases": [
+        "Miami Dolphins",
+        "Dolphins",
+        "MIA"
+      ],
+      "conference": "AFC",
+      "division": "AFC East",
+      "color": "#008E97",
+      "alternateColor": "#F58220",
+      "logoPath": "/teams/nfl/mia.png"
+    },
+    {
+      "id": "min",
+      "displayName": "Minnesota Vikings",
+      "abbreviation": "MIN",
+      "aliases": [
+        "Minnesota Vikings",
+        "Vikings",
+        "MIN"
+      ],
+      "conference": "NFC",
+      "division": "NFC North",
+      "color": "#4F2683",
+      "alternateColor": "#FFC62F",
+      "logoPath": "/teams/nfl/min.png"
+    },
+    {
+      "id": "ne",
+      "displayName": "New England Patriots",
+      "abbreviation": "NE",
+      "aliases": [
+        "New England Patriots",
+        "Patriots",
+        "NE"
+      ],
+      "conference": "AFC",
+      "division": "AFC East",
+      "color": "#002244",
+      "alternateColor": "#C60C30",
+      "logoPath": "/teams/nfl/ne.png"
+    },
+    {
+      "id": "no",
+      "displayName": "New Orleans Saints",
+      "abbreviation": "NO",
+      "aliases": [
+        "New Orleans Saints",
+        "Saints",
+        "NO"
+      ],
+      "conference": "NFC",
+      "division": "NFC South",
+      "color": "#D3BC8D",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/no.png"
+    },
+    {
+      "id": "nyg",
+      "displayName": "New York Giants",
+      "abbreviation": "NYG",
+      "aliases": [
+        "New York Giants",
+        "Giants",
+        "NYG"
+      ],
+      "conference": "NFC",
+      "division": "NFC East",
+      "color": "#0B2265",
+      "alternateColor": "#A71930",
+      "logoPath": "/teams/nfl/nyg.png"
+    },
+    {
+      "id": "nyj",
+      "displayName": "New York Jets",
+      "abbreviation": "NYJ",
+      "aliases": [
+        "New York Jets",
+        "Jets",
+        "NYJ"
+      ],
+      "conference": "AFC",
+      "division": "AFC East",
+      "color": "#003F2D",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/nfl/nyj.png"
+    },
+    {
+      "id": "phi",
+      "displayName": "Philadelphia Eagles",
+      "abbreviation": "PHI",
+      "aliases": [
+        "Philadelphia Eagles",
+        "Eagles",
+        "PHI"
+      ],
+      "conference": "NFC",
+      "division": "NFC East",
+      "color": "#004C54",
+      "alternateColor": "#A5ACAF",
+      "logoPath": "/teams/nfl/phi.png"
+    },
+    {
+      "id": "pit",
+      "displayName": "Pittsburgh Steelers",
+      "abbreviation": "PIT",
+      "aliases": [
+        "Pittsburgh Steelers",
+        "Steelers",
+        "PIT"
+      ],
+      "conference": "AFC",
+      "division": "AFC North",
+      "color": "#000000",
+      "alternateColor": "#FFB612",
+      "logoPath": "/teams/nfl/pit.png"
+    },
+    {
+      "id": "sf",
+      "displayName": "San Francisco 49ers",
+      "abbreviation": "SF",
+      "aliases": [
+        "San Francisco 49ers",
+        "49ers",
+        "SF"
+      ],
+      "conference": "NFC",
+      "division": "NFC West",
+      "color": "#AA0000",
+      "alternateColor": "#B3995D",
+      "logoPath": "/teams/nfl/sf.png"
+    },
+    {
+      "id": "sea",
+      "displayName": "Seattle Seahawks",
+      "abbreviation": "SEA",
+      "aliases": [
+        "Seattle Seahawks",
+        "Seahawks",
+        "SEA"
+      ],
+      "conference": "NFC",
+      "division": "NFC West",
+      "color": "#002244",
+      "alternateColor": "#69be28",
+      "logoPath": "/teams/nfl/sea.png"
+    },
+    {
+      "id": "tb",
+      "displayName": "Tampa Bay Buccaneers",
+      "abbreviation": "TB",
+      "aliases": [
+        "Tampa Bay Buccaneers",
+        "Buccaneers",
+        "TB"
+      ],
+      "conference": "NFC",
+      "division": "NFC South",
+      "color": "#A71930",
+      "alternateColor": "#322F2B",
+      "logoPath": "/teams/nfl/tb.png"
+    },
+    {
+      "id": "ten",
+      "displayName": "Tennessee Titans",
+      "abbreviation": "TEN",
+      "aliases": [
+        "Tennessee Titans",
+        "Titans",
+        "TEN"
+      ],
+      "conference": "AFC",
+      "division": "AFC South",
+      "color": "#4495D2",
+      "alternateColor": "#D50A0A",
+      "logoPath": "/teams/nfl/ten.png"
+    },
+    {
+      "id": "was",
+      "displayName": "Washington Commanders",
+      "abbreviation": "WAS",
+      "aliases": [
+        "Washington Commanders",
+        "Commanders",
+        "WAS"
+      ],
+      "conference": "NFC",
+      "division": "NFC East",
+      "color": "#5A1414",
+      "alternateColor": "#FFB612",
+      "logoPath": "/teams/nfl/was.png"
+    }
+  ]
+}

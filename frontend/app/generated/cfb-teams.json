@@ -1,0 +1,2388 @@
+{
+  "league": "cfb",
+  "season": 2026,
+  "source": "https://api.collegefootballdata.com/teams/fbs?year=2026",
+  "teams": [
+    {
+      "id": "cfb-2005",
+      "externalId": 2005,
+      "displayName": "Air Force",
+      "abbreviation": "AF",
+      "mascot": "Falcons",
+      "aliases": [
+        "Air Force",
+        "AF",
+        "Falcons",
+        "Air Force Falcons"
+      ],
+      "conference": "Mountain West",
+      "color": "#003594",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2005.png"
+    },
+    {
+      "id": "cfb-2006",
+      "externalId": 2006,
+      "displayName": "Akron",
+      "abbreviation": "AKR",
+      "mascot": "Zips",
+      "aliases": [
+        "Akron",
+        "AKR",
+        "Zips",
+        "Akron Zips"
+      ],
+      "conference": "Mid-American",
+      "color": "#041e42",
+      "alternateColor": "#a89968",
+      "logoPath": "/teams/cfb/2006.png"
+    },
+    {
+      "id": "cfb-333",
+      "externalId": 333,
+      "displayName": "Alabama",
+      "abbreviation": "ALA",
+      "mascot": "Crimson Tide",
+      "aliases": [
+        "Alabama",
+        "ALA",
+        "Crimson Tide",
+        "Alabama Crimson Tide"
+      ],
+      "conference": "SEC",
+      "color": "#9e1b32",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/333.png"
+    },
+    {
+      "id": "cfb-2026",
+      "externalId": 2026,
+      "displayName": "App State",
+      "abbreviation": "APP",
+      "mascot": "Mountaineers",
+      "aliases": [
+        "App State",
+        "APP",
+        "Mountaineers",
+        "App State Mountaineers",
+        "Appalachian State"
+      ],
+      "conference": "Sun Belt",
+      "color": "#000000",
+      "alternateColor": "#ffcd00",
+      "logoPath": "/teams/cfb/2026.png"
+    },
+    {
+      "id": "cfb-12",
+      "externalId": 12,
+      "displayName": "Arizona",
+      "abbreviation": "ARIZ",
+      "mascot": "Wildcats",
+      "aliases": [
+        "Arizona",
+        "ARIZ",
+        "Wildcats",
+        "Arizona Wildcats"
+      ],
+      "conference": "Big 12",
+      "color": "#cc0033",
+      "alternateColor": "#003366",
+      "logoPath": "/teams/cfb/12.png"
+    },
+    {
+      "id": "cfb-9",
+      "externalId": 9,
+      "displayName": "Arizona State",
+      "abbreviation": "ASU",
+      "mascot": "Sun Devils",
+      "aliases": [
+        "Arizona State",
+        "ASU",
+        "Sun Devils",
+        "Arizona State Sun Devils",
+        "Arizona St"
+      ],
+      "conference": "Big 12",
+      "color": "#ffc627",
+      "alternateColor": "#8c1d40",
+      "logoPath": "/teams/cfb/9.png"
+    },
+    {
+      "id": "cfb-8",
+      "externalId": 8,
+      "displayName": "Arkansas",
+      "abbreviation": "ARK",
+      "mascot": "Razorbacks",
+      "aliases": [
+        "Arkansas",
+        "ARK",
+        "Razorbacks",
+        "Arkansas Razorbacks"
+      ],
+      "conference": "SEC",
+      "color": "#a32136",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/8.png"
+    },
+    {
+      "id": "cfb-2032",
+      "externalId": 2032,
+      "displayName": "Arkansas State",
+      "abbreviation": "ARST",
+      "mascot": "Red Wolves",
+      "aliases": [
+        "Arkansas State",
+        "ARST",
+        "Red Wolves",
+        "Arkansas State Red Wolves",
+        "Arkansas St"
+      ],
+      "conference": "Sun Belt",
+      "color": "#cc092f",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/2032.png"
+    },
+    {
+      "id": "cfb-349",
+      "externalId": 349,
+      "displayName": "Army",
+      "abbreviation": "ARMY",
+      "mascot": "Black Knights",
+      "aliases": [
+        "Army",
+        "Black Knights",
+        "Army Black Knights"
+      ],
+      "conference": "American Athletic",
+      "color": "#000000",
+      "alternateColor": "#d3bc8d",
+      "logoPath": "/teams/cfb/349.png"
+    },
+    {
+      "id": "cfb-2",
+      "externalId": 2,
+      "displayName": "Auburn",
+      "abbreviation": "AUB",
+      "mascot": "Tigers",
+      "aliases": [
+        "Auburn",
+        "AUB",
+        "Tigers",
+        "Auburn Tigers"
+      ],
+      "conference": "SEC",
+      "color": "#0c2340",
+      "alternateColor": "#f26522",
+      "logoPath": "/teams/cfb/2.png"
+    },
+    {
+      "id": "cfb-2050",
+      "externalId": 2050,
+      "displayName": "Ball State",
+      "abbreviation": "BALL",
+      "mascot": "Cardinals",
+      "aliases": [
+        "Ball State",
+        "BALL",
+        "Cardinals",
+        "Ball State Cardinals"
+      ],
+      "conference": "Mid-American",
+      "color": "#ba0c2f",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2050.png"
+    },
+    {
+      "id": "cfb-239",
+      "externalId": 239,
+      "displayName": "Baylor",
+      "abbreviation": "BAY",
+      "mascot": "Bears",
+      "aliases": [
+        "Baylor",
+        "BAY",
+        "Bears",
+        "Baylor Bears"
+      ],
+      "conference": "Big 12",
+      "color": "#154734",
+      "alternateColor": "#ffb81c",
+      "logoPath": "/teams/cfb/239.png"
+    },
+    {
+      "id": "cfb-68",
+      "externalId": 68,
+      "displayName": "Boise State",
+      "abbreviation": "BOIS",
+      "mascot": "Broncos",
+      "aliases": [
+        "Boise State",
+        "BOIS",
+        "Broncos",
+        "Boise State Broncos",
+        "Boise St"
+      ],
+      "conference": "Pac-12",
+      "color": "#0033a0",
+      "alternateColor": "#d64309",
+      "logoPath": "/teams/cfb/68.png"
+    },
+    {
+      "id": "cfb-103",
+      "externalId": 103,
+      "displayName": "Boston College",
+      "abbreviation": "BC",
+      "mascot": "Eagles",
+      "aliases": [
+        "Boston College",
+        "BC",
+        "Eagles",
+        "Boston College Eagles"
+      ],
+      "conference": "ACC",
+      "color": "#8c2232",
+      "alternateColor": "#dbcca6",
+      "logoPath": "/teams/cfb/103.png"
+    },
+    {
+      "id": "cfb-189",
+      "externalId": 189,
+      "displayName": "Bowling Green",
+      "abbreviation": "BGSU",
+      "mascot": "Falcons",
+      "aliases": [
+        "Bowling Green",
+        "BGSU",
+        "Falcons",
+        "Bowling Green Falcons",
+        "Bowling Green State"
+      ],
+      "conference": "Mid-American",
+      "color": "#fd5000",
+      "alternateColor": "#4f2c1d",
+      "logoPath": "/teams/cfb/189.png"
+    },
+    {
+      "id": "cfb-2084",
+      "externalId": 2084,
+      "displayName": "Buffalo",
+      "abbreviation": "BUF",
+      "mascot": "Bulls",
+      "aliases": [
+        "Buffalo",
+        "BUF",
+        "Bulls",
+        "Buffalo Bulls"
+      ],
+      "conference": "Mid-American",
+      "color": "#005bbb",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2084.png"
+    },
+    {
+      "id": "cfb-252",
+      "externalId": 252,
+      "displayName": "BYU",
+      "abbreviation": "BYU",
+      "mascot": "Cougars",
+      "aliases": [
+        "BYU",
+        "Cougars",
+        "BYU Cougars",
+        "Brigham Young"
+      ],
+      "conference": "Big 12",
+      "color": "#003da5",
+      "alternateColor": "#002e5d",
+      "logoPath": "/teams/cfb/252.png"
+    },
+    {
+      "id": "cfb-25",
+      "externalId": 25,
+      "displayName": "California",
+      "abbreviation": "CAL",
+      "mascot": "Golden Bears",
+      "aliases": [
+        "California",
+        "CAL",
+        "Golden Bears",
+        "California Golden Bears"
+      ],
+      "conference": "ACC",
+      "color": "#041e42",
+      "alternateColor": "#ffc72c",
+      "logoPath": "/teams/cfb/25.png"
+    },
+    {
+      "id": "cfb-2117",
+      "externalId": 2117,
+      "displayName": "Central Michigan",
+      "abbreviation": "CMU",
+      "mascot": "Chippewas",
+      "aliases": [
+        "Central Michigan",
+        "CMU",
+        "Chippewas",
+        "Central Michigan Chippewas",
+        "C Michigan"
+      ],
+      "conference": "Mid-American",
+      "color": "#6a0032",
+      "alternateColor": "#ffc82e",
+      "logoPath": "/teams/cfb/2117.png"
+    },
+    {
+      "id": "cfb-2429",
+      "externalId": 2429,
+      "displayName": "Charlotte",
+      "abbreviation": "CLT",
+      "mascot": "49ers",
+      "aliases": [
+        "Charlotte",
+        "CLT",
+        "49ers",
+        "Charlotte 49ers"
+      ],
+      "conference": "American Athletic",
+      "color": "#005035",
+      "alternateColor": "#a49665",
+      "logoPath": "/teams/cfb/2429.png"
+    },
+    {
+      "id": "cfb-2132",
+      "externalId": 2132,
+      "displayName": "Cincinnati",
+      "abbreviation": "CIN",
+      "mascot": "Bearcats",
+      "aliases": [
+        "Cincinnati",
+        "CIN",
+        "Bearcats",
+        "Cincinnati Bearcats"
+      ],
+      "conference": "Big 12",
+      "color": "#000000",
+      "alternateColor": "#e00122",
+      "logoPath": "/teams/cfb/2132.png"
+    },
+    {
+      "id": "cfb-228",
+      "externalId": 228,
+      "displayName": "Clemson",
+      "abbreviation": "CLEM",
+      "mascot": "Tigers",
+      "aliases": [
+        "Clemson",
+        "CLEM",
+        "Tigers",
+        "Clemson Tigers"
+      ],
+      "conference": "ACC",
+      "color": "#f56600",
+      "alternateColor": "#522d80",
+      "logoPath": "/teams/cfb/228.png"
+    },
+    {
+      "id": "cfb-324",
+      "externalId": 324,
+      "displayName": "Coastal Carolina",
+      "abbreviation": "CCU",
+      "mascot": "Chanticleers",
+      "aliases": [
+        "Coastal Carolina",
+        "CCU",
+        "Chanticleers",
+        "Coastal Carolina Chanticleers",
+        "Coastal"
+      ],
+      "conference": "Sun Belt",
+      "color": "#006f71",
+      "alternateColor": "#a27752",
+      "logoPath": "/teams/cfb/324.png"
+    },
+    {
+      "id": "cfb-38",
+      "externalId": 38,
+      "displayName": "Colorado",
+      "abbreviation": "COLO",
+      "mascot": "Buffaloes",
+      "aliases": [
+        "Colorado",
+        "COLO",
+        "Buffaloes",
+        "Colorado Buffaloes"
+      ],
+      "conference": "Big 12",
+      "color": "#cfb87c",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/38.png"
+    },
+    {
+      "id": "cfb-36",
+      "externalId": 36,
+      "displayName": "Colorado State",
+      "abbreviation": "CSU",
+      "mascot": "Rams",
+      "aliases": [
+        "Colorado State",
+        "CSU",
+        "Rams",
+        "Colorado State Rams",
+        "Colorado St"
+      ],
+      "conference": "Pac-12",
+      "color": "#1e4d2b",
+      "alternateColor": "#c8c372",
+      "logoPath": "/teams/cfb/36.png"
+    },
+    {
+      "id": "cfb-48",
+      "externalId": 48,
+      "displayName": "Delaware",
+      "abbreviation": "DEL",
+      "mascot": "Blue Hens",
+      "aliases": [
+        "Delaware",
+        "DEL",
+        "Blue Hens",
+        "Delaware Blue Hens"
+      ],
+      "conference": "Conference USA",
+      "color": "#00539f",
+      "alternateColor": "#ffd200",
+      "logoPath": "/teams/cfb/48.png"
+    },
+    {
+      "id": "cfb-150",
+      "externalId": 150,
+      "displayName": "Duke",
+      "abbreviation": "DUKE",
+      "mascot": "Blue Devils",
+      "aliases": [
+        "Duke",
+        "Blue Devils",
+        "Duke Blue Devils"
+      ],
+      "conference": "ACC",
+      "color": "#00539b",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/150.png"
+    },
+    {
+      "id": "cfb-151",
+      "externalId": 151,
+      "displayName": "East Carolina",
+      "abbreviation": "ECU",
+      "mascot": "Pirates",
+      "aliases": [
+        "East Carolina",
+        "ECU",
+        "Pirates",
+        "East Carolina Pirates"
+      ],
+      "conference": "American Athletic",
+      "color": "#592a8a",
+      "alternateColor": "#fdc82f",
+      "logoPath": "/teams/cfb/151.png"
+    },
+    {
+      "id": "cfb-2199",
+      "externalId": 2199,
+      "displayName": "Eastern Michigan",
+      "abbreviation": "EMU",
+      "mascot": "Eagles",
+      "aliases": [
+        "Eastern Michigan",
+        "EMU",
+        "Eagles",
+        "Eastern Michigan Eagles",
+        "E Michigan"
+      ],
+      "conference": "Mid-American",
+      "color": "#046a38",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2199.png"
+    },
+    {
+      "id": "cfb-57",
+      "externalId": 57,
+      "displayName": "Florida",
+      "abbreviation": "FLA",
+      "mascot": "Gators",
+      "aliases": [
+        "Florida",
+        "FLA",
+        "Gators",
+        "Florida Gators"
+      ],
+      "conference": "SEC",
+      "color": "#0021a5",
+      "alternateColor": "#fa4616",
+      "logoPath": "/teams/cfb/57.png"
+    },
+    {
+      "id": "cfb-2226",
+      "externalId": 2226,
+      "displayName": "Florida Atlantic",
+      "abbreviation": "FAU",
+      "mascot": "Owls",
+      "aliases": [
+        "Florida Atlantic",
+        "FAU",
+        "Owls",
+        "Florida Atlantic Owls"
+      ],
+      "conference": "American Athletic",
+      "color": "#003366",
+      "alternateColor": "#cc0000",
+      "logoPath": "/teams/cfb/2226.png"
+    },
+    {
+      "id": "cfb-2229",
+      "externalId": 2229,
+      "displayName": "Florida International",
+      "abbreviation": "FIU",
+      "mascot": "Panthers",
+      "aliases": [
+        "Florida International",
+        "FIU",
+        "Panthers",
+        "Florida International Panthers",
+        "Florida Intl"
+      ],
+      "conference": "Conference USA",
+      "color": "#091f3f",
+      "alternateColor": "#c3993f",
+      "logoPath": "/teams/cfb/2229.png"
+    },
+    {
+      "id": "cfb-52",
+      "externalId": 52,
+      "displayName": "Florida State",
+      "abbreviation": "FSU",
+      "mascot": "Seminoles",
+      "aliases": [
+        "Florida State",
+        "FSU",
+        "Seminoles",
+        "Florida State Seminoles",
+        "Florida St"
+      ],
+      "conference": "ACC",
+      "color": "#782f40",
+      "alternateColor": "#ceb888",
+      "logoPath": "/teams/cfb/52.png"
+    },
+    {
+      "id": "cfb-278",
+      "externalId": 278,
+      "displayName": "Fresno State",
+      "abbreviation": "FRES",
+      "mascot": "Bulldogs",
+      "aliases": [
+        "Fresno State",
+        "FRES",
+        "Bulldogs",
+        "Fresno State Bulldogs",
+        "Fresno St"
+      ],
+      "conference": "Pac-12",
+      "color": "#c41230",
+      "alternateColor": "#13284c",
+      "logoPath": "/teams/cfb/278.png"
+    },
+    {
+      "id": "cfb-61",
+      "externalId": 61,
+      "displayName": "Georgia",
+      "abbreviation": "UGA",
+      "mascot": "Bulldogs",
+      "aliases": [
+        "Georgia",
+        "UGA",
+        "Bulldogs",
+        "Georgia Bulldogs"
+      ],
+      "conference": "SEC",
+      "color": "#ba0c2f",
+      "alternateColor": "#2c2a29",
+      "logoPath": "/teams/cfb/61.png"
+    },
+    {
+      "id": "cfb-290",
+      "externalId": 290,
+      "displayName": "Georgia Southern",
+      "abbreviation": "GASO",
+      "mascot": "Eagles",
+      "aliases": [
+        "Georgia Southern",
+        "GASO",
+        "Eagles",
+        "Georgia Southern Eagles",
+        "GA Southern"
+      ],
+      "conference": "Sun Belt",
+      "color": "#041e42",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/290.png"
+    },
+    {
+      "id": "cfb-2247",
+      "externalId": 2247,
+      "displayName": "Georgia State",
+      "abbreviation": "GAST",
+      "mascot": "Panthers",
+      "aliases": [
+        "Georgia State",
+        "GAST",
+        "Panthers",
+        "Georgia State Panthers",
+        "Georgia St"
+      ],
+      "conference": "Sun Belt",
+      "color": "#0039a6",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2247.png"
+    },
+    {
+      "id": "cfb-59",
+      "externalId": 59,
+      "displayName": "Georgia Tech",
+      "abbreviation": "GT",
+      "mascot": "Yellow Jackets",
+      "aliases": [
+        "Georgia Tech",
+        "GT",
+        "Yellow Jackets",
+        "Georgia Tech Yellow Jackets"
+      ],
+      "conference": "ACC",
+      "color": "#b3a369",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/59.png"
+    },
+    {
+      "id": "cfb-62",
+      "externalId": 62,
+      "displayName": "Hawai'i",
+      "abbreviation": "HAW",
+      "mascot": "Rainbow Warriors",
+      "aliases": [
+        "Hawai'i",
+        "HAW",
+        "Rainbow Warriors",
+        "Hawai'i Rainbow Warriors"
+      ],
+      "conference": "Mountain West",
+      "color": "#024731",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/62.png"
+    },
+    {
+      "id": "cfb-248",
+      "externalId": 248,
+      "displayName": "Houston",
+      "abbreviation": "HOU",
+      "mascot": "Cougars",
+      "aliases": [
+        "Houston",
+        "HOU",
+        "Cougars",
+        "Houston Cougars"
+      ],
+      "conference": "Big 12",
+      "color": "#c8102e",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/248.png"
+    },
+    {
+      "id": "cfb-356",
+      "externalId": 356,
+      "displayName": "Illinois",
+      "abbreviation": "ILL",
+      "mascot": "Fighting Illini",
+      "aliases": [
+        "Illinois",
+        "ILL",
+        "Fighting Illini",
+        "Illinois Fighting Illini"
+      ],
+      "conference": "Big Ten",
+      "color": "#ff5f05",
+      "alternateColor": "#13294b",
+      "logoPath": "/teams/cfb/356.png"
+    },
+    {
+      "id": "cfb-84",
+      "externalId": 84,
+      "displayName": "Indiana",
+      "abbreviation": "IU",
+      "mascot": "Hoosiers",
+      "aliases": [
+        "Indiana",
+        "IU",
+        "Hoosiers",
+        "Indiana Hoosiers"
+      ],
+      "conference": "Big Ten",
+      "color": "#990000",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/84.png"
+    },
+    {
+      "id": "cfb-2294",
+      "externalId": 2294,
+      "displayName": "Iowa",
+      "abbreviation": "IOWA",
+      "mascot": "Hawkeyes",
+      "aliases": [
+        "Iowa",
+        "Hawkeyes",
+        "Iowa Hawkeyes"
+      ],
+      "conference": "Big Ten",
+      "color": "#000000",
+      "alternateColor": "#ffcd00",
+      "logoPath": "/teams/cfb/2294.png"
+    },
+    {
+      "id": "cfb-66",
+      "externalId": 66,
+      "displayName": "Iowa State",
+      "abbreviation": "ISU",
+      "mascot": "Cyclones",
+      "aliases": [
+        "Iowa State",
+        "ISU",
+        "Cyclones",
+        "Iowa State Cyclones"
+      ],
+      "conference": "Big 12",
+      "color": "#c8102e",
+      "alternateColor": "#f1be48",
+      "logoPath": "/teams/cfb/66.png"
+    },
+    {
+      "id": "cfb-55",
+      "externalId": 55,
+      "displayName": "Jacksonville State",
+      "abbreviation": "JXST",
+      "mascot": "Gamecocks",
+      "aliases": [
+        "Jacksonville State",
+        "JXST",
+        "Gamecocks",
+        "Jacksonville State Gamecocks",
+        "Jax State"
+      ],
+      "conference": "Conference USA",
+      "color": "#cc0000",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/55.png"
+    },
+    {
+      "id": "cfb-256",
+      "externalId": 256,
+      "displayName": "James Madison",
+      "abbreviation": "JMU",
+      "mascot": "Dukes",
+      "aliases": [
+        "James Madison",
+        "JMU",
+        "Dukes",
+        "James Madison Dukes"
+      ],
+      "conference": "Sun Belt",
+      "color": "#450084",
+      "alternateColor": "#cbb677",
+      "logoPath": "/teams/cfb/256.png"
+    },
+    {
+      "id": "cfb-2305",
+      "externalId": 2305,
+      "displayName": "Kansas",
+      "abbreviation": "KU",
+      "mascot": "Jayhawks",
+      "aliases": [
+        "Kansas",
+        "KU",
+        "Jayhawks",
+        "Kansas Jayhawks"
+      ],
+      "conference": "Big 12",
+      "color": "#0051ba",
+      "alternateColor": "#e8000d",
+      "logoPath": "/teams/cfb/2305.png"
+    },
+    {
+      "id": "cfb-2306",
+      "externalId": 2306,
+      "displayName": "Kansas State",
+      "abbreviation": "KSU",
+      "mascot": "Wildcats",
+      "aliases": [
+        "Kansas State",
+        "KSU",
+        "Wildcats",
+        "Kansas State Wildcats",
+        "Kansas St"
+      ],
+      "conference": "Big 12",
+      "color": "#512888",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2306.png"
+    },
+    {
+      "id": "cfb-338",
+      "externalId": 338,
+      "displayName": "Kennesaw State",
+      "abbreviation": "KENN",
+      "mascot": "Owls",
+      "aliases": [
+        "Kennesaw State",
+        "KENN",
+        "Owls",
+        "Kennesaw State Owls",
+        "Kennesaw",
+        "Kennesaw St"
+      ],
+      "conference": "Conference USA",
+      "color": "#fdbb30",
+      "alternateColor": "#0b1315",
+      "logoPath": "/teams/cfb/338.png"
+    },
+    {
+      "id": "cfb-2309",
+      "externalId": 2309,
+      "displayName": "Kent State",
+      "abbreviation": "KENT",
+      "mascot": "Golden Flashes",
+      "aliases": [
+        "Kent State",
+        "KENT",
+        "Golden Flashes",
+        "Kent State Golden Flashes"
+      ],
+      "conference": "Mid-American",
+      "color": "#002664",
+      "alternateColor": "#eaab00",
+      "logoPath": "/teams/cfb/2309.png"
+    },
+    {
+      "id": "cfb-96",
+      "externalId": 96,
+      "displayName": "Kentucky",
+      "abbreviation": "UK",
+      "mascot": "Wildcats",
+      "aliases": [
+        "Kentucky",
+        "UK",
+        "Wildcats",
+        "Kentucky Wildcats"
+      ],
+      "conference": "SEC",
+      "color": "#0033a0",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/96.png"
+    },
+    {
+      "id": "cfb-2335",
+      "externalId": 2335,
+      "displayName": "Liberty",
+      "abbreviation": "LIB",
+      "mascot": "Flames",
+      "aliases": [
+        "Liberty",
+        "LIB",
+        "Flames",
+        "Liberty Flames"
+      ],
+      "conference": "Conference USA",
+      "color": "#0a254e",
+      "alternateColor": "#b72025",
+      "logoPath": "/teams/cfb/2335.png"
+    },
+    {
+      "id": "cfb-309",
+      "externalId": 309,
+      "displayName": "Louisiana",
+      "abbreviation": "UL",
+      "mascot": "Ragin' Cajuns",
+      "aliases": [
+        "Louisiana",
+        "UL",
+        "Ragin' Cajuns",
+        "Louisiana Ragin' Cajuns",
+        "UL Lafayette"
+      ],
+      "conference": "Sun Belt",
+      "color": "#ce181e",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/309.png"
+    },
+    {
+      "id": "cfb-2348",
+      "externalId": 2348,
+      "displayName": "Louisiana Tech",
+      "abbreviation": "LT",
+      "mascot": "Bulldogs",
+      "aliases": [
+        "Louisiana Tech",
+        "LT",
+        "Bulldogs",
+        "Louisiana Tech Bulldogs"
+      ],
+      "conference": "Sun Belt",
+      "color": "#003087",
+      "alternateColor": "#cb333b",
+      "logoPath": "/teams/cfb/2348.png"
+    },
+    {
+      "id": "cfb-97",
+      "externalId": 97,
+      "displayName": "Louisville",
+      "abbreviation": "LOU",
+      "mascot": "Cardinals",
+      "aliases": [
+        "Louisville",
+        "LOU",
+        "Cardinals",
+        "Louisville Cardinals"
+      ],
+      "conference": "ACC",
+      "color": "#c9001f",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/97.png"
+    },
+    {
+      "id": "cfb-99",
+      "externalId": 99,
+      "displayName": "LSU",
+      "abbreviation": "LSU",
+      "mascot": "Tigers",
+      "aliases": [
+        "LSU",
+        "Tigers",
+        "LSU Tigers",
+        "Louisiana State"
+      ],
+      "conference": "SEC",
+      "color": "#461d7c",
+      "alternateColor": "#fdd023",
+      "logoPath": "/teams/cfb/99.png"
+    },
+    {
+      "id": "cfb-276",
+      "externalId": 276,
+      "displayName": "Marshall",
+      "abbreviation": "MRSH",
+      "mascot": "Thundering Herd",
+      "aliases": [
+        "Marshall",
+        "MRSH",
+        "Thundering Herd",
+        "Marshall Thundering Herd"
+      ],
+      "conference": "Sun Belt",
+      "color": "#00b140",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/276.png"
+    },
+    {
+      "id": "cfb-120",
+      "externalId": 120,
+      "displayName": "Maryland",
+      "abbreviation": "MD",
+      "mascot": "Terrapins",
+      "aliases": [
+        "Maryland",
+        "MD",
+        "Terrapins",
+        "Maryland Terrapins"
+      ],
+      "conference": "Big Ten",
+      "color": "#ce1126",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/120.png"
+    },
+    {
+      "id": "cfb-113",
+      "externalId": 113,
+      "displayName": "Massachusetts",
+      "abbreviation": "MASS",
+      "mascot": "Minutemen",
+      "aliases": [
+        "Massachusetts",
+        "MASS",
+        "Minutemen",
+        "Massachusetts Minutemen",
+        "UMass"
+      ],
+      "conference": "Mid-American",
+      "color": "#881c1c",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/113.png"
+    },
+    {
+      "id": "cfb-235",
+      "externalId": 235,
+      "displayName": "Memphis",
+      "abbreviation": "MEM",
+      "mascot": "Tigers",
+      "aliases": [
+        "Memphis",
+        "MEM",
+        "Tigers",
+        "Memphis Tigers"
+      ],
+      "conference": "American Athletic",
+      "color": "#00498f",
+      "alternateColor": "#9c9ea1",
+      "logoPath": "/teams/cfb/235.png"
+    },
+    {
+      "id": "cfb-2390",
+      "externalId": 2390,
+      "displayName": "Miami",
+      "abbreviation": "MIA",
+      "mascot": "Hurricanes",
+      "aliases": [
+        "Miami",
+        "MIA",
+        "Hurricanes",
+        "Miami Hurricanes",
+        "Miami (FL)"
+      ],
+      "conference": "ACC",
+      "color": "#f47321",
+      "alternateColor": "#005030",
+      "logoPath": "/teams/cfb/2390.png"
+    },
+    {
+      "id": "cfb-193",
+      "externalId": 193,
+      "displayName": "Miami (OH)",
+      "abbreviation": "M-OH",
+      "mascot": "RedHawks",
+      "aliases": [
+        "Miami (OH)",
+        "M-OH",
+        "RedHawks",
+        "Miami (OH) RedHawks",
+        "Miami OH"
+      ],
+      "conference": "Mid-American",
+      "color": "#c41230",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/193.png"
+    },
+    {
+      "id": "cfb-130",
+      "externalId": 130,
+      "displayName": "Michigan",
+      "abbreviation": "MICH",
+      "mascot": "Wolverines",
+      "aliases": [
+        "Michigan",
+        "MICH",
+        "Wolverines",
+        "Michigan Wolverines"
+      ],
+      "conference": "Big Ten",
+      "color": "#00274c",
+      "alternateColor": "#ffcb05",
+      "logoPath": "/teams/cfb/130.png"
+    },
+    {
+      "id": "cfb-127",
+      "externalId": 127,
+      "displayName": "Michigan State",
+      "abbreviation": "MSU",
+      "mascot": "Spartans",
+      "aliases": [
+        "Michigan State",
+        "MSU",
+        "Spartans",
+        "Michigan State Spartans",
+        "Michigan St"
+      ],
+      "conference": "Big Ten",
+      "color": "#173f35",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/127.png"
+    },
+    {
+      "id": "cfb-2393",
+      "externalId": 2393,
+      "displayName": "Middle Tennessee",
+      "abbreviation": "MTSU",
+      "mascot": "Blue Raiders",
+      "aliases": [
+        "Middle Tennessee",
+        "MTSU",
+        "Blue Raiders",
+        "Middle Tennessee Blue Raiders",
+        "Middle Tennessee State"
+      ],
+      "conference": "Conference USA",
+      "color": "#036eb7",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2393.png"
+    },
+    {
+      "id": "cfb-135",
+      "externalId": 135,
+      "displayName": "Minnesota",
+      "abbreviation": "MINN",
+      "mascot": "Golden Gophers",
+      "aliases": [
+        "Minnesota",
+        "MINN",
+        "Golden Gophers",
+        "Minnesota Golden Gophers"
+      ],
+      "conference": "Big Ten",
+      "color": "#7a0019",
+      "alternateColor": "#ffcc33",
+      "logoPath": "/teams/cfb/135.png"
+    },
+    {
+      "id": "cfb-344",
+      "externalId": 344,
+      "displayName": "Mississippi State",
+      "abbreviation": "MSST",
+      "mascot": "Bulldogs",
+      "aliases": [
+        "Mississippi State",
+        "MSST",
+        "Bulldogs",
+        "Mississippi State Bulldogs",
+        "Mississippi St"
+      ],
+      "conference": "SEC",
+      "color": "#5d1725",
+      "alternateColor": "#c1c6c8",
+      "logoPath": "/teams/cfb/344.png"
+    },
+    {
+      "id": "cfb-142",
+      "externalId": 142,
+      "displayName": "Missouri",
+      "abbreviation": "MIZ",
+      "mascot": "Tigers",
+      "aliases": [
+        "Missouri",
+        "MIZ",
+        "Tigers",
+        "Missouri Tigers"
+      ],
+      "conference": "SEC",
+      "color": "#f1b82d",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/142.png"
+    },
+    {
+      "id": "cfb-2623",
+      "externalId": 2623,
+      "displayName": "Missouri State",
+      "abbreviation": "MOST",
+      "mascot": "Bears",
+      "aliases": [
+        "Missouri State",
+        "MOST",
+        "Bears",
+        "Missouri State Bears",
+        "Missouri St"
+      ],
+      "conference": "Conference USA",
+      "color": "#5e0009",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2623.png"
+    },
+    {
+      "id": "cfb-2426",
+      "externalId": 2426,
+      "displayName": "Navy",
+      "abbreviation": "NAVY",
+      "mascot": "Midshipmen",
+      "aliases": [
+        "Navy",
+        "Midshipmen",
+        "Navy Midshipmen"
+      ],
+      "conference": "American Athletic",
+      "color": "#00225b",
+      "alternateColor": "#b5a67c",
+      "logoPath": "/teams/cfb/2426.png"
+    },
+    {
+      "id": "cfb-152",
+      "externalId": 152,
+      "displayName": "NC State",
+      "abbreviation": "NCSU",
+      "mascot": "Wolfpack",
+      "aliases": [
+        "NC State",
+        "NCSU",
+        "Wolfpack",
+        "NC State Wolfpack",
+        "North Carolina St."
+      ],
+      "conference": "ACC",
+      "color": "#cc0000",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/152.png"
+    },
+    {
+      "id": "cfb-158",
+      "externalId": 158,
+      "displayName": "Nebraska",
+      "abbreviation": "NEB",
+      "mascot": "Cornhuskers",
+      "aliases": [
+        "Nebraska",
+        "NEB",
+        "Cornhuskers",
+        "Nebraska Cornhuskers"
+      ],
+      "conference": "Big Ten",
+      "color": "#d00000",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/158.png"
+    },
+    {
+      "id": "cfb-2440",
+      "externalId": 2440,
+      "displayName": "Nevada",
+      "abbreviation": "NEV",
+      "mascot": "Wolf Pack",
+      "aliases": [
+        "Nevada",
+        "NEV",
+        "Wolf Pack",
+        "Nevada Wolf Pack"
+      ],
+      "conference": "Mountain West",
+      "color": "#041e42",
+      "alternateColor": "#8a8d8f",
+      "logoPath": "/teams/cfb/2440.png"
+    },
+    {
+      "id": "cfb-167",
+      "externalId": 167,
+      "displayName": "New Mexico",
+      "abbreviation": "UNM",
+      "mascot": "Lobos",
+      "aliases": [
+        "New Mexico",
+        "UNM",
+        "Lobos",
+        "New Mexico Lobos"
+      ],
+      "conference": "Mountain West",
+      "color": "#ba0c2f",
+      "alternateColor": "#a7a8aa",
+      "logoPath": "/teams/cfb/167.png"
+    },
+    {
+      "id": "cfb-166",
+      "externalId": 166,
+      "displayName": "New Mexico State",
+      "abbreviation": "NMSU",
+      "mascot": "Aggies",
+      "aliases": [
+        "New Mexico State",
+        "NMSU",
+        "Aggies",
+        "New Mexico State Aggies",
+        "New Mexico St"
+      ],
+      "conference": "Conference USA",
+      "color": "#8c0b42",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/166.png"
+    },
+    {
+      "id": "cfb-153",
+      "externalId": 153,
+      "displayName": "North Carolina",
+      "abbreviation": "UNC",
+      "mascot": "Tar Heels",
+      "aliases": [
+        "North Carolina",
+        "UNC",
+        "Tar Heels",
+        "North Carolina Tar Heels"
+      ],
+      "conference": "ACC",
+      "color": "#7bafd4",
+      "alternateColor": "#13294b",
+      "logoPath": "/teams/cfb/153.png"
+    },
+    {
+      "id": "cfb-2449",
+      "externalId": 2449,
+      "displayName": "North Dakota State",
+      "abbreviation": "NDSU",
+      "mascot": "Bison",
+      "aliases": [
+        "North Dakota State",
+        "NDSU",
+        "Bison",
+        "North Dakota State Bison",
+        "N Dakota St"
+      ],
+      "conference": "Mountain West",
+      "color": "#00583d",
+      "alternateColor": "#ffc425",
+      "logoPath": "/teams/cfb/2449.png"
+    },
+    {
+      "id": "cfb-249",
+      "externalId": 249,
+      "displayName": "North Texas",
+      "abbreviation": "UNT",
+      "mascot": "Mean Green",
+      "aliases": [
+        "North Texas",
+        "UNT",
+        "Mean Green",
+        "North Texas Mean Green"
+      ],
+      "conference": "American Athletic",
+      "color": "#00853e",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/249.png"
+    },
+    {
+      "id": "cfb-2459",
+      "externalId": 2459,
+      "displayName": "Northern Illinois",
+      "abbreviation": "NIU",
+      "mascot": "Huskies",
+      "aliases": [
+        "Northern Illinois",
+        "NIU",
+        "Huskies",
+        "Northern Illinois Huskies",
+        "N Illinois"
+      ],
+      "conference": "Mountain West",
+      "color": "#c8102e",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/2459.png"
+    },
+    {
+      "id": "cfb-77",
+      "externalId": 77,
+      "displayName": "Northwestern",
+      "abbreviation": "NU",
+      "mascot": "Wildcats",
+      "aliases": [
+        "Northwestern",
+        "NU",
+        "Wildcats",
+        "Northwestern Wildcats"
+      ],
+      "conference": "Big Ten",
+      "color": "#582c83",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/77.png"
+    },
+    {
+      "id": "cfb-87",
+      "externalId": 87,
+      "displayName": "Notre Dame",
+      "abbreviation": "ND",
+      "mascot": "Fighting Irish",
+      "aliases": [
+        "Notre Dame",
+        "ND",
+        "Fighting Irish",
+        "Notre Dame Fighting Irish"
+      ],
+      "conference": "FBS Independents",
+      "color": "#0c2340",
+      "alternateColor": "#c99700",
+      "logoPath": "/teams/cfb/87.png"
+    },
+    {
+      "id": "cfb-195",
+      "externalId": 195,
+      "displayName": "Ohio",
+      "abbreviation": "OHIO",
+      "mascot": "Bobcats",
+      "aliases": [
+        "Ohio",
+        "Bobcats",
+        "Ohio Bobcats"
+      ],
+      "conference": "Mid-American",
+      "color": "#024230",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/195.png"
+    },
+    {
+      "id": "cfb-194",
+      "externalId": 194,
+      "displayName": "Ohio State",
+      "abbreviation": "OSU",
+      "mascot": "Buckeyes",
+      "aliases": [
+        "Ohio State",
+        "OSU",
+        "Buckeyes",
+        "Ohio State Buckeyes"
+      ],
+      "conference": "Big Ten",
+      "color": "#ba0c2f",
+      "alternateColor": "#a7b1b7",
+      "logoPath": "/teams/cfb/194.png"
+    },
+    {
+      "id": "cfb-201",
+      "externalId": 201,
+      "displayName": "Oklahoma",
+      "abbreviation": "OU",
+      "mascot": "Sooners",
+      "aliases": [
+        "Oklahoma",
+        "OU",
+        "Sooners",
+        "Oklahoma Sooners"
+      ],
+      "conference": "SEC",
+      "color": "#841617",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/201.png"
+    },
+    {
+      "id": "cfb-197",
+      "externalId": 197,
+      "displayName": "Oklahoma State",
+      "abbreviation": "OKST",
+      "mascot": "Cowboys",
+      "aliases": [
+        "Oklahoma State",
+        "OKST",
+        "Cowboys",
+        "Oklahoma State Cowboys",
+        "Oklahoma St"
+      ],
+      "conference": "Big 12",
+      "color": "#fe5c00",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/197.png"
+    },
+    {
+      "id": "cfb-295",
+      "externalId": 295,
+      "displayName": "Old Dominion",
+      "abbreviation": "ODU",
+      "mascot": "Monarchs",
+      "aliases": [
+        "Old Dominion",
+        "ODU",
+        "Monarchs",
+        "Old Dominion Monarchs"
+      ],
+      "conference": "Sun Belt",
+      "color": "#043657",
+      "alternateColor": "#98c5ea",
+      "logoPath": "/teams/cfb/295.png"
+    },
+    {
+      "id": "cfb-145",
+      "externalId": 145,
+      "displayName": "Ole Miss",
+      "abbreviation": "MISS",
+      "mascot": "Rebels",
+      "aliases": [
+        "Ole Miss",
+        "MISS",
+        "Rebels",
+        "Ole Miss Rebels"
+      ],
+      "conference": "SEC",
+      "color": "#13294b",
+      "alternateColor": "#cf142b",
+      "logoPath": "/teams/cfb/145.png"
+    },
+    {
+      "id": "cfb-2483",
+      "externalId": 2483,
+      "displayName": "Oregon",
+      "abbreviation": "ORE",
+      "mascot": "Ducks",
+      "aliases": [
+        "Oregon",
+        "ORE",
+        "Ducks",
+        "Oregon Ducks"
+      ],
+      "conference": "Big Ten",
+      "color": "#007030",
+      "alternateColor": "#fee11a",
+      "logoPath": "/teams/cfb/2483.png"
+    },
+    {
+      "id": "cfb-204",
+      "externalId": 204,
+      "displayName": "Oregon State",
+      "abbreviation": "ORST",
+      "mascot": "Beavers",
+      "aliases": [
+        "Oregon State",
+        "ORST",
+        "Beavers",
+        "Oregon State Beavers",
+        "Oregon St"
+      ],
+      "conference": "Pac-12",
+      "color": "#dc4405",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/204.png"
+    },
+    {
+      "id": "cfb-213",
+      "externalId": 213,
+      "displayName": "Penn State",
+      "abbreviation": "PSU",
+      "mascot": "Nittany Lions",
+      "aliases": [
+        "Penn State",
+        "PSU",
+        "Nittany Lions",
+        "Penn State Nittany Lions"
+      ],
+      "conference": "Big Ten",
+      "color": "#001e44",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/213.png"
+    },
+    {
+      "id": "cfb-221",
+      "externalId": 221,
+      "displayName": "Pittsburgh",
+      "abbreviation": "PITT",
+      "mascot": "Panthers",
+      "aliases": [
+        "Pittsburgh",
+        "PITT",
+        "Panthers",
+        "Pittsburgh Panthers"
+      ],
+      "conference": "ACC",
+      "color": "#003594",
+      "alternateColor": "#ffb81c",
+      "logoPath": "/teams/cfb/221.png"
+    },
+    {
+      "id": "cfb-2509",
+      "externalId": 2509,
+      "displayName": "Purdue",
+      "abbreviation": "PUR",
+      "mascot": "Boilermakers",
+      "aliases": [
+        "Purdue",
+        "PUR",
+        "Boilermakers",
+        "Purdue Boilermakers"
+      ],
+      "conference": "Big Ten",
+      "color": "#ceb888",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/2509.png"
+    },
+    {
+      "id": "cfb-242",
+      "externalId": 242,
+      "displayName": "Rice",
+      "abbreviation": "RICE",
+      "mascot": "Owls",
+      "aliases": [
+        "Rice",
+        "Owls",
+        "Rice Owls"
+      ],
+      "conference": "American Athletic",
+      "color": "#00205b",
+      "alternateColor": "#c1c6c8",
+      "logoPath": "/teams/cfb/242.png"
+    },
+    {
+      "id": "cfb-164",
+      "externalId": 164,
+      "displayName": "Rutgers",
+      "abbreviation": "RUTG",
+      "mascot": "Scarlet Knights",
+      "aliases": [
+        "Rutgers",
+        "RUTG",
+        "Scarlet Knights",
+        "Rutgers Scarlet Knights"
+      ],
+      "conference": "Big Ten",
+      "color": "#ce0e2d",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/164.png"
+    },
+    {
+      "id": "cfb-16",
+      "externalId": 16,
+      "displayName": "Sacramento State",
+      "abbreviation": "SAC",
+      "mascot": "Hornets",
+      "aliases": [
+        "Sacramento State",
+        "SAC",
+        "Hornets",
+        "Sacramento State Hornets",
+        "Cal State Sacramento",
+        "Sacramento St"
+      ],
+      "conference": "Mid-American",
+      "color": "#00573c",
+      "alternateColor": "#cdb97d",
+      "logoPath": "/teams/cfb/16.png"
+    },
+    {
+      "id": "cfb-2534",
+      "externalId": 2534,
+      "displayName": "Sam Houston",
+      "abbreviation": "SHSU",
+      "mascot": "Bearkats",
+      "aliases": [
+        "Sam Houston",
+        "SHSU",
+        "Bearkats",
+        "Sam Houston Bearkats",
+        "Sam Houston State"
+      ],
+      "conference": "Conference USA",
+      "color": "#f56423",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2534.png"
+    },
+    {
+      "id": "cfb-21",
+      "externalId": 21,
+      "displayName": "San Diego State",
+      "abbreviation": "SDSU",
+      "mascot": "Aztecs",
+      "aliases": [
+        "San Diego State",
+        "SDSU",
+        "Aztecs",
+        "San Diego State Aztecs",
+        "San Diego St"
+      ],
+      "conference": "Pac-12",
+      "color": "#a6192e",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/21.png"
+    },
+    {
+      "id": "cfb-23",
+      "externalId": 23,
+      "displayName": "San José State",
+      "abbreviation": "SJSU",
+      "mascot": "Spartans",
+      "aliases": [
+        "San José State",
+        "SJSU",
+        "Spartans",
+        "San José State Spartans",
+        "San Jose St.",
+        "San José St"
+      ],
+      "conference": "Mountain West",
+      "color": "#0055a2",
+      "alternateColor": "#e5a823",
+      "logoPath": "/teams/cfb/23.png"
+    },
+    {
+      "id": "cfb-2567",
+      "externalId": 2567,
+      "displayName": "SMU",
+      "abbreviation": "SMU",
+      "mascot": "Mustangs",
+      "aliases": [
+        "SMU",
+        "Mustangs",
+        "SMU Mustangs",
+        "Southern Methodist"
+      ],
+      "conference": "ACC",
+      "color": "#d70000",
+      "alternateColor": "#0033a1",
+      "logoPath": "/teams/cfb/2567.png"
+    },
+    {
+      "id": "cfb-6",
+      "externalId": 6,
+      "displayName": "South Alabama",
+      "abbreviation": "USA",
+      "mascot": "Jaguars",
+      "aliases": [
+        "South Alabama",
+        "USA",
+        "Jaguars",
+        "South Alabama Jaguars"
+      ],
+      "conference": "Sun Belt",
+      "color": "#00205b",
+      "alternateColor": "#bf0d3e",
+      "logoPath": "/teams/cfb/6.png"
+    },
+    {
+      "id": "cfb-2579",
+      "externalId": 2579,
+      "displayName": "South Carolina",
+      "abbreviation": "SC",
+      "mascot": "Gamecocks",
+      "aliases": [
+        "South Carolina",
+        "SC",
+        "Gamecocks",
+        "South Carolina Gamecocks"
+      ],
+      "conference": "SEC",
+      "color": "#73000a",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/2579.png"
+    },
+    {
+      "id": "cfb-58",
+      "externalId": 58,
+      "displayName": "South Florida",
+      "abbreviation": "USF",
+      "mascot": "Bulls",
+      "aliases": [
+        "South Florida",
+        "USF",
+        "Bulls",
+        "South Florida Bulls"
+      ],
+      "conference": "American Athletic",
+      "color": "#006747",
+      "alternateColor": "#cfc493",
+      "logoPath": "/teams/cfb/58.png"
+    },
+    {
+      "id": "cfb-2572",
+      "externalId": 2572,
+      "displayName": "Southern Miss",
+      "abbreviation": "USM",
+      "mascot": "Golden Eagles",
+      "aliases": [
+        "Southern Miss",
+        "USM",
+        "Golden Eagles",
+        "Southern Miss Golden Eagles",
+        "Southern Mississippi"
+      ],
+      "conference": "Sun Belt",
+      "color": "#ffc72c",
+      "alternateColor": "#231f20",
+      "logoPath": "/teams/cfb/2572.png"
+    },
+    {
+      "id": "cfb-24",
+      "externalId": 24,
+      "displayName": "Stanford",
+      "abbreviation": "STAN",
+      "mascot": "Cardinal",
+      "aliases": [
+        "Stanford",
+        "STAN",
+        "Cardinal",
+        "Stanford Cardinal"
+      ],
+      "conference": "ACC",
+      "color": "#8c1515",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/24.png"
+    },
+    {
+      "id": "cfb-183",
+      "externalId": 183,
+      "displayName": "Syracuse",
+      "abbreviation": "SYR",
+      "mascot": "Orange",
+      "aliases": [
+        "Syracuse",
+        "SYR",
+        "Orange",
+        "Syracuse Orange"
+      ],
+      "conference": "ACC",
+      "color": "#f76900",
+      "alternateColor": "#000e54",
+      "logoPath": "/teams/cfb/183.png"
+    },
+    {
+      "id": "cfb-2628",
+      "externalId": 2628,
+      "displayName": "TCU",
+      "abbreviation": "TCU",
+      "mascot": "Horned Frogs",
+      "aliases": [
+        "TCU",
+        "Horned Frogs",
+        "TCU Horned Frogs",
+        "Texas Christian"
+      ],
+      "conference": "Big 12",
+      "color": "#4d1979",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2628.png"
+    },
+    {
+      "id": "cfb-218",
+      "externalId": 218,
+      "displayName": "Temple",
+      "abbreviation": "TEM",
+      "mascot": "Owls",
+      "aliases": [
+        "Temple",
+        "TEM",
+        "Owls",
+        "Temple Owls"
+      ],
+      "conference": "American Athletic",
+      "color": "#a41e35",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/218.png"
+    },
+    {
+      "id": "cfb-2633",
+      "externalId": 2633,
+      "displayName": "Tennessee",
+      "abbreviation": "TENN",
+      "mascot": "Volunteers",
+      "aliases": [
+        "Tennessee",
+        "TENN",
+        "Volunteers",
+        "Tennessee Volunteers"
+      ],
+      "conference": "SEC",
+      "color": "#ff8200",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/2633.png"
+    },
+    {
+      "id": "cfb-251",
+      "externalId": 251,
+      "displayName": "Texas",
+      "abbreviation": "TEX",
+      "mascot": "Longhorns",
+      "aliases": [
+        "Texas",
+        "TEX",
+        "Longhorns",
+        "Texas Longhorns"
+      ],
+      "conference": "SEC",
+      "color": "#bf5700",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/251.png"
+    },
+    {
+      "id": "cfb-245",
+      "externalId": 245,
+      "displayName": "Texas A&M",
+      "abbreviation": "TA&M",
+      "mascot": "Aggies",
+      "aliases": [
+        "Texas A&M",
+        "TA&M",
+        "Aggies",
+        "Texas A&M Aggies"
+      ],
+      "conference": "SEC",
+      "color": "#500000",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/245.png"
+    },
+    {
+      "id": "cfb-326",
+      "externalId": 326,
+      "displayName": "Texas State",
+      "abbreviation": "TXST",
+      "mascot": "Bobcats",
+      "aliases": [
+        "Texas State",
+        "TXST",
+        "Bobcats",
+        "Texas State Bobcats",
+        "Texas St"
+      ],
+      "conference": "Pac-12",
+      "color": "#501214",
+      "alternateColor": "#6a5638",
+      "logoPath": "/teams/cfb/326.png"
+    },
+    {
+      "id": "cfb-2641",
+      "externalId": 2641,
+      "displayName": "Texas Tech",
+      "abbreviation": "TTU",
+      "mascot": "Red Raiders",
+      "aliases": [
+        "Texas Tech",
+        "TTU",
+        "Red Raiders",
+        "Texas Tech Red Raiders"
+      ],
+      "conference": "Big 12",
+      "color": "#c30020",
+      "alternateColor": "#000000",
+      "logoPath": "/teams/cfb/2641.png"
+    },
+    {
+      "id": "cfb-2649",
+      "externalId": 2649,
+      "displayName": "Toledo",
+      "abbreviation": "TOL",
+      "mascot": "Rockets",
+      "aliases": [
+        "Toledo",
+        "TOL",
+        "Rockets",
+        "Toledo Rockets"
+      ],
+      "conference": "Mid-American",
+      "color": "#0b2240",
+      "alternateColor": "#ffcd00",
+      "logoPath": "/teams/cfb/2649.png"
+    },
+    {
+      "id": "cfb-2653",
+      "externalId": 2653,
+      "displayName": "Troy",
+      "abbreviation": "TROY",
+      "mascot": "Trojans",
+      "aliases": [
+        "Troy",
+        "Trojans",
+        "Troy Trojans"
+      ],
+      "conference": "Sun Belt",
+      "color": "#862633",
+      "alternateColor": "#b1b1b1",
+      "logoPath": "/teams/cfb/2653.png"
+    },
+    {
+      "id": "cfb-2655",
+      "externalId": 2655,
+      "displayName": "Tulane",
+      "abbreviation": "TULN",
+      "mascot": "Green Wave",
+      "aliases": [
+        "Tulane",
+        "TULN",
+        "Green Wave",
+        "Tulane Green Wave"
+      ],
+      "conference": "American Athletic",
+      "color": "#006747",
+      "alternateColor": "#418fde",
+      "logoPath": "/teams/cfb/2655.png"
+    },
+    {
+      "id": "cfb-202",
+      "externalId": 202,
+      "displayName": "Tulsa",
+      "abbreviation": "TLSA",
+      "mascot": "Golden Hurricane",
+      "aliases": [
+        "Tulsa",
+        "TLSA",
+        "Golden Hurricane",
+        "Tulsa Golden Hurricane"
+      ],
+      "conference": "American Athletic",
+      "color": "#003595",
+      "alternateColor": "#d0b787",
+      "logoPath": "/teams/cfb/202.png"
+    },
+    {
+      "id": "cfb-5",
+      "externalId": 5,
+      "displayName": "UAB",
+      "abbreviation": "UAB",
+      "mascot": "Blazers",
+      "aliases": [
+        "UAB",
+        "Blazers",
+        "UAB Blazers",
+        "Alabama-Birmingham"
+      ],
+      "conference": "American Athletic",
+      "color": "#1a5632",
+      "alternateColor": "#fdb913",
+      "logoPath": "/teams/cfb/5.png"
+    },
+    {
+      "id": "cfb-2116",
+      "externalId": 2116,
+      "displayName": "UCF",
+      "abbreviation": "UCF",
+      "mascot": "Knights",
+      "aliases": [
+        "UCF",
+        "Knights",
+        "UCF Knights",
+        "Central Florida"
+      ],
+      "conference": "Big 12",
+      "color": "#000000",
+      "alternateColor": "#b4a169",
+      "logoPath": "/teams/cfb/2116.png"
+    },
+    {
+      "id": "cfb-26",
+      "externalId": 26,
+      "displayName": "UCLA",
+      "abbreviation": "UCLA",
+      "mascot": "Bruins",
+      "aliases": [
+        "UCLA",
+        "Bruins",
+        "UCLA Bruins"
+      ],
+      "conference": "Big Ten",
+      "color": "#2774ae",
+      "alternateColor": "#f2a900",
+      "logoPath": "/teams/cfb/26.png"
+    },
+    {
+      "id": "cfb-41",
+      "externalId": 41,
+      "displayName": "UConn",
+      "abbreviation": "CONN",
+      "mascot": "Huskies",
+      "aliases": [
+        "UConn",
+        "CONN",
+        "Huskies",
+        "UConn Huskies",
+        "Connecticut"
+      ],
+      "conference": "FBS Independents",
+      "color": "#000e2f",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/41.png"
+    },
+    {
+      "id": "cfb-2433",
+      "externalId": 2433,
+      "displayName": "UL Monroe",
+      "abbreviation": "ULM",
+      "mascot": "Warhawks",
+      "aliases": [
+        "UL Monroe",
+        "ULM",
+        "Warhawks",
+        "UL Monroe Warhawks",
+        "La.-Monroe"
+      ],
+      "conference": "Sun Belt",
+      "color": "#840029",
+      "alternateColor": "#fdb913",
+      "logoPath": "/teams/cfb/2433.png"
+    },
+    {
+      "id": "cfb-2439",
+      "externalId": 2439,
+      "displayName": "UNLV",
+      "abbreviation": "UNLV",
+      "mascot": "Rebels",
+      "aliases": [
+        "UNLV",
+        "Rebels",
+        "UNLV Rebels",
+        "Nevada-Las Vegas"
+      ],
+      "conference": "Mountain West",
+      "color": "#cf0a2c",
+      "alternateColor": "#cac8c8",
+      "logoPath": "/teams/cfb/2439.png"
+    },
+    {
+      "id": "cfb-30",
+      "externalId": 30,
+      "displayName": "USC",
+      "abbreviation": "USC",
+      "mascot": "Trojans",
+      "aliases": [
+        "USC",
+        "Trojans",
+        "USC Trojans"
+      ],
+      "conference": "Big Ten",
+      "color": "#990000",
+      "alternateColor": "#ffcc00",
+      "logoPath": "/teams/cfb/30.png"
+    },
+    {
+      "id": "cfb-254",
+      "externalId": 254,
+      "displayName": "Utah",
+      "abbreviation": "UTAH",
+      "mascot": "Utes",
+      "aliases": [
+        "Utah",
+        "Utes",
+        "Utah Utes"
+      ],
+      "conference": "Big 12",
+      "color": "#be0000",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/254.png"
+    },
+    {
+      "id": "cfb-328",
+      "externalId": 328,
+      "displayName": "Utah State",
+      "abbreviation": "USU",
+      "mascot": "Aggies",
+      "aliases": [
+        "Utah State",
+        "USU",
+        "Aggies",
+        "Utah State Aggies"
+      ],
+      "conference": "Pac-12",
+      "color": "#0f2439",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/328.png"
+    },
+    {
+      "id": "cfb-2638",
+      "externalId": 2638,
+      "displayName": "UTEP",
+      "abbreviation": "UTEP",
+      "mascot": "Miners",
+      "aliases": [
+        "UTEP",
+        "Miners",
+        "UTEP Miners",
+        "Texas-El Paso"
+      ],
+      "conference": "Mountain West",
+      "color": "#ff8200",
+      "alternateColor": "#041e42",
+      "logoPath": "/teams/cfb/2638.png"
+    },
+    {
+      "id": "cfb-2636",
+      "externalId": 2636,
+      "displayName": "UTSA",
+      "abbreviation": "UTSA",
+      "mascot": "Roadrunners",
+      "aliases": [
+        "UTSA",
+        "Roadrunners",
+        "UTSA Roadrunners",
+        "Texas-San Antonio"
+      ],
+      "conference": "American Athletic",
+      "color": "#0c2340",
+      "alternateColor": "#f15a22",
+      "logoPath": "/teams/cfb/2636.png"
+    },
+    {
+      "id": "cfb-238",
+      "externalId": 238,
+      "displayName": "Vanderbilt",
+      "abbreviation": "VAN",
+      "mascot": "Commodores",
+      "aliases": [
+        "Vanderbilt",
+        "VAN",
+        "Commodores",
+        "Vanderbilt Commodores"
+      ],
+      "conference": "SEC",
+      "color": "#000000",
+      "alternateColor": "#cfae70",
+      "logoPath": "/teams/cfb/238.png"
+    },
+    {
+      "id": "cfb-258",
+      "externalId": 258,
+      "displayName": "Virginia",
+      "abbreviation": "UVA",
+      "mascot": "Cavaliers",
+      "aliases": [
+        "Virginia",
+        "UVA",
+        "Cavaliers",
+        "Virginia Cavaliers"
+      ],
+      "conference": "ACC",
+      "color": "#232d4b",
+      "alternateColor": "#f84c1e",
+      "logoPath": "/teams/cfb/258.png"
+    },
+    {
+      "id": "cfb-259",
+      "externalId": 259,
+      "displayName": "Virginia Tech",
+      "abbreviation": "VT",
+      "mascot": "Hokies",
+      "aliases": [
+        "Virginia Tech",
+        "VT",
+        "Hokies",
+        "Virginia Tech Hokies"
+      ],
+      "conference": "ACC",
+      "color": "#861f41",
+      "alternateColor": "#e87722",
+      "logoPath": "/teams/cfb/259.png"
+    },
+    {
+      "id": "cfb-154",
+      "externalId": 154,
+      "displayName": "Wake Forest",
+      "abbreviation": "WAKE",
+      "mascot": "Demon Deacons",
+      "aliases": [
+        "Wake Forest",
+        "WAKE",
+        "Demon Deacons",
+        "Wake Forest Demon Deacons"
+      ],
+      "conference": "ACC",
+      "color": "#ceb888",
+      "alternateColor": "#2c2a29",
+      "logoPath": "/teams/cfb/154.png"
+    },
+    {
+      "id": "cfb-264",
+      "externalId": 264,
+      "displayName": "Washington",
+      "abbreviation": "WASH",
+      "mascot": "Huskies",
+      "aliases": [
+        "Washington",
+        "WASH",
+        "Huskies",
+        "Washington Huskies"
+      ],
+      "conference": "Big Ten",
+      "color": "#33006f",
+      "alternateColor": "#e8d3a2",
+      "logoPath": "/teams/cfb/264.png"
+    },
+    {
+      "id": "cfb-265",
+      "externalId": 265,
+      "displayName": "Washington State",
+      "abbreviation": "WSU",
+      "mascot": "Cougars",
+      "aliases": [
+        "Washington State",
+        "WSU",
+        "Cougars",
+        "Washington State Cougars",
+        "Washington St"
+      ],
+      "conference": "Pac-12",
+      "color": "#a60f2d",
+      "alternateColor": "#4d4d4d",
+      "logoPath": "/teams/cfb/265.png"
+    },
+    {
+      "id": "cfb-277",
+      "externalId": 277,
+      "displayName": "West Virginia",
+      "abbreviation": "WVU",
+      "mascot": "Mountaineers",
+      "aliases": [
+        "West Virginia",
+        "WVU",
+        "Mountaineers",
+        "West Virginia Mountaineers"
+      ],
+      "conference": "Big 12",
+      "color": "#eaaa00",
+      "alternateColor": "#002855",
+      "logoPath": "/teams/cfb/277.png"
+    },
+    {
+      "id": "cfb-98",
+      "externalId": 98,
+      "displayName": "Western Kentucky",
+      "abbreviation": "WKU",
+      "mascot": "Hilltoppers",
+      "aliases": [
+        "Western Kentucky",
+        "WKU",
+        "Hilltoppers",
+        "Western Kentucky Hilltoppers",
+        "Western KY"
+      ],
+      "conference": "Conference USA",
+      "color": "#c60c30",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/98.png"
+    },
+    {
+      "id": "cfb-2711",
+      "externalId": 2711,
+      "displayName": "Western Michigan",
+      "abbreviation": "WMU",
+      "mascot": "Broncos",
+      "aliases": [
+        "Western Michigan",
+        "WMU",
+        "Broncos",
+        "Western Michigan Broncos",
+        "W Michigan"
+      ],
+      "conference": "Mid-American",
+      "color": "#532e1f",
+      "alternateColor": "#f1c500",
+      "logoPath": "/teams/cfb/2711.png"
+    },
+    {
+      "id": "cfb-275",
+      "externalId": 275,
+      "displayName": "Wisconsin",
+      "abbreviation": "WIS",
+      "mascot": "Badgers",
+      "aliases": [
+        "Wisconsin",
+        "WIS",
+        "Badgers",
+        "Wisconsin Badgers"
+      ],
+      "conference": "Big Ten",
+      "color": "#a00000",
+      "alternateColor": "#ffffff",
+      "logoPath": "/teams/cfb/275.png"
+    },
+    {
+      "id": "cfb-2751",
+      "externalId": 2751,
+      "displayName": "Wyoming",
+      "abbreviation": "WYO",
+      "mascot": "Cowboys",
+      "aliases": [
+        "Wyoming",
+        "WYO",
+        "Cowboys",
+        "Wyoming Cowboys"
+      ],
+      "conference": "Mountain West",
+      "color": "#492f24",
+      "alternateColor": "#ffc425",
+      "logoPath": "/teams/cfb/2751.png"
+    }
+  ]
+}

@@ -128,6 +128,11 @@ slate. CFB games appear once and can be filtered by either team's conference. Sh
 weekly summaries from the existing graded-game responses; an unavailable CFB result set renders an empty state until
 the first games are graded. NFL methodology and live model graphics are available on separate nested routes.
 
+Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
+YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,
+and caches its logos under `frontend/public/teams/cfb/`. `make sync-nfl-teams` mirrors the nflverse/ESPN logo metadata
+already used by the NFL notebook. `make sync-football-teams YEAR=2026` refreshes both catalogs.
+
 ## Local Development
 
 Run the backend directly:

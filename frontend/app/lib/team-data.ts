@@ -1,4 +1,6 @@
 import type { ExpectedPointsPick, FootballLeague } from "@/app/types/types";
+import cfbTeamsData from "@/app/generated/cfb-teams.json";
+import nflTeamsData from "@/app/generated/nfl-teams.json";
 
 export type TeamIdentity = {
   id: string;
@@ -7,7 +9,14 @@ export type TeamIdentity = {
   abbreviation: string;
   aliases: string[];
   logoPath?: string;
+  externalId?: number;
+  mascot?: string;
+  conference?: string;
+  color?: string;
+  alternateColor?: string;
 };
+
+type GeneratedTeam = Omit<TeamIdentity, "league">;
 
 type TeamSeed = [id: string, displayName: string, abbreviation: string, aliases: string[]];
 
@@ -46,9 +55,6 @@ const nflTeamSeeds: TeamSeed[] = [
   ["was", "Washington Commanders", "WAS", ["Washington", "Commanders"]],
 ];
 
-// Add IDs here as approved assets are placed under public/teams/nfl.
-const availableNflLogos = new Set<string>();
-
 function normalize(value: string): string {
   return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -63,23 +69,41 @@ function fallbackAbbreviation(value: string): string {
   return (words[0] ?? "TEAM").slice(0, 4).toUpperCase();
 }
 
-export const NFL_TEAM_MANIFEST: TeamIdentity[] = nflTeamSeeds.map(([id, displayName, abbreviation, aliases]) => ({
-  id,
-  league: "nfl",
-  displayName,
-  abbreviation,
-  aliases,
-  logoPath: availableNflLogos.has(id) ? `/teams/nfl/${id}.svg` : undefined,
+const generatedNflTeams = (nflTeamsData.teams as GeneratedTeam[]).map((team) => ({ ...team, league: "nfl" as const }));
+
+export const NFL_TEAM_MANIFEST: TeamIdentity[] = nflTeamSeeds.map(([id, displayName, abbreviation, aliases]) => {
+  const generated = generatedNflTeams.find((team) => normalize(team.abbreviation) === normalize(abbreviation));
+  return {
+    id,
+    league: "nfl",
+    displayName,
+    abbreviation,
+    aliases: [...new Set([...aliases, ...(generated?.aliases ?? [])])],
+    logoPath: generated?.logoPath,
+    conference: generated?.conference,
+    color: generated?.color,
+    alternateColor: generated?.alternateColor,
+  };
+});
+
+export const CFB_TEAM_MANIFEST: TeamIdentity[] = (cfbTeamsData.teams as GeneratedTeam[]).map((team) => ({
+  ...team,
+  league: "cfb",
+  abbreviation: team.abbreviation || fallbackAbbreviation(team.displayName),
 }));
 
+const teamManifests: Record<FootballLeague, TeamIdentity[]> = {
+  nfl: NFL_TEAM_MANIFEST,
+  cfb: CFB_TEAM_MANIFEST,
+};
+
 export function getTeamIdentity(name: string, league: FootballLeague): TeamIdentity {
-  if (league === "nfl") {
-    const needle = normalize(name);
-    const match = NFL_TEAM_MANIFEST.find((team) =>
-      [team.id, team.displayName, team.abbreviation, ...team.aliases].some((value) => normalize(value) === needle),
-    );
-    if (match) return match;
-  }
+  const needle = normalize(name);
+  const match = teamManifests[league].find((team) =>
+    [team.id, team.displayName, team.abbreviation, team.mascot ?? "", ...team.aliases]
+      .some((value) => normalize(value) === needle),
+  );
+  if (match) return match;
 
   const id = slugify(name);
   return {
@@ -103,7 +127,13 @@ export function getSlateTeams(games: ExpectedPointsPick[], league: FootballLeagu
 }
 
 export function teamSearchText(team: TeamIdentity): string {
-  return normalize([team.displayName, team.abbreviation, ...team.aliases].join(" "));
+  return normalize([
+    team.displayName,
+    team.abbreviation,
+    team.mascot,
+    team.conference,
+    ...team.aliases,
+  ].filter(Boolean).join(" "));
 }
 
 export function normalizedSearch(value: string): string {

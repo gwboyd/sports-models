@@ -78,9 +78,30 @@ table; mobile uses expandable game cards. CFB games appear once and can be filte
 Favorites are device-local and stored under `sports-models:favorites:v1`, separated by league. Search covers the
 current league slate and matches team names, abbreviations, aliases, and CFB conferences.
 
-Team identity metadata lives in `app/lib/team-data.ts`. Approved assets should be added as SVG or transparent PNG
-files under `public/teams/<league>/` and enabled in the manifest. Until an asset is approved, the shared team component
-renders a monogram fallback without making an external image request.
+Team metadata is generated into `app/generated/cfb-teams.json` and `app/generated/nfl-teams.json`; the shared resolver
+in `app/lib/team-data.ts` consumes those files at build time. Logo images are cached under
+`public/teams/<league>/`, so browsers never need to call CFBD, nflverse, or ESPN. Unmatched feed names and unavailable
+assets retain the monogram fallback.
+
+Refresh the 2026 CFB catalog from the repository root with:
+
+```shell
+make sync-cfb-teams YEAR=2026
+```
+
+The target loads `CFBD_API_KEY` from the root `.env`, calls the FBS teams endpoint, selects the standard 128px logo
+when available, and atomically rewrites the deterministic manifest after caching the images. The bearer token is not
+written into generated output. NFL uses the same logo source already consumed by the model notebook
+(`nfl_data_py.import_team_desc()` / nflverse):
+
+```shell
+make sync-nfl-teams
+make sync-football-teams YEAR=2026
+```
+
+Commit changed manifests and logo assets after reviewing them. Re-running a sync is safe; unchanged manifests are not
+rewritten, transient logo failures retain an existing cached file, and no account or runtime API credential is exposed
+to the frontend.
 
 The results routes use the existing pick-results responses. They calculate season-specific summaries from graded game
 rows, keep the selected season in `?season=`, and show a designed empty state when results are not available. The NFL

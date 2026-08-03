@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/app/components/Input";
 import { TeamIdentity } from "@/app/components/TeamIdentity";
 import { displayProbability, formatKickoff, formatUpdatedAt } from "@/app/lib/formatting";
-import { getSlateTeams, getTeamIdentity, NFL_TEAM_MANIFEST, normalizedSearch, teamSearchText } from "@/app/lib/team-data";
+import { CFB_TEAM_MANIFEST, getSlateTeams, getTeamIdentity, NFL_TEAM_MANIFEST, normalizedSearch, teamSearchText } from "@/app/lib/team-data";
 import type { ExpectedPointsPick, FootballLeague } from "@/app/types/types";
 import { OverlayPanel } from "./OverlayPanel";
 import {
@@ -165,7 +165,8 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
 
   const slateTeams = useMemo(() => getSlateTeams(games, league), [games, league]);
   const managerTeams = useMemo(() => {
-    const teams = new Map((league === "nfl" ? NFL_TEAM_MANIFEST : []).map((team) => [team.id, team]));
+    const manifest = league === "nfl" ? NFL_TEAM_MANIFEST : CFB_TEAM_MANIFEST;
+    const teams = new Map(manifest.map((team) => [team.id, team]));
     for (const team of slateTeams) teams.set(team.id, team);
     return [...teams.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [league, slateTeams]);
