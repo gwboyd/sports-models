@@ -1,3 +1,6 @@
+"use client";
+/* eslint-disable react-hooks/incompatible-library */
+
 import type {
   ColumnDef,
   RowData,
@@ -25,7 +28,7 @@ export function Table<TData>({
   stickyHeader = false,
   meta,
 }: {
-  columns: ColumnDef<TData, any>[];
+  columns: ColumnDef<TData>[];
   data: TData[];
   stickyHeader?: boolean;
   meta?: TableMeta<TData>;

@@ -1,3 +1,7 @@
+"use client";
+
+import type { InputHTMLAttributes } from "react";
+
 export const Input = ({
   value,
   onChange,
@@ -7,7 +11,7 @@ export const Input = ({
   value: string | number;
   onChange: (value: string | number) => void;
   className?: string;
-} & React.InputHTMLAttributes<HTMLInputElement>) => {
+} & InputHTMLAttributes<HTMLInputElement>) => {
   return (
     <input
       value={value}
