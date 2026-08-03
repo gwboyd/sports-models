@@ -19,11 +19,11 @@ export function RouteErrorBoundary({
   }
 
   return (
-    <div className="overflow-y-auto flex flex-col gap-4 p-6 pb-36 lg:pb-24 lg:px-12">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-12 sm:px-6 lg:px-8">
       <Card title={`${sport} Data Unavailable`}>
         <div className="flex flex-col gap-3">
-          <p className="text-red-400 font-medium">{message}</p>
-          <p className="text-gray-400">{details}</p>
+          <p className="font-medium text-[var(--danger)]">{message}</p>
+          <p className="text-[var(--muted)]">{details}</p>
           <button
             onClick={() => {
               if (reset) {
@@ -32,7 +32,7 @@ export function RouteErrorBoundary({
                 window.location.reload();
               }
             }}
-            className="self-start px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+            className="min-h-11 self-start rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700"
           >
             Try Again
           </button>

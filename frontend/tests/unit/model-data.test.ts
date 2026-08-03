@@ -80,7 +80,7 @@ describe("model data preparation", () => {
     expect(picks.map((pick) => pick.sportsbook)).toEqual(["Zulu", "Alpha"]);
   });
 
-  it("groups CFB games in display order and duplicates cross-conference games", () => {
+  it("keeps CFB games unique and retains locks for the shared game view", () => {
     const sameConference: CFBPick = {
       ...baseCfbPick,
       game_id: "sec-game",
@@ -103,26 +103,13 @@ describe("model data preparation", () => {
     };
 
     const prepared = prepareCfbData([otherConference, crossConference, sameConference]);
-    const groups = Object.fromEntries(
-      prepared.conferenceGroups.map((group) => [
-        group.conference,
-        group.games.map((game) => game.game_id),
-      ]),
-    );
 
     expect(prepared.data.map((game) => game.game_id)).toEqual([
       "sec-game",
       "cross-game",
       "other-game",
     ]);
-    expect(prepared.conferenceGroups.map((group) => group.conference)).toEqual([
-      "SEC",
-      "BIG 10",
-      "Others",
-    ]);
-    expect(groups.SEC).toEqual(["sec-game", "cross-game"]);
-    expect(groups["BIG 10"]).toEqual(["cross-game"]);
-    expect(groups.Others).toEqual(["other-game", "other-game"]);
+    expect(new Set(prepared.data.map((game) => game.game_id)).size).toBe(3);
     expect(prepared.spreadLocks.map((game) => game.game_id)).toEqual(["cross-game"]);
   });
 

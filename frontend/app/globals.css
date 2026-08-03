@@ -3,18 +3,66 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --canvas: #f5f7fa;
+    --surface: #ffffff;
+    --surface-subtle: #f8fafc;
+    --ink: #172033;
+    --muted: #667085;
+    --border: #e4e7ec;
+    --accent: #315efb;
+    --accent-soft: #eef3ff;
+    --success: #18794e;
+    --danger: #b42318;
+    --warning: #9a6700;
+  }
+
+  html {
+    min-height: 100%;
+    background: var(--canvas);
+  }
+
   body {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    background-color: rgb(24 32 43);
+    min-height: 100dvh;
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
   }
+
   * {
+    box-sizing: border-box;
     scrollbar-width: thin;
-    scrollbar-color: rgba(55, 65, 81, 0.8) rgba(31, 41, 55, 0.5);
+    scrollbar-color: #c7ced8 transparent;
   }
-  :has(> table) {
-    overscroll-behavior: none;
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 3px solid rgba(49, 94, 251, 0.28);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .numbers-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

@@ -60,9 +60,31 @@ Next.js 16 requires Node.js `20.9` or newer.
 Useful routes:
 
 - `http://127.0.0.1:5173/models/nfl`
+- `http://127.0.0.1:5173/models/nfl/results`
+- `http://127.0.0.1:5173/models/nfl/how-it-works`
+- `http://127.0.0.1:5173/models/nfl/insights`
 - `http://127.0.0.1:5173/models/cfb`
+- `http://127.0.0.1:5173/models/cfb/results`
 - `http://127.0.0.1:5173/models/nba?bankroll=500`
-- `http://127.0.0.1:5173/models/info`
+
+`/models/info` is retained as a redirect to `/models/nfl/how-it-works`.
+
+## Football UI
+
+NFL and CFB share a mobile-first expected-points dashboard. Each slate is presented by game, with favorites first,
+separate spread/total lock cards second, and the full chronological game list last. Desktop uses a semantic game
+table; mobile uses expandable game cards. CFB games appear once and can be filtered by either team's conference.
+
+Favorites are device-local and stored under `sports-models:favorites:v1`, separated by league. Search covers the
+current league slate and matches team names, abbreviations, aliases, and CFB conferences.
+
+Team identity metadata lives in `app/lib/team-data.ts`. Approved assets should be added as SVG or transparent PNG
+files under `public/teams/<league>/` and enabled in the manifest. Until an asset is approved, the shared team component
+renders a monogram fallback without making an external image request.
+
+The results routes use the existing pick-results responses. They calculate season-specific summaries from graded game
+rows, keep the selected season in `?season=`, and show a designed empty state when results are not available. The NFL
+visitor explainer is maintained separately from developer documentation in `content/nfl-how-it-works.md`.
 
 ## Checks
 
@@ -99,6 +121,5 @@ Keep `frontend` as the Vercel project root and allow Vercel to detect Next.js. S
 NFL, CFB, and NBA pages render at request time while their backend data is cached for
 five minutes. This keeps deployments independent of backend availability.
 
-The CFB page lists spread and total locks before rendering non-empty conference sections in the configured order.
-A cross-conference game is included in both sections; missing and unrecognized conference names are grouped under
-`Others`. CFB results are not requested or displayed during the model's first season before graded data exists.
+The CFB games page fetches the current slate only. Its results route handles a missing result set as an empty state,
+allowing the first season to launch before graded data exists.

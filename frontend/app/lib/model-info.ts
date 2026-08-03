@@ -4,7 +4,7 @@ import path from "node:path";
 
 const README_PATH = path.resolve(
   process.cwd(),
-  "../src/sports/football/nfl/expected_points/README.md",
+  "content/nfl-how-it-works.md",
 );
 
 export function getModelInfoMarkdown() {

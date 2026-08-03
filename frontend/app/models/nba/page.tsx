@@ -10,7 +10,7 @@ export default async function NbaModelPage() {
   const picks = prepareNbaData(await fetchApi<NBAFirstBasketPick[]>(NBA_FIRST_BASKET_PICKS_KEY));
 
   return (
-    <Suspense fallback={<div className="overflow-y-auto flex flex-col gap-4 p-6 pb-28 lg:pb-24 lg:px-12">Loading model data…</div>}>
+    <Suspense fallback={<div className="mx-auto w-full max-w-7xl px-4 py-8 text-[var(--muted)] sm:px-6 lg:px-8">Loading model data…</div>}>
       <NbaModelClient picks={picks} />
     </Suspense>
   );

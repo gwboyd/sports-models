@@ -1,5 +1,8 @@
 # NFL Expected Points Model
 
+The visitor-facing, copyedited explanation rendered by the frontend is maintained in
+`frontend/content/nfl-how-it-works.md`. This README remains the source for developer and operational workflow details.
+
 The model predicts **expected points scored** for each NFL team in a game, getting to a predicted score from which a spread and total can be derived. We then compare those spreads and totals to the Vegas prices to make the picks each week. 
 
 Metrics derived from play by play data is used starting from 2010 to now. EPA (expected points added) Per Play and Success Rate are the features the model has found the most useful to predict outcomes, but other features like staring quarterback QBR, days of rest, and the Vegas odds themselves are used.

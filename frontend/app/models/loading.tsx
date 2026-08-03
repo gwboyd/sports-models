@@ -1,8 +1,8 @@
 export default function ModelsLoading() {
   return (
-    <div aria-live="polite" className="overflow-y-auto flex flex-col gap-4 p-6 pb-28 lg:pb-24 lg:px-12 opacity-60">
-      <div className="h-8 w-48 rounded bg-gray-800" />
-      <div className="h-36 rounded bg-gray-800" />
+    <div aria-live="polite" className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-8 opacity-60 sm:px-6 lg:px-8">
+      <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-200" />
+      <div className="h-36 animate-pulse rounded-2xl bg-slate-200" />
       <span className="sr-only">Loading model data…</span>
     </div>
   );

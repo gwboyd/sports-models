@@ -1,0 +1,22 @@
+import type { Metadata } from "next";
+import Markdown from "react-markdown";
+import { getModelInfoMarkdown } from "@/app/lib/model-info";
+
+export const metadata: Metadata = { title: "How the NFL Model Works" };
+
+export default async function HowItWorksPage() {
+  const content = await getModelInfoMarkdown();
+  return (
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 pb-20 sm:px-6 sm:py-10 lg:px-8">
+      <article className="rounded-2xl border border-[var(--border)] bg-white px-5 py-7 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-10 sm:py-10">
+        <Markdown components={{
+          h1: ({ children }) => <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl">{children}</h1>,
+          h2: ({ children }) => <h2 className="mt-10 border-t border-[var(--border)] pt-8 text-2xl font-semibold tracking-tight text-[var(--ink)]">{children}</h2>,
+          p: ({ children }) => <p className="mt-4 text-[15px] leading-7 text-[var(--muted)] sm:text-base">{children}</p>,
+          ul: ({ children }) => <ul className="mt-4 list-disc space-y-2 pl-5 text-[15px] leading-7 text-[var(--muted)] sm:text-base">{children}</ul>,
+          strong: ({ children }) => <strong className="font-semibold text-[var(--ink)]">{children}</strong>,
+        }}>{content}</Markdown>
+      </article>
+    </main>
+  );
+}

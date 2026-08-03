@@ -3,11 +3,11 @@ import type { HTMLAttributes } from "react";
 export const SectionTitle = ({
   ...props
 }: HTMLAttributes<HTMLHeadingElement>) => (
-  <h4 className="text-gray-300 text-xl font-bold" {...props} />
+  <h2 className="text-xl font-semibold tracking-tight text-[var(--ink)] sm:text-2xl" {...props} />
 );
 
 export const BodyText = ({
   ...props
 }: HTMLAttributes<HTMLParagraphElement>) => (
-  <p className="text-gray-400 mb-1" {...props} />
+  <p className="mb-1 text-sm leading-6 text-[var(--muted)]" {...props} />
 );

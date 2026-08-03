@@ -18,8 +18,13 @@ export function NbaModelClient({ picks }: { picks: NBAFirstBasketPick[] }) {
   if (picks.length === 0) return <div>No data available</div>;
 
   return (
-    <div className="overflow-y-auto flex flex-col gap-4 p-6 pb-28 lg:pb-24 lg:px-12">
-      <Card className="flex flex-col gap-4" title="Bankroll">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-8 pb-20 sm:px-6 lg:px-8">
+      <header>
+        <p className="text-sm font-semibold text-[var(--accent)]">NBA model</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl">First basket picks</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">Size suggested bets using your current bankroll.</p>
+      </header>
+      <Card className="max-w-md" title="Bankroll">
         <Input
           type="text"
           pattern="[0-9]*"
@@ -32,8 +37,8 @@ export function NbaModelClient({ picks }: { picks: NBAFirstBasketPick[] }) {
           }}
         />
       </Card>
-      <SectionTitle>NBA First Basket Picks</SectionTitle>
+      <SectionTitle>Current picks</SectionTitle>
       <FirstBasketTable data={picks} bankroll={urlBankroll} />
-    </div>
+    </main>
   );
 }

@@ -123,9 +123,10 @@ CFB games must have a selected betting provider and home moneyline to reach the 
 exist in the CFBD schedule but do not yet have the required market data are excluded from the current prediction
 frame.
 
-The CFB frontend shows weekly locks first, then spread and total tables grouped in the configured conference order.
-Cross-conference games appear in both conference sections. The page intentionally does not request CFB results until
-the first season has graded games.
+The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered
+slate. CFB games appear once and can be filtered by either team's conference. Shared results routes derive season and
+weekly summaries from the existing graded-game responses; an unavailable CFB result set renders an empty state until
+the first games are graded. NFL methodology and live model graphics are available on separate nested routes.
 
 ## Local Development
 

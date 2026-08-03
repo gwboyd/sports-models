@@ -3,6 +3,7 @@ import "server-only";
 export const NFL_PICKS_KEY = "nfl-picks";
 export const NFL_PICK_RESULTS_KEY = "nfl-pick-results";
 export const CFB_PICKS_KEY = "cfb-picks";
+export const CFB_PICK_RESULTS_KEY = "cfb-pick-results";
 export const NBA_FIRST_BASKET_PICKS_KEY = "nba-first-basket-picks";
 
 export class UpstreamApiError extends Error {
@@ -27,7 +28,9 @@ function getEndpoint(): string {
 export async function fetchApi<T>(path: string, revalidateSeconds = 300): Promise<T> {
   const response = await fetch(`${getEndpoint()}/${path}`, {
     headers: { Authorization: process.env.AUTHORIZATION_TOKEN ?? "" },
-    next: { revalidate: revalidateSeconds },
+    ...(process.env.NODE_ENV === "development"
+      ? { cache: "no-store" as const }
+      : { next: { revalidate: revalidateSeconds } }),
   });
 
   if (!response.ok) {
@@ -36,4 +39,13 @@ export async function fetchApi<T>(path: string, revalidateSeconds = 300): Promis
   }
 
   return (await response.json()) as T;
+}
+
+export async function fetchOptionalApi<T>(path: string, revalidateSeconds = 300): Promise<T | null> {
+  try {
+    return await fetchApi<T>(path, revalidateSeconds);
+  } catch (error) {
+    if (error instanceof UpstreamApiError && error.status === 404) return null;
+    throw error;
+  }
 }

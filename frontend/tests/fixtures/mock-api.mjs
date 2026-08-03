@@ -30,7 +30,14 @@ const results = {
     total_wins: 1, total_losses: 0, total_pushes: 0, total_win_pct: 100,
     total_lock_predictions: 1, total_lock_wins: 1, total_lock_losses: 0, total_lock_pushes: 0, total_lock_win_pct: 100,
   },
-  games: [],
+  games: [{
+    season: 2024, week: "1", home_team: "Home", away_team: "Away", home_score: 24, away_score: 20,
+    home_score_pred: 24, away_score_pred: 21, spread_pred: 3, spread_line: 2.5, true_spread: -4,
+    spread_play: "Home", spread_win_prob: 61, spread_lock: 1, correct_spread_play: "Home", spread_win: 1,
+    total_pred: 45, total_line: 44.5, true_total: 44, total_play: "Over", total_win_prob: 58,
+    total_lock: 1, correct_total_play: "Under", total_win: 0, year_week: "2024-1", game_id: "test-game",
+    date_time: "2024-09-08-13:00",
+  }],
 };
 
 const cfbPick = {
