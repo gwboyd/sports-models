@@ -5,9 +5,9 @@ SHELL := /bin/zsh
 help:
 	@echo "Available targets:"
 	@echo "  make backend            Run FastAPI locally on 127.0.0.1:3000"
-	@echo "  make frontend           Run Remix using frontend/.env as-is"
-	@echo "  make frontend-local     Run Remix against direct local backend (127.0.0.1:3000)"
-	@echo "  make frontend-sam       Run Remix against local SAM API (127.0.0.1:3001)"
+	@echo "  make frontend           Run Next.js using frontend/.env as-is"
+	@echo "  make frontend-local     Run Next.js against direct local backend (127.0.0.1:3000)"
+	@echo "  make frontend-sam       Run Next.js against local SAM API (127.0.0.1:3001)"
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"

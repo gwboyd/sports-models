@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 export const Card = ({
   title,
   className,
@@ -5,10 +7,10 @@ export const Card = ({
 }: {
   title?: string;
   className?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) => (
   <div
-    className={`border border-gray-700 bg-gray-800 rounded p-3 flex flex-col gap-2 ${className}`}
+    className={`border border-gray-700 bg-gray-800 rounded p-3 flex flex-col gap-2 ${className ?? ""}`}
   >
     {title && <strong className="text-gray-300">{title}</strong>}
     <div>{children}</div>

@@ -1,24 +1,20 @@
-import { isRouteErrorResponse } from "@remix-run/react";
-import { Card } from "~/components/Card";
+"use client";
+
+import { Card } from "@/app/components/Card";
 
 export function RouteErrorBoundary({
   sport,
   error,
+  reset,
 }: {
   sport: string;
-  error: unknown;
+  error?: Error;
+  reset?: () => void;
 }) {
-
-  let message = `Something went wrong loading ${sport} data.`;
+  const message = `Something went wrong loading ${sport} data.`;
   let details = "Please try again later.";
 
-  if (isRouteErrorResponse(error)) {
-    message = `Error ${error.status}: Failed to load ${sport} data`;
-    details =
-      error.status === 500
-        ? `The ${sport} backend is currently unavailable. Please try again in a few minutes.`
-        : error.statusText || "Please try again later.";
-  } else if (error instanceof Error) {
+  if (error?.message && process.env.NODE_ENV !== "production") {
     details = error.message;
   }
 
@@ -29,7 +25,13 @@ export function RouteErrorBoundary({
           <p className="text-red-400 font-medium">{message}</p>
           <p className="text-gray-400">{details}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              if (reset) {
+                reset();
+              } else {
+                window.location.reload();
+              }
+            }}
             className="self-start px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
           >
             Try Again
