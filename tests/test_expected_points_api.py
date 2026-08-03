@@ -11,6 +11,8 @@ def pick_row():
         "week": "1",
         "home_team": "A",
         "away_team": "B",
+        "home_conference": "SEC",
+        "away_conference": "Big Ten",
         "home_score_pred": 27.0,
         "away_score_pred": 20.0,
         "spread_pred": -7.0,
@@ -67,6 +69,8 @@ def test_cfb_picks_and_update_routes(monkeypatch):
 
     assert picks_response.status_code == 200
     assert picks_response.json()[0]["game_id"] == "1"
+    assert picks_response.json()[0]["home_conference"] == "SEC"
+    assert picks_response.json()[0]["away_conference"] == "Big Ten"
     assert update_response.status_code == 200
     assert update_response.json()["data"]["database_updated"] is True
 

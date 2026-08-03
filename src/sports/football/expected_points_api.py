@@ -8,7 +8,7 @@ from fastapi import APIRouter, Header, HTTPException
 
 from src.model_patterns.expected_points.reporting import get_result_stats
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
-from src.utils.data_models.picks_response import PickResponse
+from src.utils.data_models.picks_response import CFBPickResponse, PickResponse
 from src.utils.data_models.picks_results_response import GameResult, PickResultsData, PickResultsResponse
 from src.utils.data_models.update_picks_models import UpdatePicksRequest, UpdatePicksResponse
 from src.utils.db.sports_models_db import get_expected_points_picks, get_expected_points_results
@@ -32,8 +32,13 @@ def build_expected_points_routers(
     picks_router = APIRouter()
     results_router = APIRouter()
     update_router = APIRouter()
+    pick_response_model = CFBPickResponse if league is ExpectedPointsLeague.CFB else PickResponse
 
-    @picks_router.get(f"/{league.value}-picks", response_model=list[PickResponse], tags=[tag])
+    @picks_router.get(
+        f"/{league.value}-picks",
+        response_model=list[pick_response_model],
+        tags=[tag],
+    )
     def get_picks():
         try:
             rows = get_expected_points_picks(league, latest=True)
@@ -42,7 +47,7 @@ def build_expected_points_routers(
             raise HTTPException(status_code=500, detail=f"Database read failed: {exc}") from exc
         if not rows:
             raise HTTPException(status_code=404, detail="No picks found for the latest week.")
-        return [PickResponse(**row) for row in rows]
+        return [pick_response_model(**row) for row in rows]
 
     @results_router.get(
         f"/{league.value}-pick-results",

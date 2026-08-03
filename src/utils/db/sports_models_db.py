@@ -16,6 +16,7 @@ PICK_COLUMNS = (
     "spread_win_prob", "spread_lock", "total_pred", "total_line", "total_play",
     "total_win_prob", "total_lock", "date_time", "write_time",
 )
+CFB_PICK_METADATA_COLUMNS = ("home_conference", "away_conference")
 RESULT_COLUMNS = (
     "season", "week", "year_week", "game_id", "home_team", "away_team", "home_score",
     "away_score", "home_score_pred", "away_score_pred", "spread_pred", "spread_line",
@@ -23,6 +24,7 @@ RESULT_COLUMNS = (
     "spread_win", "total_pred", "total_line", "true_total", "total_play", "total_win_prob",
     "total_lock", "correct_total_play", "total_win", "date_time",
 )
+CFB_RESULT_METADATA_COLUMNS = CFB_PICK_METADATA_COLUMNS
 UPDATE_COLUMNS = (
     "year_week", "write_time", "week", "season", "environment", "client_name", "runtime",
     "pick_changes", "pick_changes_games", "play_changes", "play_changes_games",
@@ -46,6 +48,20 @@ def _table(league: ExpectedPointsLeague | str, suffix: str) -> str:
     return f"{SCHEMA}.{prefix}_expected_points_{suffix}"
 
 
+def _pick_columns(league: ExpectedPointsLeague | str) -> tuple[str, ...]:
+    league = _coerce_league(league)
+    if league is ExpectedPointsLeague.CFB:
+        return PICK_COLUMNS[:-1] + CFB_PICK_METADATA_COLUMNS + PICK_COLUMNS[-1:]
+    return PICK_COLUMNS
+
+
+def _result_columns(league: ExpectedPointsLeague | str) -> tuple[str, ...]:
+    league = _coerce_league(league)
+    if league is ExpectedPointsLeague.CFB:
+        return RESULT_COLUMNS + CFB_RESULT_METADATA_COLUMNS
+    return RESULT_COLUMNS
+
+
 def _parse_write_time(value: str | datetime) -> datetime:
     if isinstance(value, datetime):
         parsed = value
@@ -60,7 +76,8 @@ def get_expected_points_picks(
     latest: bool = False,
 ) -> list[dict[str, Any]]:
     table = _table(league, "latest_picks" if latest else "picks")
-    selected = ",\n            ".join(PICK_COLUMNS[:-1])
+    columns = _pick_columns(league)
+    selected = ",\n            ".join(columns[:-1])
     query = f"""
         select
             {selected},
@@ -74,8 +91,9 @@ def get_expected_points_picks(
 
 
 def get_expected_points_results(league: ExpectedPointsLeague | str) -> list[dict[str, Any]]:
+    columns = _result_columns(league)
     query = f"""
-        select {', '.join(RESULT_COLUMNS)}
+        select {', '.join(columns)}
         from {_table(league, 'results')}
         order by season desc, cast(week as integer) desc, date_time asc, game_id asc
     """
@@ -87,10 +105,13 @@ def get_expected_points_results(league: ExpectedPointsLeague | str) -> list[dict
 def _upsert_picks(cur, league: ExpectedPointsLeague | str, records: list[dict[str, Any]]) -> None:
     if not records:
         return
-    columns = ", ".join(PICK_COLUMNS)
-    values = ", ".join(f"%({column})s" for column in PICK_COLUMNS)
+    pick_columns = _pick_columns(league)
+    columns = ", ".join(pick_columns)
+    values = ", ".join(f"%({column})s" for column in pick_columns)
     updates = ",\n            ".join(
-        f"{column} = excluded.{column}" for column in PICK_COLUMNS if column not in {"year_week", "game_id"}
+        f"{column} = excluded.{column}"
+        for column in pick_columns
+        if column not in {"year_week", "game_id"}
     )
     query = f"""
         insert into {_table(league, 'picks')} ({columns})
@@ -104,10 +125,13 @@ def _upsert_picks(cur, league: ExpectedPointsLeague | str, records: list[dict[st
 def _upsert_results(cur, league: ExpectedPointsLeague | str, records: list[dict[str, Any]]) -> None:
     if not records:
         return
-    columns = ", ".join(RESULT_COLUMNS)
-    values = ", ".join(f"%({column})s" for column in RESULT_COLUMNS)
+    result_columns = _result_columns(league)
+    columns = ", ".join(result_columns)
+    values = ", ".join(f"%({column})s" for column in result_columns)
     updates = ",\n            ".join(
-        f"{column} = excluded.{column}" for column in RESULT_COLUMNS if column not in {"year_week", "game_id"}
+        f"{column} = excluded.{column}"
+        for column in result_columns
+        if column not in {"year_week", "game_id"}
     )
     query = f"""
         insert into {_table(league, 'results')} ({columns})

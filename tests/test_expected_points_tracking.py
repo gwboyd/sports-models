@@ -74,6 +74,34 @@ def test_locked_pick_is_preserved():
     assert run.picks.iloc[0]["spread_lock"] == 1
 
 
+def test_cfb_metadata_is_preserved_through_tracking_and_grading():
+    metadata_columns = ("home_conference", "away_conference")
+    predicted = pick()
+    predicted.update({"home_conference": "SEC", "away_conference": "Big Ten"})
+    config = ExpectedPointsTrackingConfig(pick_metadata_columns=metadata_columns)
+
+    run = prepare_tracking_run(
+        pd.DataFrame([predicted]),
+        pd.DataFrame(),
+        "2026_1",
+        config,
+        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+    )
+    pick_records = build_pick_records(
+        run.picks,
+        datetime(2026, 8, 1, tzinfo=timezone.utc),
+        metadata_columns,
+    )
+    scores = pd.DataFrame([{"game_id": "1", "home_score": 24, "away_score": 21}])
+    graded = grade_completed_picks(run.picks, pd.DataFrame(), scores)
+    result_records = build_result_records(graded, metadata_columns)
+
+    assert pick_records[0]["home_conference"] == "SEC"
+    assert pick_records[0]["away_conference"] == "Big Ten"
+    assert result_records[0]["home_conference"] == "SEC"
+    assert result_records[0]["away_conference"] == "Big Ten"
+
+
 def test_diff_snapshots_replace_missing_write_times_with_null():
     existing = pick(date_time="2099-08-01-00:15", spread_play="B")
     existing["write_time"] = "2026-07-31 00:00:00"
