@@ -15,7 +15,27 @@ The model can be updated whenever, but is scheduled to and should always update 
 
 The model is "not allowed" to make picks within 30 mins of kickoff, so it's final prediction will be locked in at that time.
 
-I do update results in batch manually at inconsistent times because I like to review how the model did each given week. I may eventually schedule this as well though.
+Completed games are graded during later update runs when final scores become available. Graded outcomes are written
+with the current picks and update history through the shared expected-points persistence workflow.
+
+## Operational Update Workflow
+
+The NFL notebook shares its tracking, grading, reporting, notebook execution, and database persistence behavior with
+the CFB expected-points model through `src/model_patterns/expected_points/`.
+
+Each operational update:
+
+1. Produces and validates the current predictions.
+2. Loads existing NFL picks and results from Supabase.
+3. Preserves saved predictions for games inside the kickoff lock window.
+4. Records changed picks and plays in the update-history snapshot.
+5. Grades previously saved picks whose games have completed.
+6. Writes the update record, current picks, and newly graded results in one transaction.
+
+Interactive notebook runs use `client_name="notebook"` and do not write to Supabase. API/runtime executions use a
+non-notebook client name and persist through the shared atomic writer. Changes to this workflow require a
+human-verified update run before merging, including checks for pick counts, update history, locked-game preservation,
+graded results when applicable, and the read endpoints.
 
 ## Features
 
@@ -75,5 +95,3 @@ The game simulations mimick each team's form for the current week (the next week
 - Revamp how metrics are handled for rookies (only player specific metric right now is QBR)
 - Get to a place where I can remove any information that relies on Vegas odds.. it helps but sorta feels like cheating
 - If I do keep Vegas lines, find a way to get opening odds or where the public is so I better arbitrage the "vibes vs metrics" dynamic
-- College football model for the 2025 season
-

@@ -12,7 +12,7 @@ The operational database schema is `sports_models`.
 
 ## Setup
 
-Use Python `3.12.x`.
+Use Python `3.11.x` to match the Lambda container runtime.
 
 Create and activate a virtual environment:
 
@@ -60,7 +60,7 @@ Use the pooled Supabase Postgres connection string for `SUPABASE_DB_URL`.
 
 ## Database
 
-Run:
+For a fresh or explicitly reviewed compatible database, run:
 
 ```text
 db/sql/001_create_sports_models_schema.sql
@@ -79,6 +79,45 @@ This creates the `sports_models` schema and the tables/views used by the backend
 - `cfb_expected_points_pick_updates`
 - `cfb_expected_points_latest_updates`
 - `nba_first_basket_picks`
+
+Do not treat the setup file as an incremental production migration without reviewing its statements against
+the deployed schema. For an existing database, apply only the scoped, reviewed SQL required by the change.
+
+Expected-points reads and writes are league-aware and centralized in
+`src/utils/db/sports_models_db.py`. An update writes its run-history record, current picks, and any newly graded
+results in one transaction. If any part fails, the transaction rolls back instead of leaving a partial run.
+Initial Postgres connection failures receive a small number of bounded retries.
+
+## Expected Points Workflows
+
+NFL and CFB use the shared modeling, tracking, reporting, notebook-execution, and persistence helpers under
+`src/model_patterns/expected_points/`. Sport-specific notebooks remain responsible for producing the model input
+and predictions.
+
+Available routes:
+
+- `GET /nfl-picks`
+- `GET /nfl-pick-results`
+- `POST /nfl-update-picks`
+- `GET /cfb-picks`
+- `GET /cfb-pick-results`
+- `POST /cfb-update-picks`
+
+For each update, the shared tracking workflow:
+
+1. Validates the predicted pick shape and game IDs.
+2. Loads existing picks and results for the selected league.
+3. Preserves saved picks for games that have started.
+4. Records pick and play changes for update history.
+5. Grades previously saved picks when completed scores are available.
+6. Atomically persists the update record, picks, and newly graded results.
+
+Interactive notebook executions use `client_name="notebook"` and remain read-only. API-triggered executions use a
+non-notebook client name and persist through the shared transaction writer.
+
+CFB games must have a selected betting provider and home moneyline to reach the expected-points model. Games that
+exist in the CFBD schedule but do not yet have the required market data are excluded from the current prediction
+frame.
 
 ## Local Development
 
@@ -108,6 +147,10 @@ Backend tests:
 ```shell
 pytest
 ```
+
+Notebook-driven NFL or CFB workflow changes also require a human-verified update run before merging. Confirm the
+pick count, update-history row, started-game preservation, graded results when applicable, and the corresponding
+read endpoints.
 
 SAM local build:
 
@@ -195,3 +238,10 @@ After deploy, verify the API:
 aws cloudformation describe-stacks --region us-east-1 --stack-name sports-models-v2
 curl https://your-api-id.execute-api.us-east-1.amazonaws.com/health
 ```
+
+## Documentation Maintenance
+
+Documentation is part of the implementation. Any change to behavior, architecture, APIs, schemas, environment
+variables, deployment, testing, or operational workflows must update `AGENTS.md` and every applicable README in
+the same change. Contributors and coding agents should perform this documentation review by default rather than
+waiting for a separate request.
