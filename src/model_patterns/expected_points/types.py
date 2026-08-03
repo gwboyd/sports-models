@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional
 
 import pandas as pd
+
+
+class ExpectedPointsLeague(str, Enum):
+    NFL = "nfl"
+    CFB = "cfb"
 
 
 @dataclass
@@ -12,6 +18,13 @@ class PlayThresholds:
     min_total_diff: float = 0.5
     min_spread_win_prob: float = 55.0
     min_total_win_prob: float = 55.0
+
+
+@dataclass
+class ExpectedPointsTrackingConfig:
+    lock_started_games: bool = True
+    lock_window_minutes: int = 30
+    play_thresholds: PlayThresholds = field(default_factory=PlayThresholds)
 
 
 @dataclass

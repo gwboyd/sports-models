@@ -1,0 +1,20 @@
+{
+  "resource": "/cfb-update-picks",
+  "path": "/cfb-update-picks",
+  "httpMethod": "POST",
+  "headers": {
+    "Authorization": "replace_me",
+    "client-name": "sam-local"
+  },
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/cfb-update-picks",
+    "httpMethod": "POST",
+    "path": "/cfb-update-picks"
+  },
+  "body": "{\"season\": 2026, \"week\": 1}",
+  "isBase64Encoded": false
+}

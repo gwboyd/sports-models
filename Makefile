@@ -40,6 +40,7 @@ sam-invoke-health:
 			ReadApiKey="$$READ_API_KEY" \
 			NbaApiKey="$$NBA_API_KEY" \
 			AwsApiKey="$$AWS_API_KEY" \
+			CfbdApiKey="$$CFBD_API_KEY" \
 			SupabaseDbUrl="$$SUPABASE_DB_URL" \
 			SupabaseSchema="$$SUPABASE_SCHEMA"
 
@@ -54,6 +55,7 @@ sam-api:
 			ReadApiKey="$$READ_API_KEY" \
 			NbaApiKey="$$NBA_API_KEY" \
 			AwsApiKey="$$AWS_API_KEY" \
+			CfbdApiKey="$$CFBD_API_KEY" \
 			SupabaseDbUrl="$$SUPABASE_DB_URL" \
 			SupabaseSchema="$$SUPABASE_SCHEMA"
 
@@ -79,5 +81,6 @@ sam-deploy:
 			ReadApiKey="$$READ_API_KEY" \
 			NbaApiKey="$$NBA_API_KEY" \
 			AwsApiKey="$$AWS_API_KEY" \
+			CfbdApiKey="$$CFBD_API_KEY" \
 			SupabaseDbUrl="$$SUPABASE_DB_URL" \
 			SupabaseSchema="$$SUPABASE_SCHEMA"

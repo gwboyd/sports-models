@@ -13,6 +13,7 @@ from typing import List
 
 
 from src.sports.football.nfl.expected_points import handler as nfl_expected_points_handler
+from src.sports.football.cfb.expected_points import handler as cfb_expected_points_handler
 from src.sports.basketball.nba.first_basket_model import handler as nba_first_basket_handler
 
 load_dotenv()
@@ -119,6 +120,10 @@ app.include_router(nfl_expected_points_handler.picks, dependencies=[Depends(requ
 app.include_router(nfl_expected_points_handler.pick_results, dependencies=[Depends(require_permission("read"))])
 app.include_router(nfl_expected_points_handler.update, dependencies=[Depends(require_permission())])
 
+app.include_router(cfb_expected_points_handler.picks, dependencies=[Depends(require_permission("read"))])
+app.include_router(cfb_expected_points_handler.pick_results, dependencies=[Depends(require_permission("read"))])
+app.include_router(cfb_expected_points_handler.update, dependencies=[Depends(require_permission())])
+
 app.include_router(nba_first_basket_handler.pick_upload, dependencies=[Depends(require_permission("nba"))])
 app.include_router(nba_first_basket_handler.picks, dependencies=[Depends(require_permission("nba","read"))])
 
@@ -140,4 +145,3 @@ handler = Mangum(app)
 # sam local invoke "FastAPILambdaFunction"
 # sam local start-api
 # sam local invoke FastAPILambdaFunction -e events/get-health-event.json  
-
