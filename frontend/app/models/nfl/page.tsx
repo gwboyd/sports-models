@@ -5,8 +5,8 @@ import { displaySpread } from "@/app/lib/formatting";
 import { prepareNflData } from "@/app/lib/model-data";
 import { BodyText, SectionTitle } from "@/app/components/Typography";
 import { Card } from "@/app/components/Card";
-import { SpreadTable } from "./_components/SpreadTable";
-import { TotalTable } from "./_components/TotalTable";
+import { SpreadTable } from "../_components/expected-points/SpreadTable";
+import { TotalTable } from "../_components/expected-points/TotalTable";
 import type { NFLPick, NFLResultsResponse } from "@/app/types/types";
 
 export default async function NflModelPage() {

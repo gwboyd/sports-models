@@ -33,12 +33,26 @@ const results = {
   games: [],
 };
 
+const cfbPick = {
+  ...pick,
+  season: 2026,
+  year_week: "2026_1",
+  game_id: "cfb-test-game",
+  home_conference: "SEC",
+  away_conference: "Big Ten",
+};
+
 const nbaPicks = [{
   date: "2024-01-01", player_name: "Test Player", team: "TEST", fb_model_prob: 0.2,
   fb_model_odds: 100, odds: 150, sportsbook: "Test Sportsbook", units: 1,
 }];
 
-const payloads = { "/nfl-picks": [pick], "/nfl-pick-results": results, "/nba-first-basket-picks": nbaPicks };
+const payloads = {
+  "/nfl-picks": [pick],
+  "/nfl-pick-results": results,
+  "/cfb-picks": [cfbPick],
+  "/nba-first-basket-picks": nbaPicks,
+};
 
 createServer((request, response) => {
   if (request.url === "/health") {

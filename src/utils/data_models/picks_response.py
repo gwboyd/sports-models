@@ -22,3 +22,8 @@ class PickResponse(BaseModel):
     year_week: str
     date_time: str = Field(..., pattern=r"\d{4}-\d{2}-\d{2}-\d{2}:\d{2}")
     write_time: str
+
+
+class CFBPickResponse(PickResponse):
+    home_conference: Optional[str] = None
+    away_conference: Optional[str] = None

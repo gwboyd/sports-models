@@ -1,6 +1,6 @@
 # Frontend
 
-Next.js frontend for viewing NFL and NBA model outputs.
+Next.js frontend for viewing NFL, CFB, and NBA model outputs.
 
 ## Setup
 
@@ -60,6 +60,7 @@ Next.js 16 requires Node.js `20.9` or newer.
 Useful routes:
 
 - `http://127.0.0.1:5173/models/nfl`
+- `http://127.0.0.1:5173/models/cfb`
 - `http://127.0.0.1:5173/models/nba?bankroll=500`
 - `http://127.0.0.1:5173/models/info`
 
@@ -95,5 +96,9 @@ npm run test:e2e
 
 Keep `frontend` as the Vercel project root and allow Vercel to detect Next.js. Set
 `ENDPOINT` and `AUTHORIZATION_TOKEN` in both Preview and Production environments.
-NFL and NBA pages render at request time while their backend data is cached for
+NFL, CFB, and NBA pages render at request time while their backend data is cached for
 five minutes. This keeps deployments independent of backend availability.
+
+The CFB page lists spread and total locks before rendering non-empty conference sections in the configured order.
+A cross-conference game is included in both sections; missing and unrecognized conference names are grouped under
+`Others`. CFB results are not requested or displayed during the model's first season before graded data exists.

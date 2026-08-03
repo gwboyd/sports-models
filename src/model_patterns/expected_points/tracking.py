@@ -73,6 +73,7 @@ class TrackingRun:
     locked_game_ids: list[str]
     pick_changes_games: list[str]
     play_changes_games: list[str]
+    pick_metadata_columns: tuple[str, ...] = ()
 
     @property
     def pick_changes(self) -> int:
@@ -104,9 +105,14 @@ def _normalize_keys(frame: pd.DataFrame) -> pd.DataFrame:
     return output
 
 
-def validate_pick_frame(frame: pd.DataFrame, expected_game_ids: Iterable[str] | None = None) -> pd.DataFrame:
+def validate_pick_frame(
+    frame: pd.DataFrame,
+    expected_game_ids: Iterable[str] | None = None,
+    metadata_columns: Iterable[str] = (),
+) -> pd.DataFrame:
     output = _normalize_keys(frame)
-    _require_columns(output, PICK_COLUMNS, "Pick frame")
+    metadata_columns = tuple(metadata_columns)
+    _require_columns(output, PICK_COLUMNS + list(metadata_columns), "Pick frame")
 
     if output.empty:
         raise ValueError("Pick frame cannot be empty")
@@ -171,13 +177,18 @@ def _changed_game_ids(existing: pd.DataFrame, predicted: pd.DataFrame, columns: 
     return changed
 
 
-def summarize_pick_diffs(existing: pd.DataFrame, predicted: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[str]]:
+def summarize_pick_diffs(
+    existing: pd.DataFrame,
+    predicted: pd.DataFrame,
+    metadata_columns: Iterable[str] = (),
+) -> tuple[pd.DataFrame, list[str], list[str]]:
     existing = _normalize_keys(existing)
     predicted = _normalize_keys(predicted)
+    metadata_columns = tuple(metadata_columns)
     pick_changes = _changed_game_ids(existing, predicted, PICK_COMPARISON_COLUMNS)
     play_changes = _changed_game_ids(existing, predicted, PLAY_COMPARISON_COLUMNS)
     changed_ids = set(pick_changes) | set(play_changes)
-    snapshot_columns = PICK_COLUMNS + ["write_time"]
+    snapshot_columns = PICK_COLUMNS + list(metadata_columns) + ["write_time"]
 
     frames: list[pd.DataFrame] = []
     if not existing.empty:
@@ -191,7 +202,9 @@ def summarize_pick_diffs(existing: pd.DataFrame, predicted: pd.DataFrame) -> tup
             predicted.loc[predicted["game_id"].isin(changed_ids), columns].assign(source="predictions")
         )
     if not frames:
-        return pd.DataFrame(columns=PICK_COLUMNS + ["write_time", "source"]), pick_changes, play_changes
+        return pd.DataFrame(
+            columns=PICK_COLUMNS + list(metadata_columns) + ["write_time", "source"]
+        ), pick_changes, play_changes
 
     differences = pd.concat(frames, ignore_index=True, sort=False)
     return differences.sort_values(["date_time", "home_team", "source"]).reset_index(drop=True), pick_changes, play_changes
@@ -206,7 +219,13 @@ def prepare_tracking_run(
 ) -> TrackingRun:
     predicted_input = _normalize_keys(predicted_picks)
     expected_game_ids = predicted_input["game_id"].tolist()
-    predicted = validate_pick_frame(predicted_input, expected_game_ids)[PICK_COLUMNS].copy()
+    metadata_columns = config.pick_metadata_columns
+    pick_columns = PICK_COLUMNS + list(metadata_columns)
+    predicted = validate_pick_frame(
+        predicted_input,
+        expected_game_ids,
+        metadata_columns,
+    )[pick_columns].copy()
     existing = get_current_period_picks(all_existing_picks, year_week)
     locked = get_locked_picks(existing, config=config, now=now)
 
@@ -219,39 +238,60 @@ def prepare_tracking_run(
         thresholds=config.play_thresholds,
         dont_update=locked["game_id"].tolist() if not locked.empty else [],
     )
-    final_picks = validate_pick_frame(final_picks, expected_game_ids)
-    differences, pick_changes, play_changes = summarize_pick_diffs(existing, final_picks)
+    final_picks = validate_pick_frame(final_picks, expected_game_ids, metadata_columns)
+    differences, pick_changes, play_changes = summarize_pick_diffs(
+        existing,
+        final_picks,
+        metadata_columns,
+    )
     return TrackingRun(
         picks=final_picks,
         differences=differences,
         locked_game_ids=locked["game_id"].tolist() if not locked.empty else [],
         pick_changes_games=pick_changes,
         play_changes_games=play_changes,
+        pick_metadata_columns=metadata_columns,
     )
 
 
-def build_pick_records(frame: pd.DataFrame, write_time: datetime) -> list[dict[str, Any]]:
-    output = validate_pick_frame(frame)
-    records = output[PICK_COLUMNS].to_dict(orient="records")
+def build_pick_records(
+    frame: pd.DataFrame,
+    write_time: datetime,
+    metadata_columns: Iterable[str] = (),
+) -> list[dict[str, Any]]:
+    metadata_columns = tuple(metadata_columns)
+    output = validate_pick_frame(frame, metadata_columns=metadata_columns)
+    records = output[PICK_COLUMNS + list(metadata_columns)].to_dict(orient="records")
     for record in records:
         record["write_time"] = write_time
     return records
 
 
-def build_result_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
+def build_result_records(
+    frame: pd.DataFrame,
+    metadata_columns: Iterable[str] = (),
+) -> list[dict[str, Any]]:
     output = _normalize_keys(frame)
-    _require_columns(output, RESULT_COLUMNS, "Result frame")
-    records = output[RESULT_COLUMNS].to_dict(orient="records")
+    metadata_columns = tuple(metadata_columns)
+    _require_columns(output, RESULT_COLUMNS + list(metadata_columns), "Result frame")
+    records = output[RESULT_COLUMNS + list(metadata_columns)].to_dict(orient="records")
     for record in records:
         record["home_score"] = int(record["home_score"])
         record["away_score"] = int(record["away_score"])
     return records
 
 
-def serialize_pick_frame(frame: pd.DataFrame) -> list[dict[str, Any]]:
+def serialize_pick_frame(
+    frame: pd.DataFrame,
+    metadata_columns: Iterable[str] = (),
+) -> list[dict[str, Any]]:
     if frame.empty:
         return []
-    columns = [column for column in PICK_COLUMNS + ["write_time", "source"] if column in frame.columns]
+    columns = [
+        column
+        for column in PICK_COLUMNS + list(metadata_columns) + ["write_time", "source"]
+        if column in frame.columns
+    ]
     output = _normalize_keys(frame[columns])
     records = output.to_dict(orient="records")
     return [
@@ -285,8 +325,8 @@ def build_update_record(
         "play_changes_games": run.play_changes_games,
         "updates_skipped": run.updates_skipped,
         "picks_num": len(run.picks),
-        "difference_df": serialize_pick_frame(run.differences),
-        "picks_df": serialize_pick_frame(run.picks),
+        "difference_df": serialize_pick_frame(run.differences, run.pick_metadata_columns),
+        "picks_df": serialize_pick_frame(run.picks, run.pick_metadata_columns),
     }
 
 

@@ -26,11 +26,13 @@ export function Table<TData>({
   columns,
   data,
   stickyHeader = false,
+  compact = false,
   meta,
 }: {
   columns: ColumnDef<TData>[];
   data: TData[];
   stickyHeader?: boolean;
+  compact?: boolean;
   meta?: TableMeta<TData>;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -47,7 +49,7 @@ export function Table<TData>({
 
   return (
     <div
-      className={`overflow-auto min-h-[350px] border-y ${theme.borderColor} rounded-md`}
+      className={`overflow-auto ${compact ? "" : "min-h-[350px]"} border-y ${theme.borderColor} rounded-md`}
     >
       <table
         className={`table-auto w-full text-center 

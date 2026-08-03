@@ -166,6 +166,8 @@ create table if not exists sports_models.cfb_expected_points_picks (
     game_id text not null,
     home_team text not null,
     away_team text not null,
+    home_conference text,
+    away_conference text,
     home_score_pred double precision not null,
     away_score_pred double precision not null,
     spread_pred double precision not null,
@@ -183,6 +185,14 @@ create table if not exists sports_models.cfb_expected_points_picks (
     primary key (year_week, game_id)
 );
 
+-- Keep this setup script compatible with CFB tables created before conference
+-- metadata was added. Review and apply these scoped statements in deployed environments.
+alter table sports_models.cfb_expected_points_picks
+    add column if not exists home_conference text;
+
+alter table sports_models.cfb_expected_points_picks
+    add column if not exists away_conference text;
+
 create index if not exists cfb_expected_points_picks_game_id_idx
     on sports_models.cfb_expected_points_picks (game_id);
 
@@ -196,6 +206,8 @@ create table if not exists sports_models.cfb_expected_points_results (
     game_id text not null,
     home_team text not null,
     away_team text not null,
+    home_conference text,
+    away_conference text,
     home_score integer not null,
     away_score integer not null,
     home_score_pred double precision not null,
@@ -219,6 +231,12 @@ create table if not exists sports_models.cfb_expected_points_results (
     date_time text not null,
     primary key (year_week, game_id)
 );
+
+alter table sports_models.cfb_expected_points_results
+    add column if not exists home_conference text;
+
+alter table sports_models.cfb_expected_points_results
+    add column if not exists away_conference text;
 
 create index if not exists cfb_expected_points_results_game_id_idx
     on sports_models.cfb_expected_points_results (game_id);
@@ -272,7 +290,9 @@ select
     total_win_prob,
     total_lock,
     date_time,
-    write_time
+    write_time,
+    home_conference,
+    away_conference
 from sports_models.cfb_expected_points_picks
 where year_week = (
     select p.year_week

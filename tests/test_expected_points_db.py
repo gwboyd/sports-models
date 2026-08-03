@@ -60,7 +60,15 @@ def test_atomic_cfb_run_uses_only_cfb_tables(monkeypatch):
         "picks_df": [],
     }
     pick_record = {column: 1 for column in sports_models_db.PICK_COLUMNS}
-    pick_record.update({"week": "1", "year_week": "2026_1", "game_id": "1"})
+    pick_record.update(
+        {
+            "week": "1",
+            "year_week": "2026_1",
+            "game_id": "1",
+            "home_conference": "SEC",
+            "away_conference": "Big Ten",
+        }
+    )
 
     result = sports_models_db.write_expected_points_run(ExpectedPointsLeague.CFB, [pick_record], update)
 
@@ -68,6 +76,8 @@ def test_atomic_cfb_run_uses_only_cfb_tables(monkeypatch):
     sql = "\n".join(call[1] for call in cursor.calls)
     assert "cfb_expected_points_pick_updates" in sql
     assert "cfb_expected_points_picks" in sql
+    assert "home_conference" in sql
+    assert "away_conference" in sql
     assert "nfl_expected_points" not in sql
 
 

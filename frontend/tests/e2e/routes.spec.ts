@@ -12,6 +12,15 @@ test("models index redirects to the NFL model page", async ({ page }) => {
   await expect(page).toHaveURL(/\/models\/nfl$/);
 });
 
+test("CFB groups a cross-conference game into both conference sections", async ({ page }) => {
+  await page.goto("/models/cfb");
+
+  await expect(page.getByRole("link", { name: "CFB" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "2026, Week 1" })).toBeVisible();
+  await expect(page.locator("section h4")).toHaveText(["SEC", "BIG 10"]);
+  await expect(page.getByRole("cell", { name: "Home", exact: true })).toHaveCount(4);
+});
+
 test("NBA route preserves the bankroll query string", async ({ page }) => {
   await page.goto("/models/nba?bankroll=500");
   await expect(page.locator("input")).toHaveValue("500");

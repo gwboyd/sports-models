@@ -22,6 +22,8 @@ with the current picks and update history through the shared expected-points per
 
 The NFL notebook shares its tracking, grading, reporting, notebook execution, and database persistence behavior with
 the CFB expected-points model through `src/model_patterns/expected_points/`.
+The shared tracking configuration supports league-specific pick metadata so CFB can retain home and away conference
+values without changing the NFL pick schema.
 
 Each operational update:
 

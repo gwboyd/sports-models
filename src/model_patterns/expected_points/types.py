@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -25,6 +25,7 @@ class ExpectedPointsTrackingConfig:
     lock_started_games: bool = True
     lock_window_minutes: int = 30
     play_thresholds: PlayThresholds = field(default_factory=PlayThresholds)
+    pick_metadata_columns: Tuple[str, ...] = ()
 
 
 @dataclass

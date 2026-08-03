@@ -88,6 +88,10 @@ Expected-points reads and writes are league-aware and centralized in
 results in one transaction. If any part fails, the transaction rolls back instead of leaving a partial run.
 Initial Postgres connection failures receive a small number of bounded retries.
 
+CFB pick and result tables also store nullable `home_conference` and `away_conference` metadata. Existing Supabase
+environments created before those fields were introduced require the scoped `alter table ... add column if not
+exists` statements in the setup SQL before deploying a backend that reads or writes the fields.
+
 ## Expected Points Workflows
 
 NFL and CFB use the shared modeling, tracking, reporting, notebook-execution, and persistence helpers under
@@ -118,6 +122,10 @@ non-notebook client name and persist through the shared transaction writer.
 CFB games must have a selected betting provider and home moneyline to reach the expected-points model. Games that
 exist in the CFBD schedule but do not yet have the required market data are excluded from the current prediction
 frame.
+
+The CFB frontend shows weekly locks first, then spread and total tables grouped in the configured conference order.
+Cross-conference games appear in both conference sections. The page intentionally does not request CFB results until
+the first season has graded games.
 
 ## Local Development
 
