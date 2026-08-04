@@ -84,6 +84,9 @@ Favorites are device-local and stored under `sports-models:favorites:v1`, separa
 current league slate and matches team names, abbreviations, aliases, and CFB conferences.
 Favorite cards with a qualifying spread and/or total use the same light-blue outline as lock cards and display a
 separate compact tag for each qualifying market.
+The slate header exposes only the game-search field; favorite-team management opens from the Favorites section's
+`Edit teams` action. The manager keeps its search field fixed above an independently scrolling result list and resets
+that list to the top whenever the query changes.
 
 Team metadata is generated into `app/generated/cfb-teams.json` and `app/generated/nfl-teams.json`; the shared resolver
 in `app/lib/team-data.ts` consumes those files at build time. Logo images are cached under
@@ -113,6 +116,9 @@ to the frontend.
 The results routes use the existing pick-results responses. They calculate season-specific summaries from graded game
 rows, keep the selected season in `?season=`, and show a designed empty state when results are not available. The NFL
 visitor explainer is maintained separately from developer documentation in `content/nfl-how-it-works.md`.
+That document carries forward the public methodology previously rendered by the production Info page. Its renderer
+supports nested headings, lists, links, inline code, and responsive Markdown images; operational database and
+deployment instructions remain in the model README instead.
 
 ## Checks
 

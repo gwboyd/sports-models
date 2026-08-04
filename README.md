@@ -130,6 +130,10 @@ the first games are graded. NFL methodology and live model graphics are availabl
 The shared presentation uses compact eight-pixel surfaces, limited shadows, and custom electric ink blue (`#0B5FCC`) accents while retaining
 44px mobile touch targets. Lock cards use a uniform light-blue outline; favorite cards inherit that outline and show
 spread and/or total lock tags when those markets qualify.
+The NFL How It Works route renders the full public methodology document, including its detailed feature sections and
+responsive Markdown charts, while developer operations remain in the model README.
+On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the
+Favorites section rather than a duplicate hero action.
 
 Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
 YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,

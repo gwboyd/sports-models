@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/app/components/Input";
 import { TeamIdentity } from "@/app/components/TeamIdentity";
 import { displayProbability, formatKickoff, formatUpdatedAt } from "@/app/lib/formatting";
@@ -179,6 +179,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
   const [teamQuery, setTeamQuery] = useState("");
   const [conference, setConference] = useState("");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const teamResultsRef = useRef<HTMLDivElement>(null);
   const { favoriteIds, ready, update } = useFavoriteTeams(league);
 
   const slateTeams = useMemo(() => getSlateTeams(games, league), [games, league]);
@@ -205,6 +206,10 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
   const latestWrite = games.map((game) => game.write_time).sort().at(-1) ?? "";
   const leagueName = league === "nfl" ? "NFL" : "College Football";
 
+  useEffect(() => {
+    if (teamResultsRef.current) teamResultsRef.current.scrollTop = 0;
+  }, [teamQuery]);
+
   function selectSearchResult(game: ExpectedPointsPick) {
     setSearchOpen(false);
     setSearchQuery("");
@@ -226,18 +231,18 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">Every game includes the model&apos;s preferred spread and total. Locks are the highest-conviction opportunities that pass additional model checks.</p>
           {latestWrite ? <p className="mt-2 text-xs font-medium text-slate-500">Model updated {formatUpdatedAt(latestWrite)}</p> : null}
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex">
-          <button type="button" onClick={() => setSearchOpen(true)} className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--ink)] hover:bg-slate-50">Search games</button>
-          <button type="button" onClick={() => setFavoritesOpen(true)} className="min-h-11 rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]">Manage teams</button>
-        </div>
+        <button type="button" onClick={() => setSearchOpen(true)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-[var(--border)] bg-white px-3.5 text-left text-sm text-[var(--muted)] hover:border-[var(--lock-border)] hover:bg-slate-50 sm:w-80">
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="1.8"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m12.5 12.5 4 4" /></svg>
+          <span>Search games</span>
+        </button>
       </header>
 
       <div className="mt-7 space-y-8">
         <section className="space-y-3" aria-labelledby="favorites-title">
-          <SectionHeading title="Favorites" description="Your teams, saved on this device." action={<button type="button" onClick={() => setFavoritesOpen(true)} className="min-h-11 text-sm font-semibold text-[var(--accent)]">Edit teams</button>} />
+          <SectionHeading title="Favorites" description="Current-week matchups for your selected teams." action={<button type="button" onClick={() => setFavoritesOpen(true)} className="min-h-11 whitespace-nowrap text-sm font-semibold text-[var(--accent)]">Edit teams</button>} />
           {!ready ? <div className="h-20 animate-pulse rounded-lg bg-slate-200" /> : favoriteIds.length === 0 ? (
             <button type="button" onClick={() => setFavoritesOpen(true)} className="flex min-h-20 w-full items-center justify-between gap-3 rounded-lg border border-dashed border-[var(--lock-border)] bg-white p-3.5 text-left hover:bg-[var(--accent-soft)]">
-              <span><strong className="block text-[var(--ink)]">Follow your teams</strong><span className="mt-1 block text-sm text-[var(--muted)]">Choose favorites for an instant full-game view each week.</span></span><span className="shrink-0 text-sm font-semibold text-[var(--accent)]">Choose teams</span>
+              <span><strong className="block text-[var(--ink)]">No favorite teams selected</strong><span className="mt-1 block text-sm text-[var(--muted)]">Select teams to keep their weekly matchups here.</span></span><span className="shrink-0 text-sm font-semibold text-[var(--accent)]">Select teams</span>
             </button>
           ) : favoriteGames.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">None of your favorite teams has a game in the current slate.</p> : (
             <div className="grid gap-3 lg:grid-cols-2">{favoriteGames.map((game) => <FavoriteGameCard key={game.game_id} game={game} league={league} />)}</div>
@@ -247,7 +252,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
         <section className="space-y-3" aria-labelledby="locks-title">
           <SectionHeading title="Locks" description="Model-qualified spread and total picks, ordered by win probability." />
           {locks.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">No locks are available for this slate.</p> : (
-            <div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 xl:grid-cols-4">{locks.map((lock) => <LockCard key={lock.id} lock={lock} league={league} />)}</div>
+            <div className="hide-scrollbar -mr-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 md:mr-0 md:grid md:grid-cols-2 md:overflow-visible md:pr-0 xl:grid-cols-4">{locks.map((lock) => <LockCard key={lock.id} lock={lock} league={league} />)}</div>
           )}
         </section>
 
@@ -291,10 +296,10 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
       ) : null}
 
       {favoritesOpen ? (
-        <OverlayPanel title="Manage favorite teams" description="Favorites are stored only on this device." onClose={() => setFavoritesOpen(false)}>
+        <OverlayPanel title="Manage favorite teams" description="Favorites are stored only on this device." onClose={() => { setFavoritesOpen(false); setTeamQuery(""); }}>
           <Input autoFocus type="search" placeholder="Search teams" value={teamQuery} onChange={(value) => setTeamQuery(String(value))} />
-          <div className="mt-4 space-y-2">
-            {visibleManagerTeams.map((team) => {
+          <div ref={teamResultsRef} className="mt-3 max-h-[calc(88dvh-11rem)] space-y-2 overflow-y-auto overscroll-contain pr-1">
+            {visibleManagerTeams.length === 0 ? <p className="py-6 text-center text-sm text-[var(--muted)]">No teams match that search.</p> : visibleManagerTeams.map((team) => {
               const checked = favoriteIds.includes(team.id);
               return (
                 <label key={team.id} className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 hover:bg-slate-50">

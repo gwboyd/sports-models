@@ -25,7 +25,7 @@ test("game search finds the current slate", async ({ page }) => {
 
 test("favorites are saved across reloads", async ({ page }) => {
   await page.goto("/models/nfl");
-  await page.getByRole("button", { name: "Manage teams" }).click();
+  await page.getByRole("button", { name: "Edit teams" }).click();
   await page.getByRole("checkbox", { name: "Favorite Home" }).check();
   await page.getByRole("button", { name: "Close" }).click();
   await page.reload();
@@ -51,7 +51,9 @@ test("results support shareable season selection and CFB empty state", async ({ 
 test("legacy model information redirects into the NFL section", async ({ page }) => {
   await page.goto("/models/info");
   await expect(page).toHaveURL(/\/models\/nfl\/how-it-works$/);
-  await expect(page.getByRole("heading", { name: "How the NFL model works" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "NFL Expected Points Model" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Feature importance" })).toBeVisible();
+  await expect(page.getByAltText("Model feature importances")).toBeVisible();
 });
 
 test("NBA route preserves the bankroll workflow", async ({ page }) => {
