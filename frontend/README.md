@@ -86,7 +86,8 @@ Favorite cards with a qualifying spread and/or total use the same light-blue out
 separate compact tag for each qualifying market.
 The slate header exposes only the game-search field; favorite-team management opens from the Favorites section's
 `Edit teams` action. The manager keeps its search field fixed above an independently scrolling result list and resets
-that list to the top whenever the query changes.
+that list to the top whenever the query changes. Mobile sheets lock the document for their full open lifetime and
+follow the browser's visual viewport, keeping filtered results above the iOS software keyboard.
 
 Team metadata is generated into `app/generated/cfb-teams.json` and `app/generated/nfl-teams.json`; the shared resolver
 in `app/lib/team-data.ts` consumes those files at build time. Logo images are cached under

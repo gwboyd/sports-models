@@ -284,30 +284,34 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
 
       {searchOpen ? (
         <OverlayPanel title={`Search ${leagueName} games`} description="Search by team, abbreviation, alias, or conference." onClose={() => setSearchOpen(false)}>
-          <Input autoFocus type="search" placeholder="Try 49ers, SF, SEC…" value={searchQuery} onChange={(value) => setSearchQuery(String(value))} />
-          <div className="mt-4 space-y-2">
-            {searchResults.length === 0 ? <p className="py-8 text-center text-sm text-[var(--muted)]">No games match that search.</p> : searchResults.map((game) => (
-              <button key={game.game_id} type="button" onClick={() => selectSearchResult(game)} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left hover:border-[var(--lock-border)] hover:bg-[var(--accent-soft)]">
-                <Matchup game={game} league={league} compact /><span className="shrink-0 text-xs text-[var(--muted)]">{formatKickoff(game.date_time)}</span>
-              </button>
-            ))}
+          <div className="flex h-full min-h-0 flex-col">
+            <Input autoFocus type="search" placeholder="Try 49ers, SF, SEC…" value={searchQuery} onChange={(value) => setSearchQuery(String(value))} />
+            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
+              {searchResults.length === 0 ? <p className="py-8 text-center text-sm text-[var(--muted)]">No games match that search.</p> : searchResults.map((game) => (
+                <button key={game.game_id} type="button" onClick={() => selectSearchResult(game)} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left hover:border-[var(--lock-border)] hover:bg-[var(--accent-soft)]">
+                  <Matchup game={game} league={league} compact /><span className="shrink-0 text-xs text-[var(--muted)]">{formatKickoff(game.date_time)}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </OverlayPanel>
       ) : null}
 
       {favoritesOpen ? (
         <OverlayPanel title="Manage favorite teams" description="Favorites are stored only on this device." onClose={() => { setFavoritesOpen(false); setTeamQuery(""); }}>
-          <Input autoFocus type="search" placeholder="Search teams" value={teamQuery} onChange={(value) => setTeamQuery(String(value))} />
-          <div ref={teamResultsRef} className="mt-3 max-h-[calc(88dvh-11rem)] space-y-2 overflow-y-auto overscroll-contain pr-1">
-            {visibleManagerTeams.length === 0 ? <p className="py-6 text-center text-sm text-[var(--muted)]">No teams match that search.</p> : visibleManagerTeams.map((team) => {
-              const checked = favoriteIds.includes(team.id);
-              return (
-                <label key={team.id} className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 hover:bg-slate-50">
-                  <TeamIdentity team={team} compact />
-                  <input aria-label={`Favorite ${team.displayName}`} type="checkbox" checked={checked} onChange={(event) => update(team.id, event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[var(--accent)]" />
-                </label>
-              );
-            })}
+          <div className="flex h-full min-h-0 flex-col">
+            <Input autoFocus type="search" placeholder="Search teams" value={teamQuery} onChange={(value) => setTeamQuery(String(value))} />
+            <div ref={teamResultsRef} className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
+              {visibleManagerTeams.length === 0 ? <p className="py-6 text-center text-sm text-[var(--muted)]">No teams match that search.</p> : visibleManagerTeams.map((team) => {
+                const checked = favoriteIds.includes(team.id);
+                return (
+                  <label key={team.id} className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 hover:bg-slate-50">
+                    <TeamIdentity team={team} compact />
+                    <input aria-label={`Favorite ${team.displayName}`} type="checkbox" checked={checked} onChange={(event) => update(team.id, event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[var(--accent)]" />
+                  </label>
+                );
+              })}
+            </div>
           </div>
         </OverlayPanel>
       ) : null}

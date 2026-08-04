@@ -133,7 +133,8 @@ spread and/or total lock tags when those markets qualify.
 The NFL How It Works route renders the full public methodology document, including its detailed feature sections and
 responsive Markdown charts, while developer operations remain in the model README.
 On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the
-Favorites section rather than a duplicate hero action.
+Favorites section rather than a duplicate hero action. Search and favorite sheets follow the visible browser viewport
+and freeze background scrolling so iOS software-keyboard changes do not move the sheet off screen.
 
 Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
 YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,

@@ -26,8 +26,12 @@ test("game search finds the current slate", async ({ page }) => {
 test("favorites are saved across reloads", async ({ page }) => {
   await page.goto("/models/nfl");
   await page.getByRole("button", { name: "Edit teams" }).click();
+  await expect(page.locator("body")).toHaveCSS("position", "fixed");
+  await page.getByPlaceholder("Search teams").fill("Home");
+  await expect(page.getByRole("checkbox", { name: "Favorite Home" })).toBeVisible();
   await page.getByRole("checkbox", { name: "Favorite Home" }).check();
   await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator("body")).toHaveCSS("position", "static");
   await page.reload();
   const favorites = page.locator("[aria-labelledby='favorites-title']");
   const favoriteCard = favorites.locator("article");
