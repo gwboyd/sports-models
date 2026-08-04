@@ -108,7 +108,11 @@ play-by-play, weekly player statistics, schedules, and team metadata; selected P
 at that boundary so model feature engineering remains pandas-based. The loader disables the client cache, preserves
 legacy float downcasting and team-abbreviation normalization, and only tolerates an unavailable current-season
 release during week 1. CFB data uses the direct REST client in
-`src/sports/football/cfb/expected_points/cfbd_client.py`, rather than a Python SDK.
+`src/sports/football/cfb/expected_points/cfbd_client.py`, rather than a Python SDK. When CFBD adds a new game field,
+the notebook retains that API schema and represents the field as null for older historical CSV rows; the same
+alignment applies to advanced game-stat fields. Scheduled games retain their pregame Elo and never update team
+ratings until both final scores are available. Score-model training coerces final scores to numeric values and excludes
+any game missing or invalid for either target.
 
 Available routes:
 

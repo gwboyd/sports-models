@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from src.model_patterns.expected_points.betting import determine_plays, scores_to_bets
-from src.model_patterns.expected_points.trainer import run_expected_points
+from src.model_patterns.expected_points.trainer import _build_train_df, run_expected_points
 from src.model_patterns.expected_points.types import ExpectedPointsConfig, PlayThresholds
 from src.sports.football.transforms.common import get_averaged_game_stats
 
@@ -39,6 +39,33 @@ def test_determine_plays_thresholds_apply():
     out = determine_plays(df, thresholds=PlayThresholds())
     assert out.loc[0, "spread_lock"] == 1
     assert out.loc[0, "total_lock"] == 1
+
+
+def test_train_frame_excludes_rows_missing_any_score_target():
+    config = ExpectedPointsConfig(
+        current_year=2026,
+        current_week=2,
+        targets=["home_score", "away_score"],
+        features=[],
+        input_features=[],
+        spread_class_features=[],
+        total_class_features=[],
+        cat_features=[],
+    )
+    df = pd.DataFrame(
+        {
+            "season": [2025, 2025, 2025, 2025, 2026],
+            "week": [1, 2, 3, 4, 1],
+            "home_score": ["21", "17", np.nan, "not-a-score", "24"],
+            "away_score": ["14", np.nan, "10", "7", "20"],
+        }
+    )
+
+    train_df = _build_train_df(df, config)
+
+    assert train_df.index.tolist() == [0, 4]
+    assert train_df["home_score"].dtype.kind == "f"
+    assert train_df["away_score"].dtype.kind == "f"
 
 
 def test_run_expected_points_end_to_end():
