@@ -75,6 +75,11 @@ NFL and CFB share a mobile-first expected-points dashboard. Each slate is presen
 separate spread/total lock cards second, and the full chronological game list last. Desktop uses a semantic game
 table; mobile uses expandable game cards. CFB games appear once and can be filtered by either team's conference.
 
+Kickoff times are displayed in the browser device's timezone. Until the backend emits one timezone-aware ISO 8601
+contract for both leagues, the frontend treats CFB `date_time` values as UTC and NFL values as
+`America/New_York` wall time, including daylight-saving transitions. Server rendering uses each feed's source
+timezone, then switches to the device timezone after hydration without creating a hydration mismatch.
+
 The shared visual system is intentionally dense and restrained: neutral canvas and surfaces, eight-pixel card
 corners, minimal shadows, and a custom electric ink blue (`#0B5FCC`) for interactions and lock emphasis. Lock and qualifying
 favorite cards use a medium-blue outline and compact labels instead of a separate warning color. Keep 44px touch

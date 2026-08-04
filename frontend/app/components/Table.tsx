@@ -29,7 +29,9 @@ export function Table<TData>({
   compact = false,
   meta,
 }: {
-  columns: ColumnDef<TData>[];
+  // TanStack columns intentionally carry different accessor value types in one table.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<TData, any>[];
   data: TData[];
   stickyHeader?: boolean;
   compact?: boolean;

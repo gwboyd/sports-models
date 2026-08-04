@@ -3,7 +3,7 @@ import { convertDateTime } from "@/app/lib/formatting";
 
 export function prepareNflData(picksData: NFLPick[], resultsData?: NFLResultsResponse) {
   const data = [...picksData].sort(
-    (a, b) => convertDateTime(a.date_time).getTime() - convertDateTime(b.date_time).getTime(),
+    (a, b) => convertDateTime(a.date_time, "nfl").getTime() - convertDateTime(b.date_time, "nfl").getTime(),
   );
 
   return {
@@ -20,7 +20,7 @@ export function prepareNflData(picksData: NFLPick[], resultsData?: NFLResultsRes
 
 export function prepareCfbData(picksData: CFBPick[]) {
   const data = [...picksData].sort(
-    (a, b) => convertDateTime(a.date_time).getTime() - convertDateTime(b.date_time).getTime(),
+    (a, b) => convertDateTime(a.date_time, "cfb").getTime() - convertDateTime(b.date_time, "cfb").getTime(),
   );
 
   return {
