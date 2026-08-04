@@ -6,8 +6,11 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], weight: ["400", "700"] });
 
 export const metadata: Metadata = {
-  title: "Sport Models",
-  description: "Webpage for Sport Models",
+  title: {
+    default: "Boyd's Picks",
+    template: "%s | Boyd's Picks",
+  },
+  description: "Transparent NFL and college football model predictions, locks, and results.",
   icons: {
     icon: "/favicon.ico",
     apple: [
@@ -27,7 +30,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} min-h-dvh`}>
         {children}
         <Analytics />
       </body>

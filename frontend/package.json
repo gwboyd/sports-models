@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "sync:cfb-teams": "python3 scripts/sync_team_data.py cfb",
+    "sync:nfl-teams": "python3 scripts/sync_team_data.py nfl",
+    "sync:football-teams": "python3 scripts/sync_team_data.py all"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.20.5",

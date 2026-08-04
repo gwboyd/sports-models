@@ -29,7 +29,9 @@ export function Table<TData>({
   compact = false,
   meta,
 }: {
-  columns: ColumnDef<TData>[];
+  // TanStack columns intentionally carry different accessor value types in one table.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<TData, any>[];
   data: TData[];
   stickyHeader?: boolean;
   compact?: boolean;
@@ -49,7 +51,7 @@ export function Table<TData>({
 
   return (
     <div
-      className={`overflow-auto ${compact ? "" : "min-h-[350px]"} border-y ${theme.borderColor} rounded-md`}
+      className={`overflow-auto ${compact ? "" : "min-h-[350px]"} rounded-lg border ${theme.borderColor} bg-white`}
     >
       <table
         className={`table-auto w-full text-center 
@@ -75,7 +77,7 @@ export function Table<TData>({
                     p-2 
                     cursor-pointer 
                     select-none 
-                    hover:bg-gray-500 
+                    hover:bg-slate-100
                     transition-colors 
                     duration-[100ms]
                   `}
@@ -102,7 +104,7 @@ export function Table<TData>({
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className={theme.cellBackground}>
+            <tr key={row.id} className={`${theme.cellBackground} transition-colors hover:bg-slate-50`}>
               {row.getVisibleCells().map((cell, index) => (
                 <td
                   key={cell.id}
@@ -127,9 +129,9 @@ export function Table<TData>({
 }
 
 const theme = {
-  borderColor: "border-gray-600",
-  headerBackground: "bg-gray-700",
-  headerText: "text-white",
-  cellBackground: "bg-gray-800",
-  cellText: "text-gray-300",
+  borderColor: "border-slate-200",
+  headerBackground: "bg-slate-50",
+  headerText: "text-slate-700",
+  cellBackground: "bg-white",
+  cellText: "text-slate-700",
 };

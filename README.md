@@ -123,9 +123,29 @@ CFB games must have a selected betting provider and home moneyline to reach the 
 exist in the CFBD schedule but do not yet have the required market data are excluded from the current prediction
 frame.
 
-The CFB frontend shows weekly locks first, then spread and total tables grouped in the configured conference order.
-Cross-conference games appear in both conference sections. The page intentionally does not request CFB results until
-the first season has graded games.
+The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered
+slate. CFB games appear once and can be filtered by either team's conference. Shared results routes derive season and
+weekly summaries from the existing graded-game responses; an unavailable CFB result set renders an empty state until
+the first games are graded. NFL methodology and live model graphics are available on separate nested routes.
+The shared presentation uses compact eight-pixel surfaces, limited shadows, and custom electric ink blue (`#0B5FCC`) accents while retaining
+44px mobile touch targets. Lock cards use a uniform light-blue outline; favorite cards inherit that outline and show
+spread and/or total lock tags when those markets qualify.
+The NFL How It Works route renders the full public methodology document, including its detailed feature sections and
+responsive Markdown charts, while developer operations remain in the model README.
+On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the
+Favorites section rather than a duplicate hero action. Search and favorite sheets follow the visible browser viewport
+and freeze background scrolling so iOS software-keyboard changes do not move the sheet off screen.
+Kickoff labels are localized to the viewer's device timezone in the browser. As a temporary compatibility layer, CFB
+timestamps are interpreted as UTC while NFL timestamps are interpreted as New York wall time with daylight saving.
+Model-update timestamps are also localized and display the device timezone's current seasonal abbreviation.
+The product header is branded as Boyd's Picks and temporarily exposes only NFL and CFB navigation; the direct NBA
+route remains available. Results summaries place lock records first and omit the redundant predicted-games tile.
+Favorite and mobile game cards emphasize actionable picks, with blue outlines applied to individual locked markets.
+
+Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
+YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,
+and caches its logos under `frontend/public/teams/cfb/`. `make sync-nfl-teams` mirrors the nflverse/ESPN logo metadata
+already used by the NFL notebook. `make sync-football-teams YEAR=2026` refreshes both catalogs.
 
 ## Local Development
 

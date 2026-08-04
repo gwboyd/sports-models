@@ -3,18 +3,70 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --canvas: #f7f8fa;
+    --surface: #ffffff;
+    --surface-subtle: #f4f6f8;
+    --ink: #152033;
+    --muted: #667085;
+    --border: #dfe3e8;
+    --accent: #0b5fcc;
+    --accent-hover: #084a9f;
+    --accent-soft: #eef4fd;
+    --lock: #0b5fcc;
+    --lock-soft: #eef4fd;
+    --lock-border: #6f98d0;
+    --success: #18794e;
+    --danger: #b42318;
+    --warning: #0b5fcc;
+  }
+
+  html {
+    min-height: 100%;
+    background: var(--canvas);
+  }
+
   body {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    background-color: rgb(24 32 43);
+    min-height: 100dvh;
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
   }
+
   * {
+    box-sizing: border-box;
     scrollbar-width: thin;
-    scrollbar-color: rgba(55, 65, 81, 0.8) rgba(31, 41, 55, 0.5);
+    scrollbar-color: #c7ced8 transparent;
   }
-  :has(> table) {
-    overscroll-behavior: none;
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 3px solid rgba(11, 95, 204, 0.22);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .numbers-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

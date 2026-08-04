@@ -1,6 +1,8 @@
 SHELL := /bin/zsh
 
-.PHONY: help backend frontend frontend-local frontend-sam sam-build sam-invoke-health sam-api sam-deploy
+.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams sam-build sam-invoke-health sam-api sam-deploy
+
+YEAR ?= $(shell date +%Y)
 
 help:
 	@echo "Available targets:"
@@ -8,6 +10,9 @@ help:
 	@echo "  make frontend           Run Next.js using frontend/.env as-is"
 	@echo "  make frontend-local     Run Next.js against direct local backend (127.0.0.1:3000)"
 	@echo "  make frontend-sam       Run Next.js against local SAM API (127.0.0.1:3001)"
+	@echo "  make sync-cfb-teams     Refresh CFB team metadata/logos (YEAR=current year)"
+	@echo "  make sync-nfl-teams     Refresh NFL metadata/logos from nflverse"
+	@echo "  make sync-football-teams Refresh both football team catalogs"
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"
@@ -24,6 +29,15 @@ frontend-local:
 
 frontend-sam:
 	cd frontend && ENDPOINT=http://127.0.0.1:3001 npm run dev
+
+sync-cfb-teams:
+	set -a && source .env && set +a && cd frontend && npm run sync:cfb-teams -- --year $(YEAR)
+
+sync-nfl-teams:
+	cd frontend && npm run sync:nfl-teams
+
+sync-football-teams:
+	set -a && source .env && set +a && cd frontend && npm run sync:football-teams -- --year $(YEAR)
 
 sam-build:
 	sam build
