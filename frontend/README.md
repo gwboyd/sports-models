@@ -112,8 +112,8 @@ make sync-cfb-teams YEAR=2026
 
 The target loads `CFBD_API_KEY` from the root `.env`, calls the FBS teams endpoint, selects the standard 128px logo
 when available, and atomically rewrites the deterministic manifest after caching the images. The bearer token is not
-written into generated output. NFL uses the same logo source already consumed by the model notebook
-(`nfl_data_py.import_team_desc()` / nflverse):
+written into generated output. NFL uses the nflverse release catalog consumed by the model's
+`nflreadpy.load_teams()` boundary:
 
 ```shell
 make sync-nfl-teams

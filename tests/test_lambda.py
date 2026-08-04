@@ -1,30 +1,51 @@
-from fastapi.testclient import TestClient
-from mangum import Mangum
-from main import app  # Import your FastAPI app
 import json
 
-handler = Mangum(app)
+from mangum import Mangum
 
-def test_lambda_handler():
-    # event = {
-    #     "httpMethod": "GET",
-    #     "path": "/nfl-picks",
-    #     "headers": {},
-    #     "queryStringParameters": {},
-    #     "requestContext": {
-    #         "http": {
-    #             "method": "GET",
-    #             "path": "/nfl-picks"
-    #         }
-    #     }
-    # }
+import main
+from src.sports.football import expected_points_api
+
+
+handler = Mangum(main.app)
+
+
+def test_lambda_handler(monkeypatch):
+    monkeypatch.setattr(
+        expected_points_api,
+        "get_expected_points_picks",
+        lambda *_args, **_kwargs: [
+            {
+                "season": 2026,
+                "week": "1",
+                "home_team": "A",
+                "away_team": "B",
+                "home_score_pred": 27.0,
+                "away_score_pred": 20.0,
+                "spread_pred": -7.0,
+                "spread_line": -3.5,
+                "spread_play": "A",
+                "spread_win_prob": 61.0,
+                "spread_lock": 1,
+                "total_pred": 47.0,
+                "total_line": 44.5,
+                "total_play": "over",
+                "total_win_prob": 58.0,
+                "total_lock": 1,
+                "game_id": "1",
+                "year_week": "2026_1",
+                "date_time": "2026-09-01-17:00",
+                "write_time": "2026-08-01 00:00:00",
+            }
+        ],
+    )
+    monkeypatch.setattr(main, "API_KEYS", {main.hash_key("test-key"): ["read"]})
 
     event = {
         "resource": "/nfl-picks",
         "path": "/nfl-picks",
         "httpMethod": "GET",
         "headers": {
-            "Authorization": "jake"
+            "Authorization": "test-key"
         },
         "queryStringParameters": {},
         "multiValueQueryStringParameters": None,
@@ -43,17 +64,8 @@ def test_lambda_handler():
         "isBase64Encoded": False
     }
 
+    response = handler(event, {})
+    body = json.loads(response["body"])
 
-    
-
-    context = {}  # Mock Lambda context if needed
-    response = handler(event, context)
-
-    # Parse the response body (it will be a string in Lambda)
-    print("Response:", response)
-    body = json.loads(response['body'])
-    print("Body:", body)
-
-    assert response['statusCode'] == 200
-
-
+    assert response["statusCode"] == 200
+    assert body[0]["game_id"] == "1"

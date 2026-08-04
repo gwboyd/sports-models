@@ -1,6 +1,6 @@
 {
   "league": "nfl",
-  "source": "https://github.com/nflverse/nflfastR-data/raw/master/teams_colors_logos.csv",
+  "source": "https://github.com/nflverse/nflverse-data/releases/download/teams/teams_colors_logos.csv",
   "teams": [
     {
       "id": "ari",
