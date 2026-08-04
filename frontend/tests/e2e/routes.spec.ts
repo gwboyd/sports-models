@@ -41,6 +41,10 @@ test("favorites are saved across reloads", async ({ page }) => {
   await expect(favoriteCard).toContainText("Model score");
   await expect(favoriteCard).toContainText("Spread lock");
   await expect(favoriteCard).toContainText("Total lock");
+  await expect(favoriteCard).toContainText("Model spread prediction");
+  await expect(favoriteCard).toContainText("Spread win probability");
+  await expect(favoriteCard).toContainText("Model total prediction");
+  await expect(favoriteCard).toContainText("Total win probability");
   await expect(favoriteCard).toHaveClass(/border-\[var\(--lock-border\)\]/);
   await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
   await expect(favoriteCard.locator("[data-favorite-market='total']")).toHaveClass(/border-\[var\(--lock-border\)\]/);

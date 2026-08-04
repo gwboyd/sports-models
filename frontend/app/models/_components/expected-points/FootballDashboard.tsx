@@ -56,14 +56,16 @@ function Matchup({ game, league, compact = false }: { game: ExpectedPointsPick; 
   );
 }
 
-function MarketDetails({ game, market, showPick = true, showStatus = true }: { game: ExpectedPointsPick; market: "spread" | "total"; showPick?: boolean; showStatus?: boolean }) {
+function MarketDetails({ game, market, descriptiveLabels = false, showPick = true, showStatus = true }: { game: ExpectedPointsPick; market: "spread" | "total"; descriptiveLabels?: boolean; showPick?: boolean; showStatus?: boolean }) {
   const probability = market === "spread" ? game.spread_win_prob : game.total_win_prob;
   const locked = market === "spread" ? Boolean(game.spread_lock) : Boolean(game.total_lock);
+  const modelLabel = descriptiveLabels ? `Model ${market} prediction` : "Model";
+  const probabilityLabel = descriptiveLabels ? `${market === "spread" ? "Spread" : "Total"} win probability` : "Pick win probability";
   return (
     <div className="space-y-2 text-sm">
       {showPick ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick</span><strong>{market === "spread" ? spreadPickLabel(game) : totalPickLabel(game)}</strong></div> : null}
-      <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Model</span><strong>{market === "spread" ? spreadModelLabel(game) : game.total_pred.toFixed(1)}</strong></div>
-      <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick win probability</span><strong className="numbers-tabular">{displayProbability(probability)}</strong></div>
+      <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{modelLabel}</span><strong>{market === "spread" ? spreadModelLabel(game) : game.total_pred.toFixed(1)}</strong></div>
+      <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{probabilityLabel}</span><strong className="numbers-tabular">{displayProbability(probability)}</strong></div>
       {showStatus ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Status</span><strong className={locked ? "text-[var(--warning)]" : "text-slate-600"}>{locked ? "Lock" : "Standard pick"}</strong></div> : null}
     </div>
   );
@@ -106,8 +108,8 @@ function FavoriteGameCard({ game, league, timeZone }: { game: ExpectedPointsPick
       </div>
       <p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
       <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
-        <MarketDetails game={game} market="spread" showPick={false} showStatus={false} />
-        <MarketDetails game={game} market="total" showPick={false} showStatus={false} />
+        <MarketDetails game={game} market="spread" descriptiveLabels showPick={false} showStatus={false} />
+        <MarketDetails game={game} market="total" descriptiveLabels showPick={false} showStatus={false} />
       </div>
     </article>
   );
