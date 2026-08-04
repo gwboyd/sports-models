@@ -7,8 +7,8 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "700"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "Sports Models",
-    template: "%s | Sports Models",
+    default: "Boyd's Picks",
+    template: "%s | Boyd's Picks",
   },
   description: "Transparent NFL and college football model predictions, locks, and results.",
   icons: {

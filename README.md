@@ -137,6 +137,9 @@ Favorites section rather than a duplicate hero action. Search and favorite sheet
 and freeze background scrolling so iOS software-keyboard changes do not move the sheet off screen.
 Kickoff labels are localized to the viewer's device timezone in the browser. As a temporary compatibility layer, CFB
 timestamps are interpreted as UTC while NFL timestamps are interpreted as New York wall time with daylight saving.
+The product header is branded as Boyd's Picks and temporarily exposes only NFL and CFB navigation; the direct NBA
+route remains available. Results summaries place lock records first and omit the redundant predicted-games tile.
+Favorite and mobile game cards emphasize actionable picks, with blue outlines applied to individual locked markets.
 
 Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
 YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,

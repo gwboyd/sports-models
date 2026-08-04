@@ -4,7 +4,9 @@ test("root redirects to the mobile-first NFL games page", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/models\/nfl$/);
   await expect(page.getByRole("heading", { name: "NFL predictions" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Boyd's Picks" })).toBeVisible();
   await expect(page.getByRole("link", { name: "NFL" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "NBA" })).toHaveCount(0);
   await expect(page.getByText("Spread lock", { exact: true })).toBeVisible();
   await expect(page.getByText("Total lock", { exact: true })).toBeVisible();
 });
@@ -40,6 +42,8 @@ test("favorites are saved across reloads", async ({ page }) => {
   await expect(favoriteCard).toContainText("Spread lock");
   await expect(favoriteCard).toContainText("Total lock");
   await expect(favoriteCard).toHaveClass(/border-\[var\(--lock-border\)\]/);
+  await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
+  await expect(favoriteCard.locator("[data-favorite-market='total']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
 });
 
 test("results support shareable season selection and CFB empty state", async ({ page }) => {
@@ -47,6 +51,9 @@ test("results support shareable season selection and CFB empty state", async ({ 
   await expect(page.getByRole("heading", { name: "NFL results" })).toBeVisible();
   await expect(page.getByLabel("Season")).toHaveValue("2024");
   await expect(page.getByText("2024 summary")).toBeVisible();
+  const summaryLabels = await page.locator("[aria-labelledby='season-summary'] article > p:first-child").allTextContents();
+  expect(summaryLabels).toEqual(["Spread locks", "Total locks", "All spreads", "All totals"]);
+  await expect(page.getByText("Predicted games", { exact: true })).toHaveCount(0);
 
   await page.goto("/models/cfb/results");
   await expect(page.getByText("Results will appear here after games have been completed and graded by the model workflow.")).toBeVisible();
@@ -58,6 +65,11 @@ test("legacy model information redirects into the NFL section", async ({ page })
   await expect(page.getByRole("heading", { name: "NFL Expected Points Model" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Feature importance" })).toBeVisible();
   await expect(page.getByAltText("Model feature importances")).toBeVisible();
+
+  await page.goto("/models/nfl/insights");
+  await expect(page.getByRole("heading", { name: "Power rankings" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Feature importance" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dynamic moving averages" })).toHaveCount(0);
 });
 
 test("NBA route preserves the bankroll workflow", async ({ page }) => {
@@ -74,4 +86,12 @@ test("primary pages do not create horizontal document overflow on mobile", async
     const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
     expect(widths.scroll).toBeLessThanOrEqual(widths.client);
   }
+});
+
+test("mobile game markets outline only qualifying locks", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/models/nfl");
+  const game = page.locator("[data-game-id='game-test-game']:visible");
+  await expect(game.locator("[data-mobile-market='spread']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
+  await expect(game.locator("[data-mobile-market='total']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
 });

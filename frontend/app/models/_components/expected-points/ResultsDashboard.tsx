@@ -8,13 +8,13 @@ function recordLabel(record: RecordSummary): string {
   return `${record.wins}–${record.losses}–${record.pushes}`;
 }
 
-function StatCard({ label, record, hint }: { label: string; record?: RecordSummary; hint?: string }) {
+function StatCard({ label, record }: { label: string; record: RecordSummary }) {
   return (
     <article className="rounded-lg border border-[var(--border)] bg-white p-3.5">
       <p className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">{label}</p>
-      <p className="numbers-tabular mt-2 text-xl font-bold tracking-tight text-[var(--ink)]">{record ? recordLabel(record) : hint}</p>
-      {record ? <p className="numbers-tabular mt-1 text-sm font-semibold text-[var(--success)]">{record.winPct.toFixed(1)}% win rate</p> : null}
-      {record ? <p className="mt-1 text-xs text-[var(--muted)]">{record.predictions} graded picks</p> : null}
+      <p className="numbers-tabular mt-2 text-xl font-bold tracking-tight text-[var(--ink)]">{recordLabel(record)}</p>
+      <p className="numbers-tabular mt-1 text-sm font-semibold text-[var(--success)]">{record.winPct.toFixed(1)}% win rate</p>
+      <p className="mt-1 text-xs text-[var(--muted)]">{record.predictions} graded picks</p>
     </article>
   );
 }
@@ -58,12 +58,11 @@ export function ResultsDashboard({ league, games, initialSeason }: { league: Foo
       </header>
 
       <section className="mt-7" aria-labelledby="season-summary"><h2 id="season-summary" className="text-xl font-semibold tracking-tight text-[var(--ink)]">{season === "all" ? "All-time summary" : `${season} summary`}</h2>
-        <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-5">
-          <StatCard label="Predicted games" hint={String(summary.predictedGames)} />
-          <StatCard label="All spreads" record={summary.spread} />
-          <StatCard label="All totals" record={summary.total} />
+        <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           <StatCard label="Spread locks" record={summary.spreadLocks} />
           <StatCard label="Total locks" record={summary.totalLocks} />
+          <StatCard label="All spreads" record={summary.spread} />
+          <StatCard label="All totals" record={summary.total} />
         </div>
       </section>
 

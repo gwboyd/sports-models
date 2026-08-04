@@ -56,12 +56,12 @@ function Matchup({ game, league, compact = false }: { game: ExpectedPointsPick; 
   );
 }
 
-function MarketDetails({ game, market, showStatus = true }: { game: ExpectedPointsPick; market: "spread" | "total"; showStatus?: boolean }) {
+function MarketDetails({ game, market, showPick = true, showStatus = true }: { game: ExpectedPointsPick; market: "spread" | "total"; showPick?: boolean; showStatus?: boolean }) {
   const probability = market === "spread" ? game.spread_win_prob : game.total_win_prob;
   const locked = market === "spread" ? Boolean(game.spread_lock) : Boolean(game.total_lock);
   return (
     <div className="space-y-2 text-sm">
-      <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick</span><strong>{market === "spread" ? spreadPickLabel(game) : totalPickLabel(game)}</strong></div>
+      {showPick ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick</span><strong>{market === "spread" ? spreadPickLabel(game) : totalPickLabel(game)}</strong></div> : null}
       <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Model</span><strong>{market === "spread" ? spreadModelLabel(game) : game.total_pred.toFixed(1)}</strong></div>
       <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick win probability</span><strong className="numbers-tabular">{displayProbability(probability)}</strong></div>
       {showStatus ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Status</span><strong className={locked ? "text-[var(--warning)]" : "text-slate-600"}>{locked ? "Lock" : "Standard pick"}</strong></div> : null}
@@ -94,10 +94,20 @@ function FavoriteGameCard({ game, league, timeZone }: { game: ExpectedPointsPick
           {totalLocked ? <LockBadge market="total" /> : null}
         </div>
       ) : null}
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        <div data-favorite-market="spread" className={`rounded-md border px-3 py-2.5 ${spreadLocked ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-200 bg-slate-50"}`}>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>
+          <strong className="mt-1 block text-lg tracking-tight text-[var(--ink)]">{spreadPickLabel(game)}</strong>
+        </div>
+        <div data-favorite-market="total" className={`rounded-md border px-3 py-2.5 ${totalLocked ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-200 bg-slate-50"}`}>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span>
+          <strong className="mt-1 block text-lg tracking-tight text-[var(--ink)]">{totalPickLabel(game)}</strong>
+        </div>
+      </div>
       <p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
       <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
-        <MarketDetails game={game} market="spread" showStatus={false} />
-        <MarketDetails game={game} market="total" showStatus={false} />
+        <MarketDetails game={game} market="spread" showPick={false} showStatus={false} />
+        <MarketDetails game={game} market="total" showPick={false} showStatus={false} />
       </div>
     </article>
   );
@@ -131,8 +141,8 @@ function GameMobileCard({ game, league, highlighted, timeZone }: { game: Expecte
             <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, league, timeZone)}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
-            <div className="rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong></div>
+            <div data-mobile-market="spread" className={`rounded-md border px-2.5 py-2 ${game.spread_lock ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-100 bg-slate-50"}`}><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
+            <div data-mobile-market="total" className={`rounded-md border px-2.5 py-2 ${game.total_lock ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-100 bg-slate-50"}`}><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong></div>
           </div>
           <span className="mt-3 block text-center text-xs font-semibold text-[var(--accent)] group-open:hidden">View model details</span>
           <span className="mt-3 hidden text-center text-xs font-semibold text-[var(--accent)] group-open:block">Hide model details</span>

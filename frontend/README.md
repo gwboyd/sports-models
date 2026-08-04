@@ -68,6 +68,8 @@ Useful routes:
 - `http://127.0.0.1:5173/models/nba?bankroll=500`
 
 `/models/info` is retained as a redirect to `/models/nfl/how-it-works`.
+The NBA route remains directly accessible, but its global navigation tab is temporarily hidden. The visible product
+navigation is limited to NFL and CFB.
 
 ## Football UI
 
@@ -84,6 +86,8 @@ The shared visual system is intentionally dense and restrained: neutral canvas a
 corners, minimal shadows, and a custom electric ink blue (`#0B5FCC`) for interactions and lock emphasis. Lock and qualifying
 favorite cards use a medium-blue outline and compact labels instead of a separate warning color. Keep 44px touch
 targets even when reducing surrounding padding.
+Favorite cards lead with larger spread and total pick blocks above the model score; each qualifying market receives
+its own blue outline. The same market-level blue outline identifies locks in mobile all-game cards.
 
 Favorites are device-local and stored under `sports-models:favorites:v1`, separated by league. Search covers the
 current league slate and matches team names, abbreviations, aliases, and CFB conferences.
@@ -120,11 +124,15 @@ rewritten, transient logo failures retain an existing cached file, and no accoun
 to the frontend.
 
 The results routes use the existing pick-results responses. They calculate season-specific summaries from graded game
-rows, keep the selected season in `?season=`, and show a designed empty state when results are not available. The NFL
+rows, keep the selected season in `?season=`, and show a designed empty state when results are not available. Summary
+cards lead with spread and total locks, followed by all spread and total picks; there is no separate predicted-games
+tile because every metric already includes its graded-pick count. The NFL
 visitor explainer is maintained separately from developer documentation in `content/nfl-how-it-works.md`.
 That document carries forward the public methodology previously rendered by the production Info page. Its renderer
 supports nested headings, lists, links, inline code, and responsive Markdown images; operational database and
 deployment instructions remain in the model README instead.
+Model Insights is limited to the live power-ranking and offensive/defensive EPA views. Feature importance and the
+dynamic moving-average explanation remain in How It Works.
 
 ## Checks
 
