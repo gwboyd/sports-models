@@ -4,17 +4,21 @@
 
 @layer base {
   :root {
-    --canvas: #f5f7fa;
+    --canvas: #f7f8fa;
     --surface: #ffffff;
-    --surface-subtle: #f8fafc;
-    --ink: #172033;
+    --surface-subtle: #f4f6f8;
+    --ink: #152033;
     --muted: #667085;
-    --border: #e4e7ec;
-    --accent: #315efb;
-    --accent-soft: #eef3ff;
+    --border: #dfe3e8;
+    --accent: #0b5fcc;
+    --accent-hover: #084a9f;
+    --accent-soft: #eef4fd;
+    --lock: #0b5fcc;
+    --lock-soft: #eef4fd;
+    --lock-border: #6f98d0;
     --success: #18794e;
     --danger: #b42318;
-    --warning: #9a6700;
+    --warning: #0b5fcc;
   }
 
   html {
@@ -48,7 +52,7 @@
   }
 
   :focus-visible {
-    outline: 3px solid rgba(49, 94, 251, 0.28);
+    outline: 3px solid rgba(11, 95, 204, 0.22);
     outline-offset: 2px;
   }
 }

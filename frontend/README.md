@@ -75,8 +75,15 @@ NFL and CFB share a mobile-first expected-points dashboard. Each slate is presen
 separate spread/total lock cards second, and the full chronological game list last. Desktop uses a semantic game
 table; mobile uses expandable game cards. CFB games appear once and can be filtered by either team's conference.
 
+The shared visual system is intentionally dense and restrained: neutral canvas and surfaces, eight-pixel card
+corners, minimal shadows, and a custom electric ink blue (`#0B5FCC`) for interactions and lock emphasis. Lock and qualifying
+favorite cards use a medium-blue outline and compact labels instead of a separate warning color. Keep 44px touch
+targets even when reducing surrounding padding.
+
 Favorites are device-local and stored under `sports-models:favorites:v1`, separated by league. Search covers the
 current league slate and matches team names, abbreviations, aliases, and CFB conferences.
+Favorite cards with a qualifying spread and/or total use the same light-blue outline as lock cards and display a
+separate compact tag for each qualifying market.
 
 Team metadata is generated into `app/generated/cfb-teams.json` and `app/generated/nfl-teams.json`; the shared resolver
 in `app/lib/team-data.ts` consumes those files at build time. Logo images are cached under

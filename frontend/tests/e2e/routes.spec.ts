@@ -29,8 +29,13 @@ test("favorites are saved across reloads", async ({ page }) => {
   await page.getByRole("checkbox", { name: "Favorite Home" }).check();
   await page.getByRole("button", { name: "Close" }).click();
   await page.reload();
+  const favorites = page.locator("[aria-labelledby='favorites-title']");
+  const favoriteCard = favorites.locator("article");
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
-  await expect(page.getByText("Model score", { exact: false })).toBeVisible();
+  await expect(favoriteCard).toContainText("Model score");
+  await expect(favoriteCard).toContainText("Spread lock");
+  await expect(favoriteCard).toContainText("Total lock");
+  await expect(favoriteCard).toHaveClass(/border-\[var\(--lock-border\)\]/);
 });
 
 test("results support shareable season selection and CFB empty state", async ({ page }) => {

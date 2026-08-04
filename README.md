@@ -127,6 +127,9 @@ The mobile-first NFL and CFB frontend presents favorites, separate spread/total 
 slate. CFB games appear once and can be filtered by either team's conference. Shared results routes derive season and
 weekly summaries from the existing graded-game responses; an unavailable CFB result set renders an empty state until
 the first games are graded. NFL methodology and live model graphics are available on separate nested routes.
+The shared presentation uses compact eight-pixel surfaces, limited shadows, and custom electric ink blue (`#0B5FCC`) accents while retaining
+44px mobile touch targets. Lock cards use a uniform light-blue outline; favorite cards inherit that outline and show
+spread and/or total lock tags when those markets qualify.
 
 Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
 YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,

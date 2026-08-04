@@ -61,15 +61,33 @@ function MarketDetails({ game, market }: { game: ExpectedPointsPick; market: "sp
   );
 }
 
-function FavoriteGameCard({ game, league }: { game: ExpectedPointsPick; league: FootballLeague }) {
+function LockBadge({ market }: { market: "spread" | "total" }) {
   return (
-    <article className="rounded-2xl border border-blue-100 bg-white p-4 shadow-[0_4px_16px_rgba(49,94,251,0.06)]">
+    <span className="rounded-md bg-[var(--lock-soft)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--lock)]">
+      {market === "spread" ? "Spread lock" : "Total lock"}
+    </span>
+  );
+}
+
+function FavoriteGameCard({ game, league }: { game: ExpectedPointsPick; league: FootballLeague }) {
+  const spreadLocked = Boolean(game.spread_lock);
+  const totalLocked = Boolean(game.total_lock);
+  const locked = spreadLocked || totalLocked;
+
+  return (
+    <article className={`rounded-lg border bg-white p-3.5 ${locked ? "border-[var(--lock-border)]" : "border-[var(--border)]"}`}>
       <div className="flex items-start justify-between gap-3">
         <Matchup game={game} league={league} />
         <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time)}</span>
       </div>
-      <p className="mt-3 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      {locked ? (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {spreadLocked ? <LockBadge market="spread" /> : null}
+          {totalLocked ? <LockBadge market="total" /> : null}
+        </div>
+      ) : null}
+      <p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
+      <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
         <MarketDetails game={game} market="spread" />
         <MarketDetails game={game} market="total" />
       </div>
@@ -80,14 +98,14 @@ function FavoriteGameCard({ game, league }: { game: ExpectedPointsPick; league: 
 function LockCard({ lock, league }: { lock: LockPick; league: FootballLeague }) {
   const isSpread = lock.market === "spread";
   return (
-    <article className="w-[82vw] max-w-[340px] shrink-0 snap-start rounded-2xl border border-amber-200 bg-white p-4 shadow-[0_4px_16px_rgba(154,103,0,0.08)] md:w-auto md:max-w-none">
+    <article className="w-[76vw] max-w-[300px] shrink-0 snap-start rounded-lg border border-[var(--lock-border)] bg-white p-3 md:w-auto md:max-w-none">
       <div className="flex items-center justify-between gap-3">
-        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--warning)]">{isSpread ? "Spread lock" : "Total lock"}</span>
-        <span className="numbers-tabular text-sm font-semibold text-[var(--warning)]">{displayProbability(lock.probability)}</span>
+        <LockBadge market={lock.market} />
+        <span className="numbers-tabular text-sm font-semibold text-[var(--lock)]">{displayProbability(lock.probability)}</span>
       </div>
-      <div className="mt-4"><Matchup game={lock.game} league={league} compact /></div>
-      <p className="mt-4 text-2xl font-bold tracking-tight text-[var(--ink)]">{isSpread ? spreadPickLabel(lock.game) : totalPickLabel(lock.game)}</p>
-      <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+      <div className="mt-3"><Matchup game={lock.game} league={league} compact /></div>
+      <p className="mt-3 text-xl font-bold tracking-tight text-[var(--ink)]">{isSpread ? spreadPickLabel(lock.game) : totalPickLabel(lock.game)}</p>
+      <div className="mt-2 space-y-0.5 text-xs leading-5 text-[var(--muted)]">
         <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p>
         <p>{formatKickoff(lock.game.date_time)}</p>
       </div>
@@ -97,23 +115,23 @@ function LockCard({ lock, league }: { lock: LockPick; league: FootballLeague }) 
 
 function GameMobileCard({ game, league, highlighted }: { game: ExpectedPointsPick; league: FootballLeague; highlighted: boolean }) {
   return (
-    <article data-game-id={gameDomId(game.game_id)} className={`scroll-mt-36 rounded-2xl border bg-white transition-all ${highlighted ? "border-blue-400 ring-4 ring-blue-100" : "border-[var(--border)]"}`}>
+    <article data-game-id={gameDomId(game.game_id)} className={`scroll-mt-36 rounded-lg border bg-white transition-all ${highlighted ? "border-[var(--accent)] ring-2 ring-[var(--accent-soft)]" : "border-[var(--border)]"}`}>
       <details className="group">
-        <summary className="cursor-pointer list-none p-4 [&::-webkit-details-marker]:hidden">
+        <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-start justify-between gap-3">
             <Matchup game={game} league={league} compact />
             <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time)}</span>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-slate-50 px-3 py-2.5"><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span><strong className="mt-1 block text-sm">{spreadPickLabel(game)}</strong></div>
-            <div className="rounded-xl bg-slate-50 px-3 py-2.5"><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span><strong className="mt-1 block text-sm">{totalPickLabel(game)}</strong></div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
+            <div className="rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong></div>
           </div>
           <span className="mt-3 block text-center text-xs font-semibold text-[var(--accent)] group-open:hidden">View model details</span>
           <span className="mt-3 hidden text-center text-xs font-semibold text-[var(--accent)] group-open:block">Hide model details</span>
         </summary>
-        <div className="border-t border-[var(--border)] px-4 pb-4 pt-3">
+        <div className="border-t border-[var(--border)] px-3 pb-3 pt-2.5">
           <p className="mb-4 text-sm text-[var(--muted)]">Predicted score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
-          <div className="grid gap-5 sm:grid-cols-2"><MarketDetails game={game} market="spread" /><MarketDetails game={game} market="total" /></div>
+          <div className="grid gap-4 sm:grid-cols-2"><MarketDetails game={game} market="spread" /><MarketDetails game={game} market="total" /></div>
         </div>
       </details>
     </article>
@@ -124,10 +142,10 @@ function DesktopMarketCell({ game, market }: { game: ExpectedPointsPick; market:
   const label = market === "spread" ? spreadPickLabel(game) : totalPickLabel(game);
   const locked = market === "spread" ? Boolean(game.spread_lock) : Boolean(game.total_lock);
   return (
-    <div tabIndex={0} className="group relative inline-flex min-h-11 items-center gap-2 rounded-lg px-2 focus:bg-blue-50">
+    <div tabIndex={0} className="group relative inline-flex min-h-11 items-center gap-2 rounded-md px-2 focus:bg-[var(--accent-soft)]">
       <span className="font-semibold text-[var(--ink)]">{label}</span>
-      {locked ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--warning)]">Lock</span> : null}
-      <div className="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] z-30 hidden w-64 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xl group-hover:block group-focus:block">
+      {locked ? <span className="rounded-md bg-[var(--lock-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--lock)]">Lock</span> : null}
+      <div className="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] z-30 hidden w-64 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3.5 text-left shadow-lg group-hover:block group-focus:block">
         <MarketDetails game={game} market={market} />
       </div>
     </div>
@@ -136,12 +154,12 @@ function DesktopMarketCell({ game, market }: { game: ExpectedPointsPick; market:
 
 function GameDesktopTable({ games, league, highlightedId }: { games: ExpectedPointsPick[]; league: FootballLeague; highlightedId: string | null }) {
   return (
-    <div className="hidden overflow-visible rounded-2xl border border-[var(--border)] bg-white md:block">
+    <div className="hidden overflow-visible rounded-lg border border-[var(--border)] bg-white md:block">
       <table className="w-full table-fixed text-left">
         <thead><tr className="border-b border-[var(--border)] bg-slate-50 text-xs uppercase tracking-wider text-[var(--muted)]"><th className="w-[38%] px-4 py-3">Matchup</th><th className="w-[20%] px-4 py-3">Kickoff</th><th className="w-[21%] px-4 py-3">Spread pick</th><th className="w-[21%] px-4 py-3">Total pick</th></tr></thead>
         <tbody>
           {games.map((game) => (
-            <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-blue-50" : "hover:bg-slate-50/70"}`}>
+            <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-[var(--accent-soft)]" : "hover:bg-slate-50/70"}`}>
               <td className="px-4 py-3"><Matchup game={game} league={league} compact /></td>
               <td className="px-4 py-3 text-sm text-[var(--muted)]">{formatKickoff(game.date_time)}</td>
               <td className="px-2 py-2"><DesktopMarketCell game={game} market="spread" /></td>
@@ -200,8 +218,8 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-20 sm:px-6 sm:py-8 lg:px-8">
-      <header className="flex flex-col gap-5 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <main className="mx-auto w-full max-w-7xl px-4 py-5 pb-16 sm:px-6 sm:py-7 lg:px-8">
+      <header className="flex flex-col gap-4 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-[var(--accent)]">{games[0].season} · Week {games[0].week}</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl">{leagueName} predictions</h1>
@@ -209,43 +227,43 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
           {latestWrite ? <p className="mt-2 text-xs font-medium text-slate-500">Model updated {formatUpdatedAt(latestWrite)}</p> : null}
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
-          <button type="button" onClick={() => setSearchOpen(true)} className="min-h-11 rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--ink)] shadow-sm hover:bg-slate-50">Search games</button>
-          <button type="button" onClick={() => setFavoritesOpen(true)} className="min-h-11 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">Manage teams</button>
+          <button type="button" onClick={() => setSearchOpen(true)} className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--ink)] hover:bg-slate-50">Search games</button>
+          <button type="button" onClick={() => setFavoritesOpen(true)} className="min-h-11 rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]">Manage teams</button>
         </div>
       </header>
 
-      <div className="mt-8 space-y-10">
-        <section className="space-y-4" aria-labelledby="favorites-title">
+      <div className="mt-7 space-y-8">
+        <section className="space-y-3" aria-labelledby="favorites-title">
           <SectionHeading title="Favorites" description="Your teams, saved on this device." action={<button type="button" onClick={() => setFavoritesOpen(true)} className="min-h-11 text-sm font-semibold text-[var(--accent)]">Edit teams</button>} />
-          {!ready ? <div className="h-28 animate-pulse rounded-2xl bg-slate-200" /> : favoriteIds.length === 0 ? (
-            <button type="button" onClick={() => setFavoritesOpen(true)} className="flex min-h-24 w-full items-center justify-between gap-4 rounded-2xl border border-dashed border-blue-300 bg-blue-50/50 p-4 text-left hover:bg-blue-50">
+          {!ready ? <div className="h-20 animate-pulse rounded-lg bg-slate-200" /> : favoriteIds.length === 0 ? (
+            <button type="button" onClick={() => setFavoritesOpen(true)} className="flex min-h-20 w-full items-center justify-between gap-3 rounded-lg border border-dashed border-[var(--lock-border)] bg-white p-3.5 text-left hover:bg-[var(--accent-soft)]">
               <span><strong className="block text-[var(--ink)]">Follow your teams</strong><span className="mt-1 block text-sm text-[var(--muted)]">Choose favorites for an instant full-game view each week.</span></span><span className="shrink-0 text-sm font-semibold text-[var(--accent)]">Choose teams</span>
             </button>
-          ) : favoriteGames.length === 0 ? <p className="rounded-2xl border border-[var(--border)] bg-white p-5 text-sm text-[var(--muted)]">None of your favorite teams has a game in the current slate.</p> : (
+          ) : favoriteGames.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">None of your favorite teams has a game in the current slate.</p> : (
             <div className="grid gap-3 lg:grid-cols-2">{favoriteGames.map((game) => <FavoriteGameCard key={game.game_id} game={game} league={league} />)}</div>
           )}
         </section>
 
-        <section className="space-y-4" aria-labelledby="locks-title">
+        <section className="space-y-3" aria-labelledby="locks-title">
           <SectionHeading title="Locks" description="Model-qualified spread and total picks, ordered by win probability." />
-          {locks.length === 0 ? <p className="rounded-2xl border border-[var(--border)] bg-white p-5 text-sm text-[var(--muted)]">No locks are available for this slate.</p> : (
-            <div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3">{locks.map((lock) => <LockCard key={lock.id} lock={lock} league={league} />)}</div>
+          {locks.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">No locks are available for this slate.</p> : (
+            <div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 xl:grid-cols-4">{locks.map((lock) => <LockCard key={lock.id} lock={lock} league={league} />)}</div>
           )}
         </section>
 
-        <section className="space-y-5" aria-labelledby="games-title">
+        <section className="space-y-4" aria-labelledby="games-title">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <SectionHeading title="All games" description="Tap a game on mobile or focus a pick on desktop to see the model forecast." />
             {league === "cfb" ? (
               <label className="text-sm font-medium text-[var(--muted)]">Conference
-                <select value={conference} onChange={(event) => setConference(event.target.value)} className="ml-2 min-h-11 rounded-xl border border-[var(--border)] bg-white px-3 text-[var(--ink)]">
+                <select value={conference} onChange={(event) => setConference(event.target.value)} className="ml-2 min-h-11 rounded-lg border border-[var(--border)] bg-white px-3 text-[var(--ink)]">
                   <option value="">All conferences</option>
                   {conferences.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </label>
             ) : null}
           </div>
-          {dateGroups.length === 0 ? <p className="rounded-2xl border border-[var(--border)] bg-white p-5 text-sm text-[var(--muted)]">No games match this conference.</p> : dateGroups.map((group) => (
+          {dateGroups.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">No games match this conference.</p> : dateGroups.map((group) => (
             <div key={group.date} className="space-y-3">
               <h3 className="text-sm font-semibold text-[var(--muted)]">{group.date}</h3>
               <div className="space-y-3 md:hidden">{group.games.map((game) => <GameMobileCard key={game.game_id} game={game} league={league} highlighted={highlightedId === game.game_id} />)}</div>
@@ -255,7 +273,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
         </section>
       </div>
 
-      <aside className="mt-12 rounded-2xl bg-slate-100 p-4 text-xs leading-5 text-[var(--muted)]">
+      <aside className="mt-10 border-l-2 border-slate-300 py-1 pl-3 text-xs leading-5 text-[var(--muted)]">
         Win probability refers to the selected spread or total pick hitting, not the team winning outright. Model outputs are informational and are not guarantees.
       </aside>
 
@@ -264,7 +282,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
           <Input autoFocus type="search" placeholder="Try 49ers, SF, SEC…" value={searchQuery} onChange={(value) => setSearchQuery(String(value))} />
           <div className="mt-4 space-y-2">
             {searchResults.length === 0 ? <p className="py-8 text-center text-sm text-[var(--muted)]">No games match that search.</p> : searchResults.map((game) => (
-              <button key={game.game_id} type="button" onClick={() => selectSearchResult(game)} className="flex min-h-16 w-full items-center justify-between gap-4 rounded-xl border border-[var(--border)] px-3 py-2 text-left hover:border-blue-200 hover:bg-blue-50">
+              <button key={game.game_id} type="button" onClick={() => selectSearchResult(game)} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left hover:border-[var(--lock-border)] hover:bg-[var(--accent-soft)]">
                 <Matchup game={game} league={league} compact /><span className="shrink-0 text-xs text-[var(--muted)]">{formatKickoff(game.date_time)}</span>
               </button>
             ))}
@@ -279,7 +297,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
             {visibleManagerTeams.map((team) => {
               const checked = favoriteIds.includes(team.id);
               return (
-                <label key={team.id} className="flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--border)] px-3 py-2 hover:bg-slate-50">
+                <label key={team.id} className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 hover:bg-slate-50">
                   <TeamIdentity team={team} compact />
                   <input aria-label={`Favorite ${team.displayName}`} type="checkbox" checked={checked} onChange={(event) => update(team.id, event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-[var(--accent)]" />
                 </label>

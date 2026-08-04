@@ -18,7 +18,7 @@ export function ModelTabs() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="League navigation" className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+    <nav aria-label="League navigation" className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-0.5">
       {tabs.map((tab) => {
         const isActive = pathname.startsWith(tab.pathname);
         return (
@@ -26,7 +26,7 @@ export function ModelTabs() {
             key={tab.label}
             href={tab.href}
             aria-current={isActive ? "page" : undefined}
-            className={`flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`flex min-h-10 items-center justify-center rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors ${
               isActive
                 ? "bg-white text-[var(--ink)] shadow-sm"
                 : "text-[var(--muted)] hover:bg-white/70 hover:text-[var(--ink)]"

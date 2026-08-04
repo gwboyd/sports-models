@@ -32,7 +32,7 @@ export function RouteErrorBoundary({
                 window.location.reload();
               }
             }}
-            className="min-h-11 self-start rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700"
+            className="min-h-11 self-start rounded-lg bg-[var(--accent)] px-4 py-2 font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
           >
             Try Again
           </button>

@@ -29,12 +29,12 @@ export function ModelSubnav({ league }: { league: keyof typeof leagueLinks }) {
               key={link.href}
               href={link.href}
               aria-current={active ? "page" : undefined}
-              className={`relative flex min-h-12 shrink-0 items-center text-sm font-medium ${
+              className={`relative flex min-h-11 shrink-0 items-center text-sm font-medium ${
                 active ? "text-[var(--ink)]" : "text-[var(--muted)] hover:text-[var(--ink)]"
               }`}
             >
               {link.label}
-              {active ? <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[var(--accent)]" /> : null}
+              {active ? <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--accent)]" /> : null}
             </Link>
           );
         })}

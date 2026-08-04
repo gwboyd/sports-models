@@ -8,7 +8,7 @@ export default async function HowItWorksPage() {
   const content = await getModelInfoMarkdown();
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 pb-20 sm:px-6 sm:py-10 lg:px-8">
-      <article className="rounded-2xl border border-[var(--border)] bg-white px-5 py-7 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-10 sm:py-10">
+      <article className="rounded-lg border border-[var(--border)] bg-white px-5 py-6 sm:px-9 sm:py-8">
         <Markdown components={{
           h1: ({ children }) => <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl">{children}</h1>,
           h2: ({ children }) => <h2 className="mt-10 border-t border-[var(--border)] pt-8 text-2xl font-semibold tracking-tight text-[var(--ink)]">{children}</h2>,
