@@ -15,7 +15,7 @@ picks = APIRouter()
 @pick_upload.post("/nba-first-basket-upload", tags=["NBA"])
 def nba_first_basket_upload(data: List[NBAFirstBasketPick]):
     try:
-        row_count = replace_nba_first_basket_picks([item.dict() for item in data])
+        row_count = replace_nba_first_basket_picks([item.model_dump() for item in data])
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database write failed: {exc}") from exc
 

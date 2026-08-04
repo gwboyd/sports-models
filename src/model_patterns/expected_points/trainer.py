@@ -44,7 +44,12 @@ def fit_eval(df, X_train, X_test, y_train, y_test, score_pipeline, score_param_g
 
 
 def _build_train_df(df, config: ExpectedPointsConfig):
-    train_df = df.dropna(subset=[config.targets[0]], inplace=False)
+    # A score model predicts every configured target, so partial results cannot
+    # be used as labels. This excludes scheduled, cancelled, and incomplete games.
+    train_df = df.copy()
+    for target in config.targets:
+        train_df[target] = pd.to_numeric(train_df[target], errors="coerce")
+    train_df = train_df.dropna(subset=config.targets, inplace=False)
     train_df = train_df[
         ~(
             (train_df[config.season_col] == config.current_year)

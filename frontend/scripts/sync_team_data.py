@@ -21,7 +21,7 @@ from typing import Any, Iterable
 
 
 CFB_TEAMS_URL = "https://api.collegefootballdata.com/teams/fbs"
-NFL_TEAMS_URL = "https://github.com/nflverse/nflfastR-data/raw/master/teams_colors_logos.csv"
+NFL_TEAMS_URL = "https://github.com/nflverse/nflverse-data/releases/download/teams/teams_colors_logos.csv"
 USER_AGENT = "sports-models-team-sync/1.0"
 FRONTEND_ROOT = Path(__file__).resolve().parents[1]
 GENERATED_DIR = FRONTEND_ROOT / "app" / "generated"

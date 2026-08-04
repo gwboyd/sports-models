@@ -21,6 +21,16 @@ The model is "not allowed" to make picks within 30 mins of kickoff, so it's fina
 Completed games are graded during later update runs when final scores become available. Graded outcomes are written
 with the current picks and update history through the shared expected-points persistence workflow.
 
+## Data Loading
+
+The notebook receives its data from `data_loader.py`, which uses `nflreadpy` for play-by-play, weekly player stats,
+schedules, and team metadata. The loader selects only model-consumed fields while data is still Polars, disables the
+library cache, then converts the selected frames to pandas for the existing feature pipeline. It preserves the former
+float32 PBP behavior, renames player-stat `team` and passing-interception fields to the notebook's legacy names, and
+normalizes Oakland, San Diego, and St. Louis abbreviations. During week 1 only, an unavailable current-season
+play-by-play or player-stat release is logged and skipped; missing historical data and later-season failures remain
+errors.
+
 ## Operational Update Workflow
 
 The NFL notebook shares its tracking, grading, reporting, notebook execution, and database persistence behavior with

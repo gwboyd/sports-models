@@ -17,16 +17,16 @@ class GameResult(BaseModel):
     spread_play: str
     spread_win_prob: float
     spread_lock: int
-    correct_spread_play: Optional[str]
-    spread_win: Optional[int]
+    correct_spread_play: Optional[str] = None
+    spread_win: Optional[int] = None
     total_pred: float
     total_line: float
     true_total: float
     total_play: str
     total_win_prob: float
     total_lock: int
-    correct_total_play: Optional[str]
-    total_win: Optional[int]
+    correct_total_play: Optional[str] = None
+    total_win: Optional[int] = None
     year_week: str
     game_id: str
     date_time: str

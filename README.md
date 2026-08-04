@@ -14,10 +14,11 @@ The operational database schema is `sports_models`.
 
 Use Python `3.11.x` to match the Lambda container runtime.
 
-Create and activate a virtual environment:
+Install `uv`, then create and activate the Python version pinned by `.python-version`:
 
 ```shell
-python3 -m venv .venv
+brew install uv
+uv venv
 source .venv/bin/activate
 ```
 
@@ -28,11 +29,15 @@ brew install libomp
 brew install python-certifi
 ```
 
-Install Python dependencies:
+Install runtime and local test dependencies:
 
 ```shell
-pip3 install -r requirements.txt
+uv pip install -r requirements-dev.txt
+uv pip check
 ```
+
+`requirements.txt` is the Lambda/runtime dependency set. `requirements-dev.txt` includes it and adds pinned local
+test dependencies; use the dev file for a reproducible contributor environment.
 
 Create the backend env file:
 
@@ -98,6 +103,17 @@ NFL and CFB use the shared modeling, tracking, reporting, notebook-execution, an
 `src/model_patterns/expected_points/`. Sport-specific notebooks remain responsible for producing the model input
 and predictions.
 
+NFL ingestion is isolated in `src/sports/football/nfl/expected_points/data_loader.py`. It uses `nflreadpy` for
+play-by-play, weekly player statistics, schedules, and team metadata; selected Polars frames are converted to pandas
+at that boundary so model feature engineering remains pandas-based. The loader disables the client cache, preserves
+legacy float downcasting and team-abbreviation normalization, and only tolerates an unavailable current-season
+release during week 1. CFB data uses the direct REST client in
+`src/sports/football/cfb/expected_points/cfbd_client.py`, rather than a Python SDK. When CFBD adds a new game field,
+the notebook retains that API schema and represents the field as null for older historical CSV rows; the same
+alignment applies to advanced game-stat fields. Scheduled games retain their pregame Elo and never update team
+ratings until both final scores are available. Score-model training coerces final scores to numeric values and excludes
+any game missing or invalid for either target.
+
 Available routes:
 
 - `GET /nfl-picks`
@@ -144,8 +160,8 @@ Favorite and mobile game cards emphasize actionable picks, with blue outlines ap
 
 Football team metadata and local logo assets can be refreshed without a frontend API change. `make sync-cfb-teams
 YEAR=2026` loads `CFBD_API_KEY` from the root `.env`, writes a deterministic CFB manifest for the selected FBS season,
-and caches its logos under `frontend/public/teams/cfb/`. `make sync-nfl-teams` mirrors the nflverse/ESPN logo metadata
-already used by the NFL notebook. `make sync-football-teams YEAR=2026` refreshes both catalogs.
+and caches its logos under `frontend/public/teams/cfb/`. `make sync-nfl-teams` mirrors the nflverse-data teams release
+used by the NFL loader. `make sync-football-teams YEAR=2026` refreshes both catalogs.
 
 ## Local Development
 
@@ -175,6 +191,11 @@ Backend tests:
 ```shell
 pytest
 ```
+
+When validating a dependency removal or Lambda-compatible wheel set, create a fresh Python 3.11 virtual environment
+instead of installing over an existing `.venv`, then run `uv pip check` after installing `requirements-dev.txt`. The
+NFL loader tests cover the Polars-to-pandas compatibility boundary; live notebook updates still require the
+operational checks below.
 
 Notebook-driven NFL or CFB workflow changes also require a human-verified update run before merging. Confirm the
 pick count, update-history row, started-game preservation, graded results when applicable, and the corresponding
