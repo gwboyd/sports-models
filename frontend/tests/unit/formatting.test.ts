@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertDateTime, formatGameDate, formatKickoff } from "@/app/lib/formatting";
+import { convertDateTime, formatGameDate, formatKickoff, formatUpdatedAt } from "@/app/lib/formatting";
 
 describe("football kickoff timezone formatting", () => {
   it("interprets NFL wall-clock values in New York with daylight saving time", () => {
@@ -15,5 +15,10 @@ describe("football kickoff timezone formatting", () => {
 
   it("uses the local calendar date when a UTC kickoff crosses midnight", () => {
     expect(formatGameDate("2026-09-06-01:00", "cfb", "America/Los_Angeles")).toBe("Saturday, September 5");
+  });
+
+  it("shows model update time in the device timezone with the seasonal abbreviation", () => {
+    expect(formatUpdatedAt("2026-07-01T15:30:00Z", "America/Chicago")).toBe("Jul 1, 10:30 AM CDT");
+    expect(formatUpdatedAt("2026-01-01T15:30:00Z", "America/Chicago")).toBe("Jan 1, 9:30 AM CST");
   });
 });

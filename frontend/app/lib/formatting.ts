@@ -5,7 +5,6 @@ export const displaySpread = (spread: number, numDecimals = 1) =>
 
 export const displayProbability = (probability: number) => `${probability.toFixed(1)}%`;
 
-const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const NFL_SOURCE_TIME_ZONE = "America/New_York";
 
 function dateTimeParts(dateTimeString: string) {
@@ -15,12 +14,6 @@ function dateTimeParts(dateTimeString: string) {
 
 function validDateTimeParts(value: ReturnType<typeof dateTimeParts>): boolean {
   return Object.values(value).every(Number.isFinite);
-}
-
-function displayClock(hour: number, minute: number): string {
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const twelveHour = hour % 12 || 12;
-  return `${twelveHour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
 function timeZoneOffset(date: Date, timeZone: string): number {
@@ -92,9 +85,16 @@ export function formatGameDate(dateTimeString: string, league: FootballLeague, t
   }).format(parsed);
 }
 
-export function formatUpdatedAt(writeTime: string): string {
+export function formatUpdatedAt(writeTime: string, timeZone = "UTC"): string {
   const hasTimezone = writeTime.endsWith("Z") || /[+-]\d\d:\d\d$/.test(writeTime);
   const parsed = new Date(writeTime.replace(" ", "T") + (hasTimezone ? "" : "Z"));
   if (Number.isNaN(parsed.getTime())) return writeTime;
-  return `${SHORT_MONTHS[parsed.getUTCMonth()]} ${parsed.getUTCDate()}, ${displayClock(parsed.getUTCHours(), parsed.getUTCMinutes())} UTC`;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(parsed);
 }

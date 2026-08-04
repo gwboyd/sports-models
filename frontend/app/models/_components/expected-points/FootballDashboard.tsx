@@ -250,7 +250,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
           <p className="text-sm font-semibold text-[var(--accent)]">{games[0].season} · Week {games[0].week}</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl">{leagueName} predictions</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">Every game includes the model&apos;s preferred spread and total. Locks are the highest-conviction opportunities that pass additional model checks.</p>
-          {latestWrite ? <p className="mt-2 text-xs font-medium text-slate-500">Model updated {formatUpdatedAt(latestWrite)}</p> : null}
+          {latestWrite ? <p className="mt-2 text-xs font-medium text-slate-500">Model updated {formatUpdatedAt(latestWrite, displayTimeZone)}</p> : null}
         </div>
         <button type="button" onClick={() => setSearchOpen(true)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-[var(--border)] bg-white px-3.5 text-left text-sm text-[var(--muted)] hover:border-[var(--lock-border)] hover:bg-slate-50 sm:w-80">
           <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="1.8"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m12.5 12.5 4 4" /></svg>
