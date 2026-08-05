@@ -53,6 +53,8 @@ The NFL notebook shares its tracking, grading, reporting, notebook execution, an
 the CFB expected-points model through `src/model_patterns/expected_points/`.
 The shared tracking configuration supports league-specific pick metadata so CFB can retain home and away conference
 values without changing the NFL pick schema.
+League-neutral lagged-metric calculations live under `src/sports/football/transforms/`; nflverse-specific kickoff
+formatting and NFL feature shaping remain in this workflow.
 
 Each operational update:
 
@@ -115,6 +117,8 @@ The training dataset for these classifiers is the later, chronological test set 
 The power rankings seen above in the chart are created by taking all of the metrics (so not inclusing odds, enviroment, rest, etc) for teams, training a classification model that predicts winning, and them creating simulations to where each team plays every other team home and away. The model outputs a win probability for esach game, so the teams "win percentage" is just and average of the win probabilities for all 62 (31 * 2) games a team would play.
 
 The game simulations mimick each team's form for the current week (the next week if a team is on a bye), so it would be as if they all played eachother "today."
+The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
+logic and does not feed the expected-points picks or confidence classifiers.
 
 ### Ideas for the future
 

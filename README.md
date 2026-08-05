@@ -101,7 +101,9 @@ exists` statements in the setup SQL before deploying a backend that reads or wri
 
 NFL and CFB use the shared modeling, tracking, reporting, notebook-execution, and persistence helpers under
 `src/model_patterns/expected_points/`. Sport-specific notebooks remain responsible for producing the model input
-and predictions.
+and predictions. League-neutral football feature transforms live under `src/sports/football/transforms/`; feed and
+league adapters remain beside their NFL or CFB workflow. Shared HTTP schemas for the two expected-points APIs live
+in `src/sports/football/expected_points_schemas.py` rather than the application-wide utility layer.
 
 NFL ingestion is isolated in `src/sports/football/nfl/expected_points/data_loader.py`. It uses `nflreadpy` for
 play-by-play, weekly player statistics, schedules, and team metadata; selected Polars frames are converted to pandas
@@ -155,6 +157,9 @@ CFB advanced metrics are placed on the complete team-game schedule before laggin
 observations; scheduled rows receive an EWMA derived only from strictly earlier kickoffs. A current prediction row
 whose monitored efficiency features are all null is a contract failure instead of silently becoming a median-only
 prediction.
+
+The supplemental NFL power-ranking classifier also uses a predefined train-before-validation split. It is used only
+for chart generation and never supplies pick or confidence features.
 
 The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered
 slate. CFB games appear once and can be filtered by either team's conference. Shared results routes derive season and

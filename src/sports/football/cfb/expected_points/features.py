@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import pandas as pd
 
 from src.sports.data_validation import validate_frame
-from src.sports.football.transforms.common import get_averaged_game_stats
+from src.sports.football.transforms import build_lagged_team_metrics
 
 
 TEAM_GAME_KEYS = ("game_id", "season", "week", "team")
@@ -78,7 +78,7 @@ def build_pregame_advanced_stats(
         [*TEAM_GAME_KEYS, "start_date", *columns],
     ]
     timeline = pd.concat([history_only, scheduled_metrics], ignore_index=True, sort=False)
-    return get_averaged_game_stats(timeline, columns)
+    return build_lagged_team_metrics(timeline, columns)
 
 
 __all__ = ["build_pregame_advanced_stats"]

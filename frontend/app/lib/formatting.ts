@@ -1,5 +1,3 @@
-import type { FootballLeague } from "@/app/types/types";
-
 export const displaySpread = (spread: number, numDecimals = 1) =>
   spread > 0 ? `+${spread.toFixed(numDecimals)}` : spread.toFixed(numDecimals);
 
@@ -48,12 +46,12 @@ function newYorkWallTimeToDate(dateTimeString: string): Date {
   return new Date(instant);
 }
 
-export function convertDateTime(dateTimeString: string, _league: FootballLeague): Date {
+export function convertDateTime(dateTimeString: string): Date {
   return newYorkWallTimeToDate(dateTimeString);
 }
 
-export function formatKickoff(dateTimeString: string, league: FootballLeague, timeZone?: string): string {
-  const parsed = convertDateTime(dateTimeString, league);
+export function formatKickoff(dateTimeString: string, timeZone?: string): string {
+  const parsed = convertDateTime(dateTimeString);
   if (Number.isNaN(parsed.getTime())) return dateTimeString;
   return new Intl.DateTimeFormat("en-US", {
     timeZone: timeZone ?? FOOTBALL_SOURCE_TIME_ZONE,
@@ -65,8 +63,8 @@ export function formatKickoff(dateTimeString: string, league: FootballLeague, ti
   }).format(parsed);
 }
 
-export function formatGameDate(dateTimeString: string, league: FootballLeague, timeZone?: string): string {
-  const parsed = convertDateTime(dateTimeString, league);
+export function formatGameDate(dateTimeString: string, timeZone?: string): string {
+  const parsed = convertDateTime(dateTimeString);
   if (Number.isNaN(parsed.getTime())) return dateTimeString;
   return new Intl.DateTimeFormat("en-US", {
     timeZone: timeZone ?? FOOTBALL_SOURCE_TIME_ZONE,

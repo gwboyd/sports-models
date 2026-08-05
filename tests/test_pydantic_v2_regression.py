@@ -1,6 +1,6 @@
 from src.sports.basketball.nba.first_basket_model import handler as nba_handler
 from src.sports.basketball.nba.first_basket_model.data_model import NBAFirstBasketPick
-from src.utils.data_models.picks_results_response import GameResult
+from src.sports.football.expected_points_schemas import GameResult
 
 
 def test_nullable_game_result_fields_remain_null_when_omitted():

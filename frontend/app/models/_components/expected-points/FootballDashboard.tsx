@@ -88,7 +88,7 @@ function FavoriteGameCard({ game, league, timeZone }: { game: ExpectedPointsPick
     <article className={`rounded-lg border bg-white p-3.5 ${locked ? "border-[var(--lock-border)]" : "border-[var(--border)]"}`}>
       <div className="flex items-start justify-between gap-3">
         <Matchup game={game} league={league} />
-        <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, league, timeZone)}</span>
+        <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</span>
       </div>
       {locked ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -127,7 +127,7 @@ function LockCard({ lock, league, timeZone }: { lock: LockPick; league: Football
       <p className="mt-3 text-xl font-bold tracking-tight text-[var(--ink)]">{isSpread ? spreadPickLabel(lock.game) : totalPickLabel(lock.game)}</p>
       <div className="mt-2 space-y-0.5 text-xs leading-5 text-[var(--muted)]">
         <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p>
-        <p>{formatKickoff(lock.game.date_time, league, timeZone)}</p>
+        <p>{formatKickoff(lock.game.date_time, timeZone)}</p>
       </div>
     </article>
   );
@@ -140,7 +140,7 @@ function GameMobileCard({ game, league, highlighted, timeZone }: { game: Expecte
         <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-start justify-between gap-3">
             <Matchup game={game} league={league} compact />
-            <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, league, timeZone)}</span>
+            <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div data-mobile-market="spread" className={`rounded-md border px-2.5 py-2 ${game.spread_lock ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-100 bg-slate-50"}`}><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
@@ -181,7 +181,7 @@ function GameDesktopTable({ games, league, highlightedId, timeZone }: { games: E
           {games.map((game) => (
             <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-[var(--accent-soft)]" : "hover:bg-slate-50/70"}`}>
               <td className="px-4 py-3"><Matchup game={game} league={league} compact /></td>
-              <td className="px-4 py-3 text-sm text-[var(--muted)]">{formatKickoff(game.date_time, league, timeZone)}</td>
+              <td className="px-4 py-3 text-sm text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</td>
               <td className="px-2 py-2"><DesktopMarketCell game={game} market="spread" /></td>
               <td className="px-2 py-2"><DesktopMarketCell game={game} market="total" /></td>
             </tr>
@@ -218,7 +218,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
   const locks = useMemo(() => getLocks(games), [games]);
   const conferences = useMemo(() => getConferences(games), [games]);
   const visibleGames = useMemo(() => filterGamesByConference(games, conference), [conference, games]);
-  const dateGroups = useMemo(() => groupGamesByDate(visibleGames, league, displayTimeZone), [displayTimeZone, league, visibleGames]);
+  const dateGroups = useMemo(() => groupGamesByDate(visibleGames, displayTimeZone), [displayTimeZone, visibleGames]);
   const searchResults = useMemo(() => searchGames(games, league, searchQuery), [games, league, searchQuery]);
   const visibleManagerTeams = useMemo(() => {
     const needle = normalizedSearch(teamQuery);
@@ -310,7 +310,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
             <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
               {searchResults.length === 0 ? <p className="py-8 text-center text-sm text-[var(--muted)]">No games match that search.</p> : searchResults.map((game) => (
                 <button key={game.game_id} type="button" onClick={() => selectSearchResult(game)} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left hover:border-[var(--lock-border)] hover:bg-[var(--accent-soft)]">
-                  <Matchup game={game} league={league} compact /><span className="shrink-0 text-xs text-[var(--muted)]">{formatKickoff(game.date_time, league, displayTimeZone)}</span>
+                  <Matchup game={game} league={league} compact /><span className="shrink-0 text-xs text-[var(--muted)]">{formatKickoff(game.date_time, displayTimeZone)}</span>
                 </button>
               ))}
             </div>

@@ -18,10 +18,15 @@ from src.sports.data_validation import validate_feature_coverage
 from src.sports.football.kickoff import (
     exclude_started_games,
     parse_eastern_kickoffs,
-    utc_kickoffs_to_eastern_strings,
 )
 from src.sports.football.cfb.expected_points.features import build_pregame_advanced_stats
+from src.sports.football.cfb.expected_points.utils import (
+    cfbd_kickoffs_to_eastern_strings,
+)
 from src.sports.football.nfl.expected_points.features import calculate_nfl_passer_rating
+from src.sports.football.nfl.expected_points.utils import (
+    nflverse_kickoffs_to_eastern_strings,
+)
 
 
 def test_chronological_splits_put_every_validation_game_after_training_games():
@@ -97,7 +102,7 @@ def test_final_score_refit_uses_all_games_without_reusing_search_object():
 
 
 def test_football_kickoff_contract_converts_cfb_utc_to_eastern_and_respects_dst():
-    converted = utc_kickoffs_to_eastern_strings(
+    converted = cfbd_kickoffs_to_eastern_strings(
         pd.Series(["2026-09-05T17:00:00Z", "2026-01-04T18:00:00Z"])
     )
     assert converted.tolist() == ["2026-09-05-13:00", "2026-01-04-13:00"]
@@ -110,6 +115,14 @@ def test_football_kickoff_contract_converts_cfb_utc_to_eastern_and_respects_dst(
     )
     eligible = exclude_started_games(games, now=pd.Timestamp("2026-09-05T17:00:00Z"))
     assert eligible["game_id"].tolist() == ["future"]
+
+
+def test_nflverse_kickoff_adapter_preserves_eastern_wall_time():
+    converted = nflverse_kickoffs_to_eastern_strings(
+        pd.Series(["2026-09-05", "2026-01-04"]),
+        pd.Series(["13:00", "13:00"]),
+    )
+    assert converted.tolist() == ["2026-09-05-13:00", "2026-01-04-13:00"]
 
 
 def test_official_nfl_passer_rating_is_bounded_and_uses_attempts():

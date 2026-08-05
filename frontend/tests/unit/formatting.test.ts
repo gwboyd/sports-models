@@ -3,18 +3,18 @@ import { convertDateTime, formatGameDate, formatKickoff, formatUpdatedAt } from 
 
 describe("football kickoff timezone formatting", () => {
   it("interprets both football feeds as New York wall time with daylight saving time", () => {
-    expect(convertDateTime("2025-09-07-13:00", "nfl").toISOString()).toBe("2025-09-07T17:00:00.000Z");
-    expect(convertDateTime("2026-01-04-13:00", "nfl").toISOString()).toBe("2026-01-04T18:00:00.000Z");
-    expect(convertDateTime("2026-09-05-13:00", "cfb").toISOString()).toBe("2026-09-05T17:00:00.000Z");
+    expect(convertDateTime("2025-09-07-13:00").toISOString()).toBe("2025-09-07T17:00:00.000Z");
+    expect(convertDateTime("2026-01-04-13:00").toISOString()).toBe("2026-01-04T18:00:00.000Z");
+    expect(convertDateTime("2026-09-05-13:00").toISOString()).toBe("2026-09-05T17:00:00.000Z");
   });
 
   it("displays both leagues in the requested device timezone", () => {
-    expect(formatKickoff("2025-09-07-13:00", "nfl", "America/Los_Angeles")).toBe("Sun, Sep 7, 10:00 AM");
-    expect(formatKickoff("2026-09-05-13:00", "cfb", "America/Los_Angeles")).toBe("Sat, Sep 5, 10:00 AM");
+    expect(formatKickoff("2025-09-07-13:00", "America/Los_Angeles")).toBe("Sun, Sep 7, 10:00 AM");
+    expect(formatKickoff("2026-09-05-13:00", "America/Los_Angeles")).toBe("Sat, Sep 5, 10:00 AM");
   });
 
   it("uses the local calendar date when an Eastern kickoff crosses midnight", () => {
-    expect(formatGameDate("2026-09-06-01:00", "cfb", "America/Los_Angeles")).toBe("Saturday, September 5");
+    expect(formatGameDate("2026-09-06-01:00", "America/Los_Angeles")).toBe("Saturday, September 5");
   });
 
   it("shows model update time in the device timezone with the seasonal abbreviation", () => {

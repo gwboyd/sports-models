@@ -37,10 +37,10 @@ export function getLocks(games: ExpectedPointsPick[]): LockPick[] {
     .sort((a, b) => b.probability - a.probability);
 }
 
-export function groupGamesByDate(games: ExpectedPointsPick[], league: FootballLeague, timeZone?: string): Array<{ date: string; games: ExpectedPointsPick[] }> {
+export function groupGamesByDate(games: ExpectedPointsPick[], timeZone?: string): Array<{ date: string; games: ExpectedPointsPick[] }> {
   const grouped = new Map<string, ExpectedPointsPick[]>();
   for (const game of games) {
-    const date = formatGameDate(game.date_time, league, timeZone);
+    const date = formatGameDate(game.date_time, timeZone);
     grouped.set(date, [...(grouped.get(date) ?? []), game]);
   }
   return [...grouped].map(([date, dateGames]) => ({ date, games: dateGames }));

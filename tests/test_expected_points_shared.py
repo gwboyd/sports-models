@@ -5,10 +5,10 @@ import pytest
 from src.model_patterns.expected_points.betting import determine_plays, scores_to_bets
 from src.model_patterns.expected_points.trainer import _build_train_df, run_expected_points
 from src.model_patterns.expected_points.types import ExpectedPointsConfig, PlayThresholds
-from src.sports.football.transforms.common import get_averaged_game_stats
+from src.sports.football.transforms import build_lagged_team_metrics
 
 
-def test_get_averaged_game_stats_generates_all_requested_columns():
+def test_build_lagged_team_metrics_generates_all_requested_columns():
     df = pd.DataFrame(
         {
             "team": ["A", "A", "A", "B", "B", "B"],
@@ -27,7 +27,7 @@ def test_get_averaged_game_stats_generates_all_requested_columns():
         }
     )
 
-    out = get_averaged_game_stats(df, ["col1", "col2"])
+    out = build_lagged_team_metrics(df, ["col1", "col2"])
 
     assert "col1_ewma_dynamic_window" in out.columns
     assert "col2_ewma_dynamic_window" in out.columns
@@ -35,7 +35,7 @@ def test_get_averaged_game_stats_generates_all_requested_columns():
     assert out.loc[(out["team"] == "A") & (out["game_id"] == "2"), "col1_shifted"].item() == 2.0
 
 
-def test_get_averaged_game_stats_rejects_duplicate_team_games():
+def test_build_lagged_team_metrics_rejects_duplicate_team_games():
     frame = pd.DataFrame(
         {
             "team": ["A", "A"],
@@ -46,7 +46,30 @@ def test_get_averaged_game_stats_rejects_duplicate_team_games():
         }
     )
     with pytest.raises(ValueError, match="duplicate key"):
-        get_averaged_game_stats(frame, ["metric"])
+        build_lagged_team_metrics(frame, ["metric"])
+
+
+def test_build_lagged_team_metrics_accepts_league_neutral_column_names():
+    frame = pd.DataFrame(
+        {
+            "club": ["A", "A"],
+            "event_id": ["1", "2"],
+            "round": [1, 2],
+            "kickoff": ["2026-09-01T17:00:00Z", "2026-09-08T17:00:00Z"],
+            "efficiency": [1.0, 3.0],
+        }
+    )
+
+    output = build_lagged_team_metrics(
+        frame,
+        ["efficiency"],
+        group_col="club",
+        game_col="event_id",
+        period_col="round",
+        time_col="kickoff",
+    )
+
+    assert output.loc[output["event_id"] == "2", "efficiency_shifted"].item() == 1.0
 
 
 def test_determine_plays_thresholds_apply():

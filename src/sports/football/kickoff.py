@@ -22,19 +22,6 @@ def parse_eastern_kickoffs(values: pd.Series) -> pd.Series:
         raise ValueError("Kickoff values must be valid America/New_York wall times") from exc
 
 
-def utc_kickoffs_to_eastern_strings(values: pd.Series) -> pd.Series:
-    """Convert CFBD UTC timestamps to the shared Eastern wall-time contract."""
-    parsed = pd.to_datetime(values, utc=True, errors="coerce")
-    return parsed.dt.tz_convert(EASTERN_TIME_ZONE).dt.strftime(KICKOFF_FORMAT)
-
-
-def nfl_kickoffs_to_eastern_strings(gameday: pd.Series, gametime: pd.Series) -> pd.Series:
-    """Validate and format nflverse date/time fields, which are already Eastern."""
-    combined = gameday.astype(str) + "-" + gametime.astype(str)
-    parsed = parse_eastern_kickoffs(combined)
-    return parsed.dt.tz_convert(EASTERN_TIME_ZONE).dt.strftime(KICKOFF_FORMAT)
-
-
 def exclude_started_games(
     frame: pd.DataFrame,
     *,
@@ -59,7 +46,5 @@ __all__ = [
     "EASTERN_TIME_ZONE",
     "KICKOFF_FORMAT",
     "exclude_started_games",
-    "nfl_kickoffs_to_eastern_strings",
     "parse_eastern_kickoffs",
-    "utc_kickoffs_to_eastern_strings",
 ]

@@ -238,46 +238,6 @@ def clear_expected_points_data(league: ExpectedPointsLeague | str) -> None:
         cur.execute(f"truncate table {_table(league, 'results')}")
 
 
-# Compatibility wrappers for existing callers.
-def get_latest_nfl_picks() -> list[dict[str, Any]]:
-    return get_expected_points_picks(ExpectedPointsLeague.NFL, latest=True)
-
-
-def get_nfl_picks() -> list[dict[str, Any]]:
-    return get_expected_points_picks(ExpectedPointsLeague.NFL)
-
-
-def get_nfl_results() -> list[dict[str, Any]]:
-    return get_expected_points_results(ExpectedPointsLeague.NFL)
-
-
-def upsert_nfl_picks(picks: Iterable[dict[str, Any]]) -> None:
-    upsert_expected_points_picks(ExpectedPointsLeague.NFL, picks)
-
-
-def upsert_nfl_results(results: Iterable[dict[str, Any]]) -> None:
-    upsert_expected_points_results(ExpectedPointsLeague.NFL, results)
-
-
-def insert_nfl_pick_update(result: dict[str, Any]) -> datetime:
-    return insert_expected_points_pick_update(ExpectedPointsLeague.NFL, result)
-
-
-def clear_nfl_picks() -> None:
-    with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(f"truncate table {_table(ExpectedPointsLeague.NFL, 'picks')}")
-
-
-def clear_nfl_pick_updates() -> None:
-    with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(f"truncate table {_table(ExpectedPointsLeague.NFL, 'pick_updates')} restart identity")
-
-
-def clear_nfl_results() -> None:
-    with get_connection() as conn, conn.cursor() as cur:
-        cur.execute(f"truncate table {_table(ExpectedPointsLeague.NFL, 'results')}")
-
-
 def get_nba_first_basket_picks() -> list[dict[str, Any]]:
     query = f"""
         select
