@@ -78,10 +78,10 @@ separate spread/total lock cards second, and the full chronological game list la
 table; mobile uses expandable game cards. CFB games appear once and can be filtered by either team's conference.
 
 Kickoff and model-update times are displayed in the browser device's timezone, including the applicable seasonal
-timezone abbreviation on update timestamps. Until the backend emits one timezone-aware ISO 8601
-contract for both leagues, the frontend treats CFB `date_time` values as UTC and NFL values as
-`America/New_York` wall time, including daylight-saving transitions. Server rendering uses each feed's source
-timezone, then switches to the device timezone after hydration without creating a hydration mismatch.
+timezone abbreviation on update timestamps. NFL and CFB share one kickoff contract: `date_time` is an
+`America/New_York` wall-clock value in `YYYY-MM-DD-HH:MM` format, including daylight-saving transitions. Server
+rendering starts in the shared source timezone, then switches to the device timezone after hydration without creating
+a hydration mismatch.
 
 The shared visual system is intentionally dense and restrained: neutral canvas and surfaces, eight-pixel card
 corners, minimal shadows, and a custom electric ink blue (`#0B5FCC`) for interactions and lock emphasis. Lock and qualifying

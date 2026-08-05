@@ -1,11 +1,9 @@
-import type { FootballLeague } from "@/app/types/types";
-
 export const displaySpread = (spread: number, numDecimals = 1) =>
   spread > 0 ? `+${spread.toFixed(numDecimals)}` : spread.toFixed(numDecimals);
 
 export const displayProbability = (probability: number) => `${probability.toFixed(1)}%`;
 
-const NFL_SOURCE_TIME_ZONE = "America/New_York";
+const FOOTBALL_SOURCE_TIME_ZONE = "America/New_York";
 
 function dateTimeParts(dateTimeString: string) {
   const [year, month, day, hour, minute] = dateTimeString.split(/[-:]/).map(Number);
@@ -43,29 +41,20 @@ function newYorkWallTimeToDate(dateTimeString: string): Date {
   const wallTime = Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute);
   let instant = wallTime;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    instant = wallTime - timeZoneOffset(new Date(instant), NFL_SOURCE_TIME_ZONE);
+    instant = wallTime - timeZoneOffset(new Date(instant), FOOTBALL_SOURCE_TIME_ZONE);
   }
   return new Date(instant);
 }
 
-function sourceTimeZone(league: FootballLeague): string {
-  return league === "nfl" ? NFL_SOURCE_TIME_ZONE : "UTC";
+export function convertDateTime(dateTimeString: string): Date {
+  return newYorkWallTimeToDate(dateTimeString);
 }
 
-export function convertDateTime(dateTimeString: string, league: FootballLeague): Date {
-  // TODO(backend): Standardize NFL and CFB kickoff timestamps as timezone-aware ISO 8601 values, ideally UTC,
-  // so the frontend can remove this league-specific compatibility treatment.
-  if (league === "nfl") return newYorkWallTimeToDate(dateTimeString);
-  const value = dateTimeParts(dateTimeString);
-  if (!validDateTimeParts(value)) return new Date(Number.NaN);
-  return new Date(Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute));
-}
-
-export function formatKickoff(dateTimeString: string, league: FootballLeague, timeZone?: string): string {
-  const parsed = convertDateTime(dateTimeString, league);
+export function formatKickoff(dateTimeString: string, timeZone?: string): string {
+  const parsed = convertDateTime(dateTimeString);
   if (Number.isNaN(parsed.getTime())) return dateTimeString;
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: timeZone ?? sourceTimeZone(league),
+    timeZone: timeZone ?? FOOTBALL_SOURCE_TIME_ZONE,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -74,11 +63,11 @@ export function formatKickoff(dateTimeString: string, league: FootballLeague, ti
   }).format(parsed);
 }
 
-export function formatGameDate(dateTimeString: string, league: FootballLeague, timeZone?: string): string {
-  const parsed = convertDateTime(dateTimeString, league);
+export function formatGameDate(dateTimeString: string, timeZone?: string): string {
+  const parsed = convertDateTime(dateTimeString);
   if (Number.isNaN(parsed.getTime())) return dateTimeString;
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: timeZone ?? sourceTimeZone(league),
+    timeZone: timeZone ?? FOOTBALL_SOURCE_TIME_ZONE,
     weekday: "long",
     month: "long",
     day: "numeric",

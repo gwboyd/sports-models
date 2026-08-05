@@ -8,9 +8,15 @@ from fastapi import APIRouter, Header, HTTPException
 
 from src.model_patterns.expected_points.reporting import get_result_stats
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
-from src.utils.data_models.picks_response import CFBPickResponse, PickResponse
-from src.utils.data_models.picks_results_response import GameResult, PickResultsData, PickResultsResponse
-from src.utils.data_models.update_picks_models import UpdatePicksRequest, UpdatePicksResponse
+from src.sports.football.expected_points_schemas import (
+    CFBPickResponse,
+    GameResult,
+    PickResponse,
+    PickResultsData,
+    PickResultsResponse,
+    UpdatePicksRequest,
+    UpdatePicksResponse,
+)
 from src.utils.db.sports_models_db import get_expected_points_picks, get_expected_points_results
 
 

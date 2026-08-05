@@ -5,18 +5,19 @@ The visitor-facing, copyedited explanation rendered by the frontend is maintaine
 
 The model predicts **expected points scored** for each NFL team in a game, getting to a predicted score from which a spread and total can be derived. We then compare those spreads and totals to the Vegas prices to make the picks each week. 
 
-Metrics derived from play by play data is used starting from 2010 to now. EPA (expected points added) Per Play and Success Rate are the features the model has found the most useful to predict outcomes, but other features like staring quarterback QBR, days of rest, and the Vegas odds themselves are used.
+Metrics derived from play by play data is used starting from 2010 to now. EPA (expected points added) Per Play and Success Rate are the features the model has found the most useful to predict outcomes, but other features like starting-quarterback NFL passer rating (retained under the historical `qbr` feature name), days of rest, and the Vegas odds themselves are used.
 
 After picks are made, there is another model (classifier) that looks back on the historical picks the model has made against Vegas, analyzes patterns with which the mdoel has been succesful, and gives a percentage chance it belives the model has of being correct in it's pick. That score (along with a couple other heuristics) is how we decide what "plays" to make each week.
 
 ## Picks Update Cadence
 
 The model can be updated whenever, but is scheduled to and should always update at the following times:
-- Wendesday at 12:00 AM EST
-- Thursday at 7:20 PM EST
-- Sunday at 12:00 PM EST
+- Wednesday at 12:00 AM ET
+- Thursday at 7:20 PM ET
+- Sunday at 12:00 PM ET
 
-The model is "not allowed" to make picks within 30 mins of kickoff, so it's final prediction will be locked in at that time.
+An existing prediction is locked 30 minutes before kickoff and preserved by later update runs. A game is removed from
+the live prediction slate entirely once kickoff is reached.
 
 Completed games are graded during later update runs when final scores become available. Graded outcomes are written
 with the current picks and update history through the shared expected-points persistence workflow.
@@ -29,7 +30,22 @@ library cache, then converts the selected frames to pandas for the existing feat
 float32 PBP behavior, renames player-stat `team` and passing-interception fields to the notebook's legacy names, and
 normalizes Oakland, San Diego, and St. Louis abbreviations. During week 1 only, an unavailable current-season
 play-by-play or player-stat release is logged and skipped; missing historical data and later-season failures remain
-errors.
+errors. Strict input contracts additionally enforce nonempty loaded seasons, exact season coverage, unique player-week
+and schedule keys, and complete team plotting metadata. Pass `strict=False` only to warn while investigating feed
+drift; production notebook runs use strict mode.
+
+Kickoffs are stored as `America/New_York` wall time for both football leagues. NFL schedule fields already use that
+source timezone and are validated during frame preparation; comparisons with the current instant are timezone-aware.
+Games at or after kickoff never enter the live prediction frame.
+
+## Temporal Training and Evaluation
+
+Completed games are sorted by kickoff. The latest 20% form an outer score-model holdout, so every confidence-training
+prediction comes from games later than the score model's training data. Score-model GridSearch uses one chronological
+validation split inside the earlier 80%, and each confidence classifier uses one chronological validation split
+inside the outer holdout. The chosen score parameters are then refit once on all completed games for production;
+GridSearch is not repeated. This keeps update-time cost modest while removing random-split leakage, but it is not a
+full out-of-fold season backtest.
 
 ## Operational Update Workflow
 
@@ -37,6 +53,8 @@ The NFL notebook shares its tracking, grading, reporting, notebook execution, an
 the CFB expected-points model through `src/model_patterns/expected_points/`.
 The shared tracking configuration supports league-specific pick metadata so CFB can retain home and away conference
 values without changing the NFL pick schema.
+League-neutral lagged-metric calculations live under `src/sports/football/transforms/`; nflverse-specific kickoff
+formatting and NFL feature shaping remain in this workflow.
 
 Each operational update:
 
@@ -87,7 +105,7 @@ Below is an example of the various calculations for the Dallas Cowboys. It shoul
 
 As I mentioned, there is a 2nd model that observes what types of games the model is good at picking, and what types of games with which it has struggled to beat Vegas. There is a separate model for spreads and totals.
 
-The training dataset for these classifiers is the test set of the 80/20 test/train split we make to get a sense of accuracy. We can't use predictions of games the model has been trained on, since the model would have seen it before. Therefore, we must train the classifier on the test set, setting up a bit of a tradeoff between expected points data volume (at least at time of classifier training) and classification model volume depending on the split.
+The training dataset for these classifiers is the later, chronological test set of the 80/20 split. We cannot use predictions of games the score model has been trained on, since the model would have seen them before. The classifier therefore learns only from genuine out-of-time score predictions, while its own parameter search also keeps validation games after its training games.
 
 **A common question I get asked is "Why is the model not confident in the pick even though the predicted spread is so far off the Vegas spread?"** The answer lies in that the "confidence score" comes from this objective 3rd party model, and in a case of high diofference of spreads/totals and low confience, is saying it has seen similar scenarios before where the model has lost and it is therefore not that confident in the pick.
 
@@ -99,6 +117,8 @@ The training dataset for these classifiers is the test set of the 80/20 test/tra
 The power rankings seen above in the chart are created by taking all of the metrics (so not inclusing odds, enviroment, rest, etc) for teams, training a classification model that predicts winning, and them creating simulations to where each team plays every other team home and away. The model outputs a win probability for esach game, so the teams "win percentage" is just and average of the win probabilities for all 62 (31 * 2) games a team would play.
 
 The game simulations mimick each team's form for the current week (the next week if a team is on a bye), so it would be as if they all played eachother "today."
+The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
+logic and does not feed the expected-points picks or confidence classifiers.
 
 ### Ideas for the future
 

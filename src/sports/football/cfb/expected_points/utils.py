@@ -1,5 +1,13 @@
 import pandas as pd
 
+from src.sports.football.kickoff import EASTERN_TIME_ZONE, KICKOFF_FORMAT
+
+
+def cfbd_kickoffs_to_eastern_strings(values: pd.Series) -> pd.Series:
+    """Convert CFBD's UTC timestamps to the football Eastern-time contract."""
+    parsed = pd.to_datetime(values, utc=True, errors="coerce")
+    return parsed.dt.tz_convert(EASTERN_TIME_ZONE).dt.strftime(KICKOFF_FORMAT)
+
 
 def prepare_cfb_expected_points_df(df):
     output = df.copy()
@@ -16,10 +24,9 @@ def prepare_cfb_expected_points_df(df):
 
     output["game_id"] = output["game_id"].astype(str)
     output["year_week"] = output["season"].astype(str) + "_" + output["week"].astype(str)
-    kickoff = pd.to_datetime(output["start_date"], utc=True, errors="coerce")
-    output["date_time"] = kickoff.dt.strftime("%Y-%m-%d-%H:%M")
+    output["date_time"] = cfbd_kickoffs_to_eastern_strings(output["start_date"])
 
     return output
 
 
-__all__ = ["prepare_cfb_expected_points_df"]
+__all__ = ["cfbd_kickoffs_to_eastern_strings", "prepare_cfb_expected_points_df"]

@@ -102,3 +102,6 @@ __pycache__/
 #Agentic guides
 **/AGENTS.md
 **/AGENTS.override.md
+
+# Local modeling backlog (intentionally not a shared project artifact)
+TRAINING_DATA_TODO.local.md

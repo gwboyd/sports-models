@@ -6,6 +6,8 @@ from typing import Any, Iterable
 
 import pandas as pd
 
+from src.sports.football.kickoff import parse_eastern_kickoffs
+
 from .betting import calculate_wins, determine_plays
 from .types import ExpectedPointsTrackingConfig
 
@@ -126,7 +128,7 @@ def validate_pick_frame(
     if null_columns:
         raise ValueError(f"Pick frame contains null required values: {', '.join(null_columns)}")
 
-    parsed_kickoffs = pd.to_datetime(output["date_time"], format="%Y-%m-%d-%H:%M", utc=True, errors="coerce")
+    parsed_kickoffs = parse_eastern_kickoffs(output["date_time"])
     if parsed_kickoffs.isna().any():
         invalid = output.loc[parsed_kickoffs.isna(), "game_id"].tolist()
         raise ValueError(f"Pick frame contains invalid date_time values for games: {invalid}")
@@ -156,10 +158,13 @@ def get_locked_picks(
     if existing_picks.empty or not config.lock_started_games:
         return existing_picks.iloc[0:0].copy()
 
-    compare_time = (now or pd.Timestamp.now(tz="UTC")) + pd.Timedelta(minutes=config.lock_window_minutes)
-    kickoff_times = pd.to_datetime(
-        existing_picks["date_time"], format="%Y-%m-%d-%H:%M", utc=True, errors="coerce"
-    )
+    compare_time = (
+        pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    ) + pd.Timedelta(minutes=config.lock_window_minutes)
+    if compare_time.tzinfo is None:
+        raise ValueError("Tracking comparison time must be timezone-aware")
+    compare_time = compare_time.tz_convert("UTC")
+    kickoff_times = parse_eastern_kickoffs(existing_picks["date_time"])
     return existing_picks[kickoff_times < compare_time].copy()
 
 

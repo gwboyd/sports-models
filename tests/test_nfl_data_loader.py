@@ -33,21 +33,42 @@ def _install_complete_loaders(monkeypatch):
         data_loader.SCHEDULE_REQUIRED_COLUMNS,
         {"home_team": "OAK", "away_team": "STL"},
     )
-    team_frame = _frame(data_loader.TEAM_REQUIRED_COLUMNS)
+    team_frame = _frame(
+        data_loader.TEAM_REQUIRED_COLUMNS,
+        {
+            "team_abbr": "LV",
+            "team_color": "000000",
+            "team_color2": "ffffff",
+            "team_logo_espn": "https://example.com/logo.png",
+        },
+    )
     calls = {"pbp": [], "players": [], "schedules": [], "config": []}
 
+    def season_frame(frame, season, *, identifier=None):
+        values = frame.with_columns(pl.lit(season).alias("season"))
+        if identifier is not None:
+            values = values.with_columns(pl.lit(identifier).alias("game_id"))
+        return values
+
     monkeypatch.setattr(
-        data_loader.nfl, "load_pbp", lambda season: calls["pbp"].append(season) or pbp_frame
+        data_loader.nfl,
+        "load_pbp",
+        lambda season: calls["pbp"].append(season)
+        or season_frame(pbp_frame, season, identifier=f"pbp-{season}"),
     )
     monkeypatch.setattr(
         data_loader.nfl,
         "load_player_stats",
-        lambda season, summary_level: calls["players"].append((season, summary_level)) or player_frame,
+        lambda season, summary_level: calls["players"].append((season, summary_level))
+        or season_frame(player_frame, season),
     )
     monkeypatch.setattr(
         data_loader.nfl,
         "load_schedules",
-        lambda seasons: calls["schedules"].append(seasons) or schedule_frame,
+        lambda seasons: calls["schedules"].append(seasons)
+        or pl.concat(
+            [season_frame(schedule_frame, season, identifier=f"schedule-{season}") for season in seasons]
+        ),
     )
     monkeypatch.setattr(data_loader.nfl, "load_teams", lambda: team_frame)
     monkeypatch.setattr(data_loader, "update_config", lambda **kwargs: calls["config"].append(kwargs))
@@ -98,13 +119,15 @@ def test_week_one_skips_only_an_unavailable_current_season(monkeypatch):
         calls["pbp"].append(season)
         if season == 2011:
             raise ValueError("2011 is not current")
-        return pbp_frame
+        return pbp_frame.with_columns(
+            pl.lit(season).alias("season"), pl.lit(f"pbp-{season}").alias("game_id")
+        )
 
     def load_players(season, summary_level):
         calls["players"].append((season, summary_level))
         if season == 2011:
             raise ConnectionError("404 Client Error")
-        return player_frame
+        return player_frame.with_columns(pl.lit(season).alias("season"))
 
     monkeypatch.setattr(data_loader.nfl, "load_pbp", load_pbp)
     monkeypatch.setattr(data_loader.nfl, "load_player_stats", load_players)
