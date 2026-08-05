@@ -11,6 +11,8 @@ from nflreadpy.config import update_config
 import pandas as pd
 import polars as pl
 
+from src.sports.football.nfl.data_validation import validate_expected_points_inputs
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +52,11 @@ class NFLExpectedPointsInputs:
 
 
 def load_expected_points_inputs(
-    start_year: int, current_year: int, current_week: int
+    start_year: int,
+    current_year: int,
+    current_week: int,
+    *,
+    strict: bool = True,
 ) -> NFLExpectedPointsInputs:
     """Load the selected NFL data needed by the expected-points workflow.
 
@@ -66,10 +72,10 @@ def load_expected_points_inputs(
         pbp_years[0], pbp_years[-1], schedule_years[0], schedule_years[-1],
     )
 
-    pbp = _load_season_frames(
+    pbp, loaded_pbp_years = _load_season_frames(
         "PBP", pbp_years, current_year, current_week, nfl.load_pbp, PBP_REQUIRED_COLUMNS
     )
-    player_stats = _load_season_frames(
+    player_stats, loaded_player_years = _load_season_frames(
         "player stats",
         pbp_years,
         current_year,
@@ -90,6 +96,17 @@ def load_expected_points_inputs(
     _normalize_team_abbreviations(pbp, _PBP_TEAM_COLUMNS)
     _normalize_team_abbreviations(schedules, _SCHEDULE_TEAM_COLUMNS)
 
+    validate_expected_points_inputs(
+        pbp=pbp,
+        player_stats=player_stats,
+        schedules=schedules,
+        teams=teams,
+        pbp_seasons=loaded_pbp_years,
+        player_seasons=loaded_player_years,
+        schedule_seasons=schedule_years,
+        strict=strict,
+    )
+
     LOGGER.info(
         "Loaded NFL expected-points data: pbp_rows=%s pbp_columns=%s, "
         "player_stat_rows=%s player_stat_columns=%s, schedule_rows=%s "
@@ -107,7 +124,7 @@ def _load_season_frames(
     current_week: int,
     loader: Callable[[int], pl.DataFrame],
     required_columns: tuple[str, ...],
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list[int]]:
     frames: list[pl.DataFrame] = []
     loaded_seasons: list[int] = []
     for season in seasons:
@@ -121,13 +138,23 @@ def _load_season_frames(
                 )
                 continue
             raise
-        frames.append(_select_required(dataset_name, frame, required_columns))
+        selected = _select_required(dataset_name, frame, required_columns)
+        if selected.is_empty():
+            if season == current_year and current_week == 1:
+                LOGGER.info(
+                    "Skipping empty current-season %s for %s during week 1",
+                    season,
+                    dataset_name,
+                )
+                continue
+            raise ValueError(f"{dataset_name} data is empty for requested season {season}")
+        frames.append(selected)
         loaded_seasons.append(season)
 
     if not frames:
         raise ValueError(f"No {dataset_name} data was loaded for requested seasons")
     LOGGER.info("Loaded %s seasons: %s", dataset_name, loaded_seasons)
-    return _to_pandas(dataset_name, pl.concat(frames, how="diagonal_relaxed"))
+    return _to_pandas(dataset_name, pl.concat(frames, how="diagonal_relaxed")), loaded_seasons
 
 
 def _select_required(

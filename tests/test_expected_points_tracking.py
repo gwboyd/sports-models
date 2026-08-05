@@ -45,7 +45,7 @@ def test_first_tracking_run_counts_new_games_and_builds_records():
         pd.DataFrame(),
         "2026_1",
         ExpectedPointsTrackingConfig(),
-        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+        now=pd.Timestamp("2026-08-01T04:00:00Z"),
     )
 
     assert run.pick_changes_games == ["1", "2"]
@@ -66,7 +66,7 @@ def test_locked_pick_is_preserved():
         pd.DataFrame([existing]),
         "2026_1",
         ExpectedPointsTrackingConfig(),
-        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+        now=pd.Timestamp("2026-08-01T04:00:00Z"),
     )
 
     assert run.locked_game_ids == ["1"]

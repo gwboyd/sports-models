@@ -42,13 +42,14 @@ class ExpectedPointsConfig:
     total_class_cat_features: List[str] = field(default_factory=list)
     season_col: str = "season"
     week_col: str = "week"
-    split_strategy: str = "random"
+    split_strategy: str = "chronological"
+    time_col: str = "date_time"
     test_size: float = 0.2
-    random_state: int = 42
-    score_cv: int = 2
-    confidence_cv: int = 5
+    inner_validation_size: float = 0.2
+    confidence_validation_size: float = 0.2
     score_n_jobs: int = -1
     confidence_n_jobs: int = -1
+    prediction_now: Optional[pd.Timestamp] = None
     score_param_grid: Dict[str, List] = field(
         default_factory=lambda: {
             "lgbmregressor__n_estimators": [300, 400],
@@ -60,7 +61,6 @@ class ExpectedPointsConfig:
         default_factory=lambda: {
             "n_estimators": [50, 100, 200],
             "max_depth": [3, 5, 7],
-            "min_samples_split": [2, 5, 10],
         }
     )
     play_thresholds: PlayThresholds = field(default_factory=PlayThresholds)

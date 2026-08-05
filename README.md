@@ -137,7 +137,24 @@ non-notebook client name and persist through the shared transaction writer.
 
 CFB games must have a selected betting provider and home moneyline to reach the expected-points model. Games that
 exist in the CFBD schedule but do not yet have the required market data are excluded from the current prediction
-frame.
+frame. Games at or after kickoff are also removed before prediction, even when no earlier pick exists.
+
+Both football models tune the score estimator with one predefined chronological validation split inside an outer
+chronological holdout. The outer holdout is strictly later than the score-model training games and supplies genuine
+out-of-time predictions to the confidence classifiers. After parameter selection and evaluation, the production
+score model is refit on all completed games without running a second GridSearch; each confidence classifier likewise
+uses one chronological validation split and then refits on its full outer-holdout dataset. This is intentionally a
+low-cost temporal evaluation design rather than full out-of-fold backtesting.
+
+Shared structural data contracts check required columns, nonempty feeds, requested season coverage, stable keys, and
+assembled model-frame uniqueness. NFL and CFB notebooks expose `strict_data_validation=True`: strict mode raises on
+contract drift, while `False` logs warnings for feed investigation. Leakage-prevention checks—chronological splits
+and the ordering of lagged features—always fail when their time ordering cannot be proved.
+
+CFB advanced metrics are placed on the complete team-game schedule before lagging. Completed rows contribute the raw
+observations; scheduled rows receive an EWMA derived only from strictly earlier kickoffs. A current prediction row
+whose monitored efficiency features are all null is a contract failure instead of silently becoming a median-only
+prediction.
 
 The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered
 slate. CFB games appear once and can be filtered by either team's conference. Shared results routes derive season and
@@ -151,8 +168,8 @@ responsive Markdown charts, while developer operations remain in the model READM
 On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the
 Favorites section rather than a duplicate hero action. Search and favorite sheets follow the visible browser viewport
 and freeze background scrolling so iOS software-keyboard changes do not move the sheet off screen.
-Kickoff labels are localized to the viewer's device timezone in the browser. As a temporary compatibility layer, CFB
-timestamps are interpreted as UTC while NFL timestamps are interpreted as New York wall time with daylight saving.
+Kickoff labels are localized to the viewer's device timezone in the browser. Both NFL and CFB `date_time` values use
+`America/New_York` wall time with daylight-saving transitions; raw CFBD UTC timestamps are converted at preparation.
 Model-update timestamps are also localized and display the device timezone's current seasonal abbreviation.
 The product header is branded as Boyd's Picks and temporarily exposes only NFL and CFB navigation; the direct NBA
 route remains available. Results summaries place lock records first and omit the redundant predicted-games tile.

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.model_patterns.expected_points.betting import determine_plays, scores_to_bets
 from src.model_patterns.expected_points.trainer import _build_train_df, run_expected_points
@@ -11,7 +12,16 @@ def test_get_averaged_game_stats_generates_all_requested_columns():
     df = pd.DataFrame(
         {
             "team": ["A", "A", "A", "B", "B", "B"],
+            "game_id": ["3", "1", "2", "6", "4", "5"],
             "week": [1, 2, 3, 1, 2, 3],
+            "start_date": [
+                "2024-09-15T17:00:00Z",
+                "2024-09-01T17:00:00Z",
+                "2024-09-08T17:00:00Z",
+                "2024-09-15T20:00:00Z",
+                "2024-09-01T20:00:00Z",
+                "2024-09-08T20:00:00Z",
+            ],
             "col1": [1.0, 2.0, 3.0, 3.0, 2.0, 1.0],
             "col2": [2.0, 3.0, 4.0, 4.0, 3.0, 2.0],
         }
@@ -21,6 +31,22 @@ def test_get_averaged_game_stats_generates_all_requested_columns():
 
     assert "col1_ewma_dynamic_window" in out.columns
     assert "col2_ewma_dynamic_window" in out.columns
+    assert out.loc[(out["team"] == "A") & (out["game_id"] == "1"), "col1_shifted"].isna().all()
+    assert out.loc[(out["team"] == "A") & (out["game_id"] == "2"), "col1_shifted"].item() == 2.0
+
+
+def test_get_averaged_game_stats_rejects_duplicate_team_games():
+    frame = pd.DataFrame(
+        {
+            "team": ["A", "A"],
+            "game_id": ["1", "1"],
+            "week": [1, 1],
+            "start_date": ["2024-09-01T17:00:00Z"] * 2,
+            "metric": [1.0, 2.0],
+        }
+    )
+    with pytest.raises(ValueError, match="duplicate key"):
+        get_averaged_game_stats(frame, ["metric"])
 
 
 def test_determine_plays_thresholds_apply():
@@ -85,6 +111,8 @@ def test_run_expected_points_end_to_end():
                 {
                     "season": 2024,
                     "week": week,
+                    "game_id": f"2024_{week}_{i}",
+                    "date_time": f"2024-01-{week * 3:02d}-{13 + i}:00",
                     "home_team": home,
                     "away_team": away,
                     "weekday": "Sunday",
@@ -113,6 +141,8 @@ def test_run_expected_points_end_to_end():
         {
             "season": 2024,
             "week": 9,
+            "game_id": "2024_9_0",
+            "date_time": "2024-02-28-13:00",
             "home_team": "A",
             "away_team": "B",
             "weekday": "Sunday",
@@ -187,12 +217,10 @@ def test_run_expected_points_end_to_end():
         confidence_param_grid={
             "n_estimators": [20],
             "max_depth": [3],
-            "min_samples_split": [2],
         },
-        score_cv=2,
-        confidence_cv=2,
         score_n_jobs=1,
         confidence_n_jobs=1,
+        prediction_now=pd.Timestamp("2024-02-27T12:00:00Z"),
     )
 
     result = run_expected_points(df, config)
@@ -200,3 +228,19 @@ def test_run_expected_points_end_to_end():
     assert "spread_win_prob" in result.plays.columns
     assert "total_win_prob" in result.plays.columns
     assert result.metrics["train_rows"] > 0
+    assert result.eval_results["week"].min() == 7
+
+
+def test_run_expected_points_excludes_games_at_or_after_kickoff():
+    # The full model behavior is covered above; this boundary helper is tested
+    # directly in the kickoff tests to avoid another expensive model fit.
+    from src.sports.football.kickoff import exclude_started_games
+
+    games = pd.DataFrame(
+        {
+            "game_id": ["started", "future"],
+            "date_time": ["2026-09-05-13:00", "2026-09-05-16:00"],
+        }
+    )
+    eligible = exclude_started_games(games, now=pd.Timestamp("2026-09-05T18:00:00Z"))
+    assert eligible["game_id"].tolist() == ["future"]

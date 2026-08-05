@@ -1,5 +1,7 @@
 import pandas as pd
 
+from src.sports.football.kickoff import utc_kickoffs_to_eastern_strings
+
 
 def prepare_cfb_expected_points_df(df):
     output = df.copy()
@@ -16,8 +18,7 @@ def prepare_cfb_expected_points_df(df):
 
     output["game_id"] = output["game_id"].astype(str)
     output["year_week"] = output["season"].astype(str) + "_" + output["week"].astype(str)
-    kickoff = pd.to_datetime(output["start_date"], utc=True, errors="coerce")
-    output["date_time"] = kickoff.dt.strftime("%Y-%m-%d-%H:%M")
+    output["date_time"] = utc_kickoffs_to_eastern_strings(output["start_date"])
 
     return output
 
