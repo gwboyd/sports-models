@@ -338,13 +338,13 @@ insert into sports_models.model_releases (
     (
         'nfl_expected_points', '1.0', 1, 0, 'Versioning baseline',
         'Historical NFL expected-points records are attributed to the initial versioning baseline.',
-        'Existing records are retained under version 1.0 because their original recipe was not recorded.',
+        'See src/sports/football/nfl/expected_points/releases/v1.0.md for the baseline recipe.',
         null, 'Backfilled during model-version tracking bootstrap.', null, now(), null
     ),
     (
         'cfb_expected_points', '1.0', 1, 0, 'Versioning baseline',
         'Historical CFB expected-points records are attributed to the initial versioning baseline.',
-        'Existing records are retained under version 1.0 because their original recipe was not recorded.',
+        'See src/sports/football/cfb/expected_points/releases/v1.0.md for the baseline recipe.',
         null, 'Backfilled during model-version tracking bootstrap.', null, now(), null
     )
 on conflict (model_key, version) do nothing;

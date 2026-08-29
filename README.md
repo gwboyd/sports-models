@@ -102,7 +102,9 @@ Expected-points release tracking adds `model_version` to NFL/CFB picks, results,
 `model_releases` catalog. Locked picks and later grading retain the recipe version that produced the pick, even when a
 newer deployment is live. Apply the idempotent release-tracking statements in the setup SQL to an existing Supabase
 database before the first version-aware deployment. The setup seeds a `1.0` baseline and attributes existing history
-to it; future production writes reject an unregistered version. The setup runs in one transaction and assigns a
+to it; the corresponding `releases/v1.0.md` files document the production recipes present when tracking began while
+making clear that exact pre-versioning revisions cannot be reconstructed. Future production writes reject an
+unregistered version. The setup runs in one transaction and assigns a
 `1.0` column default before enforcing `NOT NULL`, so the pre-versioning Lambda can continue writing safely during the
 schema-to-code rollout. Run it when no model update is active to avoid waiting on its brief table/index locks.
 

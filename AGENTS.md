@@ -105,9 +105,10 @@ Current expected-points schema model, mirrored for the `nfl` and `cfb` prefixes:
 Expected-points recipe releases use independent `MAJOR.MINOR` versions for NFL and CFB. A major release changes
 the model's methodology or expected behavior; a minor release is a smaller prediction-affecting change. Routine
 retraining on newly available data is a run under the same version. Historical rows are attributed to the bootstrap
-baseline `1.0`. Picks, results, and update runs carry the model version that produced them, so performance can be
-grouped by exact version or by major version. Locked picks preserve their original version when later runs change
-the recipe.
+baseline `1.0`. Its archived release files describe the production recipes present when tracking began and explicitly
+note that exact pre-versioning code revisions cannot be reconstructed. Picks, results, and update runs carry the model
+version that produced them, so performance can be grouped by exact version or by major version. Locked picks preserve
+their original version when later runs change the recipe.
 
 CFB pick and result rows additionally retain nullable `home_conference` and `away_conference` values from the
 CFBD schedule. The CFB frontend renders each game once and uses those fields for a conference filter; a
