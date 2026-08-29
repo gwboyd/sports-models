@@ -83,6 +83,7 @@ This creates the `sports_models` schema and the tables/views used by the backend
 - `cfb_expected_points_results`
 - `cfb_expected_points_pick_updates`
 - `cfb_expected_points_latest_updates`
+- `model_releases`
 - `nba_first_basket_picks`
 
 Do not treat the setup file as an incremental production migration without reviewing its statements against
@@ -96,6 +97,16 @@ Initial Postgres connection failures receive a small number of bounded retries.
 CFB pick and result tables also store nullable `home_conference` and `away_conference` metadata. Existing Supabase
 environments created before those fields were introduced require the scoped `alter table ... add column if not
 exists` statements in the setup SQL before deploying a backend that reads or writes the fields.
+
+Expected-points release tracking adds `model_version` to NFL/CFB picks, results, and update history, plus the shared
+`model_releases` catalog. Locked picks and later grading retain the recipe version that produced the pick, even when a
+newer deployment is live. Apply the idempotent release-tracking statements in the setup SQL to an existing Supabase
+database before the first version-aware deployment. The setup seeds a `1.0` baseline and attributes existing history
+to it; the corresponding `releases/v1.0.md` files document the production recipes present when tracking began while
+making clear that exact pre-versioning revisions cannot be reconstructed. Future production writes reject an
+unregistered version. The setup runs in one transaction and assigns a
+`1.0` column default before enforcing `NOT NULL`, so the pre-versioning Lambda can continue writing safely during the
+schema-to-code rollout. Run it when no model update is active to avoid waiting on its brief table/index locks.
 
 ## Expected Points Workflows
 
@@ -134,8 +145,12 @@ For each update, the shared tracking workflow:
 5. Grades previously saved picks when completed scores are available.
 6. Atomically persists the update record, picks, and newly graded results.
 
-Interactive notebook executions use `client_name="notebook"` and remain read-only. API-triggered executions use a
-non-notebook client name and persist through the shared transaction writer.
+Only the deployed AWS training Lambda writes automatically. Local servers, `sam local`, and other non-AWS runtimes
+are read-only unless the update request explicitly sets `allow_non_aws_write=true`; an authorized non-AWS run uses
+the latest registered release version. Interactive notebooks default to `client_name="notebook"` and
+`allow_non_aws_write=False`. Enabling the flag in a notebook requires typing `WRITE <LEAGUE> <VERSION>` before the
+shared transaction writer can persist anything. Manual update rows retain the notebook/client name and local Git
+identity for auditing.
 
 CFB market selection is deterministic and independent of CFBD provider ordering. A game enters the model when at
 least one participant is FBS and at least one real sportsbook supplies each of the current spread and total. A
@@ -284,7 +299,7 @@ The SAM template deploys:
 - one separate training Lambda for `POST /nfl-update-picks` and `POST /cfb-update-picks`
 - one shared Docker image build used by both functions
 
-Repeat deploys:
+Repeat production deploys:
 
 ```shell
 make sam-deploy
@@ -293,39 +308,37 @@ make sam-deploy
 That target:
 
 - loads deploy settings from `.env`
-- runs `sam build`
-- deploys the `sports-models-v2` stack in `us-east-1`
+- requires a completely clean Git working tree, including no untracked files
+- requires the checked-out branch to be `main`
+- loads the latest NFL and CFB release rows from Supabase
+- reads each model's `UNRELEASED.md` queue
+- requires a major/minor choice for every non-empty queue and keeps empty queues unchanged
+- prints both model decisions and requires confirmation
+- runs `sam build` and deploys the `sports-models-v2` stack in `us-east-1`
+- verifies the deployed training Lambda is active and has the planned NFL version, CFB version, and Git SHA, using
+  bounded retries for AWS propagation
+- registers finalized release rows only after SAM succeeds, then archives and resets the consumed drafts
 
-If you prefer the raw commands:
+NFL and CFB share the training Lambda image. A populated queue for either model therefore ships in the same AWS
+deployment and must receive a release decision. Direct `sam deploy` bypasses this safety workflow and is not supported
+for production. The confirmed draft snapshots are retained locally in the ignored
+`.aws-sam/model-release-plan.json` until the entire workflow completes. If SAM succeeds but AWS verification or
+release registration fails, retry registration with the first command below; it rechecks the actual Lambda before
+writing Supabase. If local archive/reset fails, use the second command; it verifies the exact Supabase rows before
+changing Markdown:
 
 ```shell
-set -a
-source .env
-set +a
-sam build
-sam deploy \
-  --stack-name sports-models-v2 \
-  --region us-east-1 \
-  --resolve-s3 \
-  --resolve-image-repos \
-  --capabilities CAPABILITY_IAM \
-  --no-confirm-changeset \
-  --no-fail-on-empty-changeset \
-  --parameter-overrides \
-    HttpApiName=sports-models-http-api-v2 \
-    ApiFunctionName=sports-models-api-v2 \
-    TrainingFunctionName=sports-models-training-v2 \
-    Localhost=False \
-    EnvironmentName=PROD \
-    AdminApiKey="$ADMIN_API_KEY" \
-    FrontEndApiKey="$FRONT_END_API_KEY" \
-    ReadApiKey="$READ_API_KEY" \
-    NbaApiKey="$NBA_API_KEY" \
-    AwsApiKey="$AWS_API_KEY" \
-    CfbdApiKey="$CFBD_API_KEY" \
-    SupabaseDbUrl="$SUPABASE_DB_URL" \
-    SupabaseSchema="$SUPABASE_SCHEMA"
+make sam-register-releases
+make sam-finalize-release-files
 ```
+
+Successful finalization removes the recovery plan. A failed SAM deployment cannot be registered unless a later AWS
+check confirms that the training Lambda actually has the planned versions and Git SHA.
+
+For each model, an empty `UNRELEASED.md` means no version change. A non-empty file must use the documented Markdown
+sections and is released as either the next minor or next major version. Version rows may be deployed before they
+make picks; `first_pick_at` is set by the first successful AWS update and is the live-state marker. Existing records
+are attributed to the `1.0` bootstrap baseline.
 
 After deploy, verify the API:
 

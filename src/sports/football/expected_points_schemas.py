@@ -115,6 +115,7 @@ class UpdatePicksResponse(BaseModel):
 class UpdatePicksRequest(BaseModel):
     season: int
     week: int
+    allow_non_aws_write: bool = False
 
 
 __all__ = [

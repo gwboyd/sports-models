@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams sam-build sam-invoke-health sam-api sam-deploy
+.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams sam-build sam-invoke-health sam-api sam-deploy sam-register-releases sam-finalize-release-files
 
 YEAR ?= $(shell date +%Y)
 
@@ -16,7 +16,9 @@ help:
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"
-	@echo "  make sam-deploy         Deploy the sports-models-v2 stack to us-east-1"
+	@echo "  make sam-deploy         Interactively version and deploy the stack to us-east-1"
+	@echo "  make sam-register-releases Retry release registration after a successful SAM deploy"
+	@echo "  make sam-finalize-release-files Archive/reset drafts from the last deployment plan"
 
 backend:
 	source .venv/bin/activate && uvicorn main:app --host 127.0.0.1 --port 3000 --reload
@@ -75,26 +77,12 @@ sam-api:
 
 sam-deploy:
 	set -a && source .env && set +a && \
-	sam build && \
-	sam deploy \
-		--stack-name sports-models-v2 \
-		--region us-east-1 \
-		--resolve-s3 \
-		--resolve-image-repos \
-		--capabilities CAPABILITY_IAM \
-		--no-confirm-changeset \
-		--no-fail-on-empty-changeset \
-		--parameter-overrides \
-			HttpApiName=sports-models-http-api-v2 \
-			ApiFunctionName=sports-models-api-v2 \
-			TrainingFunctionName=sports-models-training-v2 \
-			Localhost=False \
-			EnvironmentName=PROD \
-			AdminApiKey="$$ADMIN_API_KEY" \
-			FrontEndApiKey="$$FRONT_END_API_KEY" \
-			ReadApiKey="$$READ_API_KEY" \
-			NbaApiKey="$$NBA_API_KEY" \
-			AwsApiKey="$$AWS_API_KEY" \
-			CfbdApiKey="$$CFBD_API_KEY" \
-			SupabaseDbUrl="$$SUPABASE_DB_URL" \
-			SupabaseSchema="$$SUPABASE_SCHEMA"
+	.venv/bin/python scripts/deploy_models.py
+
+sam-register-releases:
+	set -a && source .env && set +a && \
+	.venv/bin/python scripts/deploy_models.py --register-only
+
+sam-finalize-release-files:
+	set -a && source .env && set +a && \
+	.venv/bin/python scripts/deploy_models.py --finalize-only
