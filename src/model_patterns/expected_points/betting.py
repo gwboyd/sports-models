@@ -49,17 +49,33 @@ def calculate_wins(df: pd.DataFrame) -> pd.DataFrame:
 def determine_plays(df: pd.DataFrame, thresholds: PlayThresholds, dont_update=None) -> pd.DataFrame:
     dont_update = dont_update or []
     output = df.copy()
-    output["is_top_n_spread"] = output["spread_win_prob"].rank(method="first", ascending=False) <= thresholds.max_spreads_plays
-    output["is_top_n_total"] = output["total_win_prob"].rank(method="first", ascending=False) <= thresholds.max_total_plays
+    spread_supported = output.get(
+        "spread_market_supported",
+        pd.Series(True, index=output.index),
+    ).fillna(False).astype(bool)
+    total_supported = output.get(
+        "total_market_supported",
+        pd.Series(True, index=output.index),
+    ).fillna(False).astype(bool)
+    output["is_top_n_spread"] = (
+        output["spread_win_prob"].where(spread_supported).rank(method="first", ascending=False)
+        <= thresholds.max_spreads_plays
+    )
+    output["is_top_n_total"] = (
+        output["total_win_prob"].where(total_supported).rank(method="first", ascending=False)
+        <= thresholds.max_total_plays
+    )
 
     output["new_spread_lock"] = (
         output["is_top_n_spread"]
+        & spread_supported
         & ((output["spread_pred"] - output["spread_line"]).abs() >= thresholds.min_spread_diff)
         & (output["spread_win_prob"] > thresholds.min_spread_win_prob)
     ).astype(int)
 
     output["new_total_lock"] = (
         output["is_top_n_total"]
+        & total_supported
         & ((output["total_pred"] - output["total_line"]).abs() >= thresholds.min_total_diff)
         & (output["total_win_prob"] > thresholds.min_total_win_prob)
     ).astype(int)

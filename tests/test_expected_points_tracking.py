@@ -6,6 +6,7 @@ import pytest
 from src.model_patterns.expected_points.tracking import (
     build_pick_records,
     build_result_records,
+    build_update_record,
     grade_completed_picks,
     prepare_tracking_run,
     serialize_pick_frame,
@@ -100,6 +101,67 @@ def test_cfb_metadata_is_preserved_through_tracking_and_grading():
     assert pick_records[0]["away_conference"] == "Big Ten"
     assert result_records[0]["home_conference"] == "SEC"
     assert result_records[0]["away_conference"] == "Big Ten"
+
+
+def test_snapshot_only_metadata_is_logged_without_entering_pick_records():
+    predicted = pick()
+    predicted["spread_provider"] = "Bovada"
+    predicted["spread_market_supported"] = True
+    config = ExpectedPointsTrackingConfig(
+        snapshot_metadata_columns=("spread_provider", "spread_market_supported")
+    )
+
+    run = prepare_tracking_run(
+        pd.DataFrame([predicted]),
+        pd.DataFrame(),
+        "2026_1",
+        config,
+        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+    )
+    pick_record = build_pick_records(
+        run.picks,
+        datetime(2026, 8, 1, tzinfo=timezone.utc),
+    )[0]
+    update_record = build_update_record(
+        run,
+        year_week="2026_1",
+        week=1,
+        season=2026,
+        environment="TEST",
+        client_name="test",
+        runtime=1.0,
+    )
+
+    assert "spread_provider" not in pick_record
+    assert update_record["picks_df"][0]["spread_provider"] == "Bovada"
+    assert update_record["picks_df"][0]["spread_market_supported"] is True
+
+
+def test_tracking_reapplies_market_support_before_persisting_locks():
+    predicted = pick(spread_lock=1)
+    predicted.update(
+        {
+            "spread_market_supported": False,
+            "total_market_supported": True,
+        }
+    )
+    config = ExpectedPointsTrackingConfig(
+        snapshot_metadata_columns=(
+            "spread_market_supported",
+            "total_market_supported",
+        )
+    )
+
+    run = prepare_tracking_run(
+        pd.DataFrame([predicted]),
+        pd.DataFrame(),
+        "2026_1",
+        config,
+        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+    )
+
+    assert run.picks.iloc[0]["spread_lock"] == 0
+    assert run.picks.iloc[0]["total_lock"] == 1
 
 
 def test_diff_snapshots_replace_missing_write_times_with_null():

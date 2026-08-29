@@ -137,9 +137,25 @@ For each update, the shared tracking workflow:
 Interactive notebook executions use `client_name="notebook"` and remain read-only. API-triggered executions use a
 non-notebook client name and persist through the shared transaction writer.
 
-CFB games must have a selected betting provider and home moneyline to reach the expected-points model. Games that
-exist in the CFBD schedule but do not yet have the required market data are excluded from the current prediction
-frame. Games at or after kickoff are also removed before prediction, even when no earlier pick exists.
+CFB market selection is deterministic and independent of CFBD provider ordering. A game enters the model when at
+least one participant is FBS and at least one real sportsbook supplies each of the current spread and total. A
+moneyline, opening line, or second provider is not required. Synthetic CFBD sources such as `consensus`,
+`numberfire`, and `teamrankings` are not treated as executable sportsbook quotes.
+
+The CFB score model remains market-aware through implied team totals calculated from median sportsbook reference
+lines. The model chooses its spread and total directions against those references, then shops the execution quote
+within the largest provider cluster whose full range is no more than two points. Tied clusters prefer the one nearest
+the overall median, then the more reliable provider mix. When no two books corroborate one another, the workflow uses
+the quote nearest consensus without shopping. Exact provider ties use Bovada, William Hill, ESPN Bet, DraftKings,
+Caesars, then remaining providers alphabetically. A one-book market uses its sole quote. Unsupported markets remain
+visible and trainable but are forced to non-lock status. The selected execution quote—not the reference—drives the
+model edge, confidence, persisted/displayed line, and eventual grading. Spread and total support are independent.
+
+CFBD does not expose spread/total prices or provider-update timestamps, so "best line" means the most favorable
+corroborated point for the direction already selected, not the best expected payout. Provider, reference/opening
+lines, quote counts/ranges, support status, and selection reasons are retained in the existing pick-update JSON; no
+separate market-snapshot table is used. Games at or after kickoff are removed before prediction, even when no earlier
+pick exists.
 
 Both football models tune the score estimator with one predefined chronological validation split inside an outer
 chronological holdout. The outer holdout is strictly later than the score-model training games and supplies genuine
@@ -147,6 +163,14 @@ out-of-time predictions to the confidence classifiers. After parameter selection
 score model is refit on all completed games without running a second GridSearch; each confidence classifier likewise
 uses one chronological validation split and then refits on its full outer-holdout dataset. This is intentionally a
 low-cost temporal evaluation design rather than full out-of-fold backtesting.
+
+CFB confidence classifiers always receive the selected execution-line edge and select hyperparameters with log loss.
+Raw home moneyline is not an eligibility gate; paired provider moneylines are converted to an optional median no-vig
+home probability with an explicit missing indicator. Opening-line, movement, market-depth, and no-vig feature groups
+must pass a genuine out-of-time gate before production use: pooled Brier score improves by at least one percent, log
+loss does not worsen, and no evaluated season's Brier score worsens by more than two percent. Read-only CFB notebook
+runs evaluate these groups on a later untouched slice of the score model's outer holdout and report Brier score, log
+loss, and calibration error; API-triggered runs skip this analysis. No optional group is currently promoted.
 
 Shared structural data contracts check required columns, nonempty feeds, requested season coverage, stable keys, and
 assembled model-frame uniqueness. NFL and CFB notebooks expose `strict_data_validation=True`: strict mode raises on

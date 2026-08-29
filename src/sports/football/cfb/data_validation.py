@@ -35,9 +35,14 @@ def validate_expected_points_frame(frame: pd.DataFrame, *, strict: bool = True) 
         label="CFB expected-points model frame",
         required_columns=(
             "game_id", "season", "week", "home_team", "away_team",
-            "home_score", "away_score", "date_time",
+            "home_score", "away_score", "date_time", "spread_reference_line",
+            "total_reference_line", "spread_market_supported", "total_market_supported",
         ),
-        non_null_columns=("game_id", "season", "week", "home_team", "away_team", "date_time"),
+        non_null_columns=(
+            "game_id", "season", "week", "home_team", "away_team", "date_time",
+            "spread_reference_line", "total_reference_line", "spread_market_supported",
+            "total_market_supported",
+        ),
         unique_keys=(("game_id",),),
         strict=strict,
     )

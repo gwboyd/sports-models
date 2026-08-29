@@ -76,6 +76,7 @@ class TrackingRun:
     pick_changes_games: list[str]
     play_changes_games: list[str]
     pick_metadata_columns: tuple[str, ...] = ()
+    snapshot_metadata_columns: tuple[str, ...] = ()
 
     @property
     def pick_changes(self) -> int:
@@ -225,12 +226,15 @@ def prepare_tracking_run(
     predicted_input = _normalize_keys(predicted_picks)
     expected_game_ids = predicted_input["game_id"].tolist()
     metadata_columns = config.pick_metadata_columns
+    snapshot_metadata_columns = config.snapshot_metadata_columns
     pick_columns = PICK_COLUMNS + list(metadata_columns)
-    predicted = validate_pick_frame(
+    validated = validate_pick_frame(
         predicted_input,
         expected_game_ids,
         metadata_columns,
-    )[pick_columns].copy()
+    )
+    _require_columns(validated, snapshot_metadata_columns, "Pick snapshot metadata")
+    predicted = validated[pick_columns + list(snapshot_metadata_columns)].copy()
     existing = get_current_period_picks(all_existing_picks, year_week)
     locked = get_locked_picks(existing, config=config, now=now)
 
@@ -247,7 +251,7 @@ def prepare_tracking_run(
     differences, pick_changes, play_changes = summarize_pick_diffs(
         existing,
         final_picks,
-        metadata_columns,
+        metadata_columns + snapshot_metadata_columns,
     )
     return TrackingRun(
         picks=final_picks,
@@ -256,6 +260,7 @@ def prepare_tracking_run(
         pick_changes_games=pick_changes,
         play_changes_games=play_changes,
         pick_metadata_columns=metadata_columns,
+        snapshot_metadata_columns=snapshot_metadata_columns,
     )
 
 
@@ -330,8 +335,14 @@ def build_update_record(
         "play_changes_games": run.play_changes_games,
         "updates_skipped": run.updates_skipped,
         "picks_num": len(run.picks),
-        "difference_df": serialize_pick_frame(run.differences, run.pick_metadata_columns),
-        "picks_df": serialize_pick_frame(run.picks, run.pick_metadata_columns),
+        "difference_df": serialize_pick_frame(
+            run.differences,
+            run.pick_metadata_columns + run.snapshot_metadata_columns,
+        ),
+        "picks_df": serialize_pick_frame(
+            run.picks,
+            run.pick_metadata_columns + run.snapshot_metadata_columns,
+        ),
     }
 
 

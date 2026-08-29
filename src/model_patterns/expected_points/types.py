@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -26,6 +26,7 @@ class ExpectedPointsTrackingConfig:
     lock_window_minutes: int = 30
     play_thresholds: PlayThresholds = field(default_factory=PlayThresholds)
     pick_metadata_columns: Tuple[str, ...] = ()
+    snapshot_metadata_columns: Tuple[str, ...] = ()
 
 
 @dataclass
@@ -49,6 +50,8 @@ class ExpectedPointsConfig:
     confidence_validation_size: float = 0.2
     score_n_jobs: int = -1
     confidence_n_jobs: int = -1
+    confidence_scoring: Optional[str] = None
+    betting_transform: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None
     prediction_now: Optional[pd.Timestamp] = None
     score_param_grid: Dict[str, List] = field(
         default_factory=lambda: {

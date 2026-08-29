@@ -80,6 +80,7 @@ def fit_eval(
     time_col: str,
     validation_size: float,
     score_n_jobs: int,
+    betting_transform=scores_to_bets,
 ) -> tuple[pd.DataFrame, GridSearchCV]:
     score_search = fit_score_model(
         X_train,
@@ -100,7 +101,7 @@ def fit_eval(
     results["away_score"] = y_test.iloc[:, 1]
     results["away_score_pred"] = away_scores
     results["home_score_pred"] = home_scores
-    results = scores_to_bets(results)
+    results = betting_transform(results)
     results = calculate_wins(results)
     return results, score_search
 
@@ -136,6 +137,7 @@ def _split(
 
 def run_expected_points(df: pd.DataFrame, config: ExpectedPointsConfig) -> ExpectedPointsRunResult:
     score_pipeline = make_score_pipeline(config.features, config.cat_features)
+    betting_transform = config.betting_transform or scores_to_bets
 
     train_df = _build_train_df(df, config)
     train_partition, test_partition = _split(train_df, config)
@@ -157,6 +159,7 @@ def run_expected_points(df: pd.DataFrame, config: ExpectedPointsConfig) -> Expec
         time_col=config.time_col,
         validation_size=config.inner_validation_size,
         score_n_jobs=config.score_n_jobs,
+        betting_transform=betting_transform,
     )
 
     spread_clf, total_clf = fit_classifiers(
@@ -169,6 +172,7 @@ def run_expected_points(df: pd.DataFrame, config: ExpectedPointsConfig) -> Expec
         time_col=config.time_col,
         validation_size=config.confidence_validation_size,
         n_jobs=config.confidence_n_jobs,
+        scoring=config.confidence_scoring,
     )
 
     score_model = _fit_final_score_model(score_search.best_estimator_, X, y)
@@ -195,7 +199,7 @@ def run_expected_points(df: pd.DataFrame, config: ExpectedPointsConfig) -> Expec
         this_week[home_prediction_features], "home"
     )
 
-    plays = scores_to_bets(this_week)
+    plays = betting_transform(this_week)
     plays["spread_win_prob"] = win_probability(
         plays,
         classifier=spread_clf,

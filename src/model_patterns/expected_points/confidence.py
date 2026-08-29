@@ -56,6 +56,7 @@ def fit_classifiers(
     time_col="date_time",
     validation_size=0.2,
     n_jobs=-1,
+    scoring=None,
 ):
     results = sort_chronologically(results, time_col=time_col)
 
@@ -88,8 +89,20 @@ def fit_classifiers(
         test_size=validation_size,
     )
 
-    spread_clf = GridSearchCV(spread_pipe, clf_param_grid, cv=spread_cv, n_jobs=n_jobs)
-    total_clf = GridSearchCV(total_pipe, clf_param_grid, cv=total_cv, n_jobs=n_jobs)
+    spread_clf = GridSearchCV(
+        spread_pipe,
+        clf_param_grid,
+        cv=spread_cv,
+        n_jobs=n_jobs,
+        scoring=scoring,
+    )
+    total_clf = GridSearchCV(
+        total_pipe,
+        clf_param_grid,
+        cv=total_cv,
+        n_jobs=n_jobs,
+        scoring=scoring,
+    )
 
     spread_clf.fit(spread_X, spread_y)
     total_clf.fit(total_X, total_y)
