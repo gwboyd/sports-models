@@ -1,6 +1,8 @@
 -- Supabase setup for the sports_models schema.
 -- Run this once against a fresh or compatible database state.
 
+begin;
+
 create schema if not exists sports_models;
 
 create table if not exists sports_models.model_releases (
@@ -379,6 +381,21 @@ set first_pick_at = coalesce(
 )
 where model_key = 'cfb_expected_points' and version = '1.0';
 
+-- Keep the pre-versioning Lambda compatible during the schema-to-code rollout.
+-- New code always supplies an explicit version; the default only covers legacy writers.
+alter table sports_models.nfl_expected_points_picks
+    alter column model_version set default '1.0';
+alter table sports_models.nfl_expected_points_results
+    alter column model_version set default '1.0';
+alter table sports_models.nfl_expected_points_pick_updates
+    alter column model_version set default '1.0';
+alter table sports_models.cfb_expected_points_picks
+    alter column model_version set default '1.0';
+alter table sports_models.cfb_expected_points_results
+    alter column model_version set default '1.0';
+alter table sports_models.cfb_expected_points_pick_updates
+    alter column model_version set default '1.0';
+
 alter table sports_models.nfl_expected_points_picks
     alter column model_version set not null;
 alter table sports_models.nfl_expected_points_results
@@ -454,3 +471,5 @@ select distinct on (year_week)
     evaluation_metrics
 from sports_models.cfb_expected_points_pick_updates
 order by year_week, write_time desc;
+
+commit;

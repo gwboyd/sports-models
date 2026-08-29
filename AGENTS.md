@@ -216,7 +216,9 @@ draft snapshots for recovery. `make sam-register-releases` re-verifies AWS befor
 - Do not reintroduce DynamoDB operational persistence or migration tooling unless explicitly requested.
 - Keep SQL setup-oriented; assume `db/sql/001_create_sports_models_schema.sql` is the source of truth for Supabase setup.
 - Keep model-release SQL idempotent and setup-oriented. Apply the reviewed release-tracking statements to an existing
-  Supabase database before the first version-aware production deploy; do not add a migration framework.
+  Supabase database before the first version-aware production deploy; do not add a migration framework. Preserve its
+  single-transaction execution and the `model_version = '1.0'` defaults that keep legacy Lambda writes compatible
+  during rollout.
 - Do not alter vendored runtime dependencies in `python/` unless the task is specifically about packaging/layer updates.
 - For deployment-impacting changes (`template.yaml`, `Dockerfile`, auth logic), require reviewer approval before merge.
 
