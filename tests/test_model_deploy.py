@@ -88,6 +88,19 @@ def test_clean_tree_check_includes_untracked_files(monkeypatch):
     assert observed["args"] == ("status", "--porcelain", "--untracked-files=all")
 
 
+def test_production_deploy_requires_main_branch(monkeypatch):
+    def fake_git(*args):
+        if args == ("status", "--porcelain", "--untracked-files=all"):
+            return ""
+        if args == ("branch", "--show-current"):
+            return "feature-model"
+        raise AssertionError(args)
+
+    monkeypatch.setattr(deploy_models, "_git", fake_git)
+    with pytest.raises(RuntimeError, match="branch to be main"):
+        deploy_models._ensure_clean_tree()
+
+
 def test_aws_verification_accepts_active_lambda_with_exact_metadata(monkeypatch):
     configuration = {
         "State": "Active",

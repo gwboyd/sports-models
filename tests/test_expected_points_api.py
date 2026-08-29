@@ -58,13 +58,20 @@ def test_cfb_picks_and_update_routes(monkeypatch):
         "picks_num": 1,
         "database_updated": True,
     }
-    client = make_client(lambda _request, _client: runner_result)
+    observed = {}
+
+    def update_runner(request, client_name):
+        observed["allow_non_aws_write"] = request.allow_non_aws_write
+        observed["client_name"] = client_name
+        return runner_result
+
+    client = make_client(update_runner)
 
     picks_response = client.get("/cfb-picks")
     update_response = client.post(
         "/cfb-update-picks",
         headers={"client-name": "pytest"},
-        json={"season": 2026, "week": 1},
+        json={"season": 2026, "week": 1, "allow_non_aws_write": True},
     )
 
     assert picks_response.status_code == 200
@@ -73,6 +80,7 @@ def test_cfb_picks_and_update_routes(monkeypatch):
     assert picks_response.json()[0]["away_conference"] == "Big Ten"
     assert update_response.status_code == 200
     assert update_response.json()["data"]["database_updated"] is True
+    assert observed == {"allow_non_aws_write": True, "client_name": "pytest"}
 
 
 def test_cfb_picks_returns_404_for_empty_database(monkeypatch):

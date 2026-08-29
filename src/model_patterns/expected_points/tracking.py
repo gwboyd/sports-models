@@ -223,12 +223,13 @@ def prepare_tracking_run(
     year_week: str,
     config: ExpectedPointsTrackingConfig,
     now: pd.Timestamp | None = None,
+    model_version: str | None = None,
 ) -> TrackingRun:
     predicted_input = _normalize_keys(predicted_picks)
     expected_game_ids = predicted_input["game_id"].tolist()
     metadata_columns = tuple(config.pick_metadata_columns)
     snapshot_metadata_columns = tuple(config.snapshot_metadata_columns)
-    runtime_model_version = os.getenv("EXPECTED_POINTS_MODEL_VERSION")
+    runtime_model_version = model_version or os.getenv("EXPECTED_POINTS_MODEL_VERSION")
     if runtime_model_version and "model_version" not in metadata_columns:
         metadata_columns = metadata_columns + ("model_version",)
     if runtime_model_version and "model_version" not in snapshot_metadata_columns:

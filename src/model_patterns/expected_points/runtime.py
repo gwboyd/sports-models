@@ -19,6 +19,7 @@ def execute_expected_points_notebook(
     season: int,
     week: int,
     client_name: str,
+    allow_non_aws_write: bool = False,
     model_version: str | None = None,
     source_git_sha: str | None = None,
 ) -> dict:
@@ -43,6 +44,7 @@ def execute_expected_points_notebook(
                     "current_year": season,
                     "current_week": week,
                     "client_name": client_name,
+                    "allow_non_aws_write": allow_non_aws_write,
                     "result_path": str(result_path),
                     **({"model_version": model_version} if model_version else {}),
                     **({"source_git_sha": source_git_sha} if source_git_sha else {}),

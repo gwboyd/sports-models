@@ -97,6 +97,12 @@ def _ensure_clean_tree() -> None:
             "Production deployment requires every change to be committed; "
             f"uncommitted changes found:\n{status}"
         )
+    branch = _git("branch", "--show-current")
+    if branch != "main":
+        raise RuntimeError(
+            "Production deployment requires the checked-out branch to be main; "
+            f"current branch is {branch or 'detached HEAD'}"
+        )
 
 
 def _draft_snapshot(spec: ModelSpec) -> tuple[ReleaseDraft | None, str, str]:

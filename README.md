@@ -145,8 +145,12 @@ For each update, the shared tracking workflow:
 5. Grades previously saved picks when completed scores are available.
 6. Atomically persists the update record, picks, and newly graded results.
 
-Interactive notebook executions use `client_name="notebook"` and remain read-only. API-triggered executions use a
-non-notebook client name and persist through the shared transaction writer.
+Only the deployed AWS training Lambda writes automatically. Local servers, `sam local`, and other non-AWS runtimes
+are read-only unless the update request explicitly sets `allow_non_aws_write=true`; an authorized non-AWS run uses
+the latest registered release version. Interactive notebooks default to `client_name="notebook"` and
+`allow_non_aws_write=False`. Enabling the flag in a notebook requires typing `WRITE <LEAGUE> <VERSION>` before the
+shared transaction writer can persist anything. Manual update rows retain the notebook/client name and local Git
+identity for auditing.
 
 CFB market selection is deterministic and independent of CFBD provider ordering. A game enters the model when at
 least one participant is FBS and at least one real sportsbook supplies each of the current spread and total. A
@@ -305,6 +309,7 @@ That target:
 
 - loads deploy settings from `.env`
 - requires a completely clean Git working tree, including no untracked files
+- requires the checked-out branch to be `main`
 - loads the latest NFL and CFB release rows from Supabase
 - reads each model's `UNRELEASED.md` queue
 - requires a major/minor choice for every non-empty queue and keeps empty queues unchanged

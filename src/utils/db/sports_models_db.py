@@ -6,6 +6,7 @@ from typing import Any, Iterable
 
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
 from src.model_patterns.expected_points.versioning import ModelKey, ReleaseDraft, parse_version
+from src.model_patterns.expected_points.write_policy import is_aws_lambda_runtime
 from src.utils.postgres import get_connection, get_schema, json_dumps, normalize_record, normalize_records
 
 
@@ -315,13 +316,16 @@ def write_expected_points_run(
     picks: Iterable[dict[str, Any]],
     update: dict[str, Any],
     results: Iterable[dict[str, Any]] = (),
+    *,
+    write_authorized: bool = False,
 ) -> datetime:
+    if not is_aws_lambda_runtime() and not write_authorized:
+        raise PermissionError(
+            "Non-AWS expected-points writes require explicit authorization"
+        )
     write_time = _parse_write_time(update.get("write_time") or datetime.now(timezone.utc))
     pick_records = normalize_records(picks)
     expected_model_version = update.get("model_version")
-    if not expected_model_version and (update.get("environment") or "").upper() != "PROD":
-        # Preserve the pre-versioning test/notebook contract outside production.
-        expected_model_version = "1.0"
     if not expected_model_version:
         raise ValueError("Expected-points writes require model_version")
     parsed_version = parse_version(str(expected_model_version))

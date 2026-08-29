@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 
 import pandas as pd
 import pytest
@@ -90,6 +91,21 @@ def test_runtime_model_version_is_added_and_locked_version_is_preserved(monkeypa
 
     assert run.picks.iloc[0]["model_version"] == "1.3"
     assert "model_version" in run.pick_metadata_columns
+
+
+def test_explicit_model_version_is_used_without_mutating_environment(monkeypatch):
+    monkeypatch.delenv("EXPECTED_POINTS_MODEL_VERSION", raising=False)
+    run = prepare_tracking_run(
+        pd.DataFrame([pick()]),
+        pd.DataFrame(),
+        "2026_1",
+        ExpectedPointsTrackingConfig(),
+        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+        model_version="1.4",
+    )
+
+    assert run.picks.iloc[0]["model_version"] == "1.4"
+    assert "EXPECTED_POINTS_MODEL_VERSION" not in os.environ
 
 
 def test_update_record_captures_model_metadata(monkeypatch):

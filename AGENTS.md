@@ -141,8 +141,13 @@ The public NFL methodology lives in `frontend/content/nfl-how-it-works.md` and i
 production Info-page content. Its renderer must continue supporting headings through `h3`, lists, links, inline code,
 and responsive images; keep backend and deployment operations in the model README.
 
-Interactive expected-points notebook executions use `client_name="notebook"` and must remain read-only. Runtime/API
-executions use a non-notebook client name and persist through the shared atomic writer. CFB eligibility is explicit:
+Only the deployed AWS training Lambda writes expected-points records automatically. Runtime origin is determined from
+Lambda runtime markers while explicitly excluding `AWS_SAM_LOCAL`; `client_name` is audit metadata, not authority.
+Local API, `sam local`, and interactive notebook executions are read-only by default. A non-AWS API request must set
+`allow_non_aws_write=true`, then it uses the latest registered release version. Notebooks default to
+`client_name="notebook"` and `allow_non_aws_write=False`; enabling the flag requires the exact interactive
+`WRITE <LEAGUE> <VERSION>` confirmation. The shared database writer must retain its defensive non-AWS authorization
+check. CFB eligibility is explicit:
 at least one participant must be FBS and at least one real sportsbook must supply each of the current spread and total;
 moneylines, opening lines, and multiple providers are optional. CFB score features use median sportsbook consensus
 lines. Betting direction is chosen against consensus, then the execution line is shopped only within the largest
@@ -183,8 +188,8 @@ and infrastructure-only changes do not belong in the draft.
 
 Production model deployments use the interactive `make sam-deploy` workflow only. It loads both drafts, prompts for
 major/minor for every non-empty draft, keeps empty drafts at their latest version, prints both decisions, and requires
-final confirmation. The working tree, including untracked files, must be completely clean so the deployed image
-matches the recorded Git SHA. NFL and CFB share one training Lambda image, so both populated drafts must be released
+final confirmation. The checked-out branch must be `main`, and the working tree, including untracked files, must be
+completely clean so the deployed image matches the recorded Git SHA. NFL and CFB share one training Lambda image, so both populated drafts must be released
 in the same deployment. There is no GitHub Actions version gate, source fingerprint, or changed-path heuristic. After
 SAM succeeds, the command uses bounded retries to verify that the active training Lambda contains both planned model
 versions and the planned Git SHA; only then does it record release rows. A release is considered live only after its

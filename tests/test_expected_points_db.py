@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
+import pytest
+
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
 from src.utils.db import sports_models_db
 
@@ -50,6 +52,7 @@ def test_atomic_cfb_run_uses_only_cfb_tables(monkeypatch):
         "environment": "TEST",
         "client_name": "pytest",
         "runtime": 1.0,
+        "model_version": "1.0",
         "pick_changes": 1,
         "pick_changes_games": ["1"],
         "play_changes": 1,
@@ -71,7 +74,12 @@ def test_atomic_cfb_run_uses_only_cfb_tables(monkeypatch):
         }
     )
 
-    result = sports_models_db.write_expected_points_run(ExpectedPointsLeague.CFB, [pick_record], update)
+    result = sports_models_db.write_expected_points_run(
+        ExpectedPointsLeague.CFB,
+        [pick_record],
+        update,
+        write_authorized=True,
+    )
 
     assert result == cursor.return_time
     sql = "\n".join(call[1] for call in cursor.calls)
@@ -80,6 +88,16 @@ def test_atomic_cfb_run_uses_only_cfb_tables(monkeypatch):
     assert "home_conference" in sql
     assert "away_conference" in sql
     assert "nfl_expected_points" not in sql
+
+
+def test_non_aws_database_write_requires_explicit_authorization(monkeypatch):
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    with pytest.raises(PermissionError, match="explicit authorization"):
+        sports_models_db.write_expected_points_run(
+            ExpectedPointsLeague.NFL,
+            [],
+            {},
+        )
 
 
 def test_invalid_league_cannot_be_used_as_identifier():

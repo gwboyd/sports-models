@@ -14,8 +14,14 @@ draft must contain `#` title, `## Public Summary`, and `## Changes` sections, wi
 
 Production deployment is performed through `make sam-deploy`. The command prompts for `major` or `minor` whenever
 this queue is non-empty, keeps the current version when it is empty, prints the NFL and CFB decisions together, and
-requires confirmation and a completely clean Git tree. Both models share one training Lambda image, so a populated
+requires confirmation, a completely clean Git tree, and the checked-out `main` branch. Both models share one training Lambda image, so a populated
 CFB queue ships in the same AWS deployment as NFL. After SAM succeeds, the command verifies the active Lambda's model
 versions and Git SHA before registering the draft in the Supabase `model_releases` table and archiving it as
 `releases/vN.N.md`; the working queue is then reset. A release is considered live only after its first successful AWS
 pick update records `first_pick_at`.
+
+Only the deployed AWS training Lambda writes automatically. Interactive runs default to `client_name="notebook"`
+and `allow_non_aws_write=False`, so they remain read-only. To perform an intentional notebook write, set
+`allow_non_aws_write=True`; the notebook resolves the latest registered CFB version and requires the exact
+`WRITE CFB <VERSION>` confirmation before using the shared atomic writer. Local API and `sam local` calls are also
+read-only unless their request explicitly enables `allow_non_aws_write`.

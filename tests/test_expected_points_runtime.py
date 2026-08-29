@@ -33,6 +33,7 @@ def test_notebook_runner_injects_unique_result_path(monkeypatch, tmp_path):
     )
 
     assert captured["current_year"] == 2026
+    assert captured["allow_non_aws_write"] is False
     assert captured["result_path"].startswith("/tmp/expected_points_")
     assert payload["environment"] == "UNKNOWN"
 
@@ -61,12 +62,14 @@ def test_notebook_runner_passes_model_metadata(monkeypatch, tmp_path):
         season=2026,
         week=1,
         client_name="aws",
+        allow_non_aws_write=True,
         model_version="2.0",
         source_git_sha="abc123",
     )
 
     assert captured["model_version"] == "2.0"
     assert captured["source_git_sha"] == "abc123"
+    assert captured["allow_non_aws_write"] is True
 
 
 def test_notebook_runner_accepts_expected_post_persistence_stop(monkeypatch, tmp_path):

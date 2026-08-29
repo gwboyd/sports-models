@@ -13,6 +13,7 @@ def main(request_body, client_name):
         season=request_body.season,
         week=request_body.week,
         client_name=client_name,
+        allow_non_aws_write=request_body.allow_non_aws_write,
         model_version=os.getenv("CFB_EXPECTED_POINTS_VERSION"),
         source_git_sha=os.getenv("SOURCE_GIT_SHA"),
     )
