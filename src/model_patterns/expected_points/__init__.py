@@ -6,6 +6,16 @@ from .types import (
     PlayThresholds,
 )
 from .reporting import get_feature_importance_df, get_result_stats, print_plays, summarize_eval_results
+from .versioning import (
+    ModelKey,
+    ModelVersion,
+    ReleaseDraft,
+    next_major,
+    next_minor,
+    parse_release_file,
+    parse_release_markdown,
+    parse_version,
+)
 
 
 def __getattr__(name: str):
@@ -26,5 +36,13 @@ __all__ = [
     "get_result_stats",
     "print_plays",
     "summarize_eval_results",
+    "ModelKey",
+    "ModelVersion",
+    "ReleaseDraft",
+    "next_major",
+    "next_minor",
+    "parse_release_file",
+    "parse_release_markdown",
+    "parse_version",
     "run_expected_points",
 ]

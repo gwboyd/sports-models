@@ -65,6 +65,7 @@ def test_atomic_cfb_run_uses_only_cfb_tables(monkeypatch):
             "week": "1",
             "year_week": "2026_1",
             "game_id": "1",
+            "model_version": "1.0",
             "home_conference": "SEC",
             "away_conference": "Big Ten",
         }

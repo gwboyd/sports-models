@@ -99,8 +99,7 @@ src/**/*.pyc
 __pycache__/
 *.py[cod]
 
-#Agentic guides
-**/AGENTS.md
+# Agentic guides are tracked so deployment and operational guardrails travel with the repository.
 **/AGENTS.override.md
 
 # Local modeling backlog (intentionally not a shared project artifact)

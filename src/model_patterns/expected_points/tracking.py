@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import os
 from typing import Any, Iterable
 
 import pandas as pd
@@ -225,8 +226,15 @@ def prepare_tracking_run(
 ) -> TrackingRun:
     predicted_input = _normalize_keys(predicted_picks)
     expected_game_ids = predicted_input["game_id"].tolist()
-    metadata_columns = config.pick_metadata_columns
-    snapshot_metadata_columns = config.snapshot_metadata_columns
+    metadata_columns = tuple(config.pick_metadata_columns)
+    snapshot_metadata_columns = tuple(config.snapshot_metadata_columns)
+    runtime_model_version = os.getenv("EXPECTED_POINTS_MODEL_VERSION")
+    if runtime_model_version and "model_version" not in metadata_columns:
+        metadata_columns = metadata_columns + ("model_version",)
+    if runtime_model_version and "model_version" not in snapshot_metadata_columns:
+        snapshot_metadata_columns = snapshot_metadata_columns + ("model_version",)
+    if runtime_model_version:
+        predicted_input["model_version"] = runtime_model_version
     pick_columns = PICK_COLUMNS + list(metadata_columns)
     validated = validate_pick_frame(
         predicted_input,
@@ -251,7 +259,7 @@ def prepare_tracking_run(
     differences, pick_changes, play_changes = summarize_pick_diffs(
         existing,
         final_picks,
-        metadata_columns + snapshot_metadata_columns,
+        tuple(dict.fromkeys((*metadata_columns, *snapshot_metadata_columns))),
     )
     return TrackingRun(
         picks=final_picks,
@@ -271,6 +279,8 @@ def build_pick_records(
 ) -> list[dict[str, Any]]:
     metadata_columns = tuple(metadata_columns)
     output = validate_pick_frame(frame, metadata_columns=metadata_columns)
+    if "model_version" in output.columns and "model_version" not in metadata_columns:
+        metadata_columns = metadata_columns + ("model_version",)
     records = output[PICK_COLUMNS + list(metadata_columns)].to_dict(orient="records")
     for record in records:
         record["write_time"] = write_time
@@ -284,6 +294,12 @@ def build_result_records(
     output = _normalize_keys(frame)
     metadata_columns = tuple(metadata_columns)
     _require_columns(output, RESULT_COLUMNS + list(metadata_columns), "Result frame")
+    # A result inherits the recipe version of the pick that produced it.  This
+    # is especially important when an older pick is graded by a later model
+    # deployment; keep the version as ordinary metadata rather than replacing
+    # it with the current runtime version.
+    if "model_version" in output.columns and "model_version" not in metadata_columns:
+        metadata_columns = metadata_columns + ("model_version",)
     records = output[RESULT_COLUMNS + list(metadata_columns)].to_dict(orient="records")
     for record in records:
         record["home_score"] = int(record["home_score"])
@@ -319,8 +335,13 @@ def build_update_record(
     environment: str,
     client_name: str,
     runtime: float,
+    model_version: str | None = None,
+    source_git_sha: str | None = None,
+    evaluation_metrics: dict[str, float] | None = None,
     write_time: datetime | None = None,
 ) -> dict[str, Any]:
+    model_version = model_version or os.getenv("EXPECTED_POINTS_MODEL_VERSION")
+    source_git_sha = source_git_sha or os.getenv("SOURCE_GIT_SHA")
     return {
         "year_week": year_week,
         "write_time": write_time or datetime.now(timezone.utc),
@@ -329,6 +350,9 @@ def build_update_record(
         "environment": environment,
         "client_name": client_name,
         "runtime": runtime,
+        "model_version": model_version,
+        "source_git_sha": source_git_sha,
+        "evaluation_metrics": evaluation_metrics or {},
         "pick_changes": run.pick_changes,
         "pick_changes_games": run.pick_changes_games,
         "play_changes": run.play_changes,

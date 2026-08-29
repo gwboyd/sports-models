@@ -43,6 +43,15 @@ Parameters:
   SupabaseSchema:
     Type: String
     Default: sports_models
+  NflExpectedPointsVersion:
+    Type: String
+    Default: "1.0"
+  CfbExpectedPointsVersion:
+    Type: String
+    Default: "1.0"
+  SourceGitSha:
+    Type: String
+    Default: local
 
 Globals:
   Function:
@@ -155,6 +164,9 @@ Resources:
       Environment:
         Variables:
           CFBD_API_KEY: !Ref CfbdApiKey
+          NFL_EXPECTED_POINTS_VERSION: !Ref NflExpectedPointsVersion
+          CFB_EXPECTED_POINTS_VERSION: !Ref CfbExpectedPointsVersion
+          SOURCE_GIT_SHA: !Ref SourceGitSha
       Events:
         NflUpdatePicks:
           Type: HttpApi

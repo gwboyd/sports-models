@@ -70,6 +70,21 @@ non-notebook client name and persist through the shared atomic writer. Changes t
 human-verified update run before merging, including checks for pick counts, update history, locked-game preservation,
 graded results when applicable, and the read endpoints.
 
+## Model Release Queue
+
+Prediction-affecting NFL changes are recorded in `UNRELEASED.md`. Keep that file empty when the deployment contains no
+NFL recipe change; do not add frontend, documentation, API-output, infrastructure, or database-only work. A populated
+draft must contain `#` title, `## Public Summary`, and `## Changes` sections, with optional `## Evaluation` and
+`## Internal Notes` sections.
+
+Production deployment is performed through `make sam-deploy`. The command prompts for `major` or `minor` whenever
+this queue is non-empty, keeps the current version when it is empty, prints the NFL and CFB decisions together, and
+requires confirmation and a completely clean Git tree. Both models share one training Lambda image, so a populated
+NFL queue ships in the same AWS deployment as CFB. After SAM succeeds, the command verifies the active Lambda's model
+versions and Git SHA before registering the draft in the Supabase `model_releases` table and archiving it as
+`releases/vN.N.md`; the working queue is then reset. A release is considered live only after its first successful AWS
+pick update records `first_pick_at`.
+
 ## Features
 
 The model is primarily powered by EPA per play and Success Rate (broken up by offense/defense and pass/rush). Both of these are efficiency metrics that are impressively predictive.

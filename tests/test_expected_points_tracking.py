@@ -75,6 +75,46 @@ def test_locked_pick_is_preserved():
     assert run.picks.iloc[0]["spread_lock"] == 1
 
 
+def test_runtime_model_version_is_added_and_locked_version_is_preserved(monkeypatch):
+    monkeypatch.setenv("EXPECTED_POINTS_MODEL_VERSION", "2.0")
+    existing = pick(date_time="2026-08-01-00:15", spread_play="B", spread_lock=1)
+    existing.update({"model_version": "1.3", "write_time": "2026-07-31 00:00:00"})
+    predicted = pick(date_time="2026-08-01-00:15", spread_play="A", spread_lock=0)
+    run = prepare_tracking_run(
+        pd.DataFrame([predicted]),
+        pd.DataFrame([existing]),
+        "2026_1",
+        ExpectedPointsTrackingConfig(),
+        now=pd.Timestamp("2026-08-01T04:00:00Z"),
+    )
+
+    assert run.picks.iloc[0]["model_version"] == "1.3"
+    assert "model_version" in run.pick_metadata_columns
+
+
+def test_update_record_captures_model_metadata(monkeypatch):
+    monkeypatch.setenv("EXPECTED_POINTS_MODEL_VERSION", "2.0")
+    run = prepare_tracking_run(
+        pd.DataFrame([pick()]),
+        pd.DataFrame(),
+        "2026_1",
+        ExpectedPointsTrackingConfig(),
+        now=pd.Timestamp("2026-08-01T00:00:00Z"),
+    )
+    record = build_update_record(
+        run,
+        year_week="2026_1",
+        week=1,
+        season=2026,
+        environment="PROD",
+        client_name="aws",
+        runtime=1.0,
+        evaluation_metrics={"eval_rows": 10.0},
+    )
+    assert record["model_version"] == "2.0"
+    assert record["evaluation_metrics"] == {"eval_rows": 10.0}
+
+
 def test_cfb_metadata_is_preserved_through_tracking_and_grading():
     metadata_columns = ("home_conference", "away_conference")
     predicted = pick()
@@ -101,6 +141,18 @@ def test_cfb_metadata_is_preserved_through_tracking_and_grading():
     assert pick_records[0]["away_conference"] == "Big Ten"
     assert result_records[0]["home_conference"] == "SEC"
     assert result_records[0]["away_conference"] == "Big Ten"
+
+
+def test_graded_result_keeps_the_pick_recipe_version(monkeypatch):
+    monkeypatch.setenv("EXPECTED_POINTS_MODEL_VERSION", "2.0")
+    existing = pick(date_time="2026-08-01-00:15")
+    existing.update({"model_version": "1.3", "write_time": "2026-07-31 00:00:00"})
+    scores = pd.DataFrame([{"game_id": "1", "home_score": 24, "away_score": 21}])
+
+    graded = grade_completed_picks(pd.DataFrame([existing]), pd.DataFrame(), scores)
+    records = build_result_records(graded)
+
+    assert records[0]["model_version"] == "1.3"
 
 
 def test_snapshot_only_metadata_is_logged_without_entering_pick_records():
