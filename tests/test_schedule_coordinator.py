@@ -56,6 +56,25 @@ def test_initial_week_switches_from_weekly_offseason_to_active_horizon():
     assert offseason.cadence == "offseason"
 
 
+def test_existing_picks_do_not_open_new_season_before_active_horizon():
+    league = ExpectedPointsLeague.NFL
+    now = datetime(2026, 8, 29, 23, tzinfo=EASTERN)
+    week_one = [
+        game(league, datetime(2026, 9, 9, 20, 20, tzinfo=EASTERN)),
+        game(league, datetime(2026, 9, 13, 13, 0, tzinfo=EASTERN)),
+    ]
+
+    selected = schedule_coordinator.select_plannable_week(
+        league,
+        games=week_one,
+        latest_picks=[pick()],
+        now=now,
+    )
+
+    assert selected is not None
+    assert selected.cadence == "offseason"
+
+
 def test_game_day_plans_daily_five_and_exactly_one_hour_before_each_window():
     league = ExpectedPointsLeague.CFB
     games = (
