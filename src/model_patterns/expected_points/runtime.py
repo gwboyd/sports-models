@@ -22,6 +22,7 @@ def execute_expected_points_notebook(
     allow_non_aws_write: bool = False,
     model_version: str | None = None,
     source_git_sha: str | None = None,
+    run_key: str | None = None,
 ) -> dict:
     run_id = uuid4().hex
     output_path = Path(f"/tmp/expected_points_{run_id}.ipynb")
@@ -31,10 +32,15 @@ def execute_expected_points_notebook(
 
     previous_model_version = os.environ.get("EXPECTED_POINTS_MODEL_VERSION")
     previous_git_sha = os.environ.get("SOURCE_GIT_SHA")
+    previous_run_key = os.environ.get("EXPECTED_POINTS_RUN_KEY")
     if model_version:
         os.environ["EXPECTED_POINTS_MODEL_VERSION"] = model_version
     if source_git_sha:
         os.environ["SOURCE_GIT_SHA"] = source_git_sha
+    if run_key:
+        os.environ["EXPECTED_POINTS_RUN_KEY"] = run_key
+    else:
+        os.environ.pop("EXPECTED_POINTS_RUN_KEY", None)
     try:
         try:
             pm.execute_notebook(
@@ -80,3 +86,7 @@ def execute_expected_points_notebook(
             os.environ.pop("SOURCE_GIT_SHA", None)
         else:
             os.environ["SOURCE_GIT_SHA"] = previous_git_sha
+        if previous_run_key is None:
+            os.environ.pop("EXPECTED_POINTS_RUN_KEY", None)
+        else:
+            os.environ["EXPECTED_POINTS_RUN_KEY"] = previous_run_key

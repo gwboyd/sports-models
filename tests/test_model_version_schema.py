@@ -36,3 +36,14 @@ def test_schema_setup_does_not_remove_operational_data():
     assert "\ndelete " not in normalized
     assert "\ntruncate " not in normalized
     assert "\ndrop " not in normalized
+
+
+def test_schedule_results_use_one_polymorphic_update_link():
+    assert "model_key text not null" in SCHEMA_SQL
+    assert "update_id bigint" in SCHEMA_SQL
+    assert "scheduled_model_updates_result_idx" in SCHEMA_SQL
+    for table in ("nfl_expected_points_pick_updates", "cfb_expected_points_pick_updates"):
+        definition = SCHEMA_SQL.split(
+            f"create table if not exists sports_models.{table} (", 1
+        )[1].split(");", 1)[0]
+        assert "run_key" not in definition

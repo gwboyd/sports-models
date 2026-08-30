@@ -1,4 +1,5 @@
 import json
+import os
 
 from papermill.exceptions import PapermillExecutionError
 
@@ -43,6 +44,7 @@ def test_notebook_runner_passes_model_metadata(monkeypatch, tmp_path):
 
     def fake_execute(_input_path, _output_path, *, parameters, **_kwargs):
         captured.update(parameters)
+        captured["run_key_environment"] = os.getenv("EXPECTED_POINTS_RUN_KEY")
         with open(parameters["result_path"], "w") as result_file:
             json.dump(
                 {
@@ -65,11 +67,14 @@ def test_notebook_runner_passes_model_metadata(monkeypatch, tmp_path):
         allow_non_aws_write=True,
         model_version="2.0",
         source_git_sha="abc123",
+        run_key="aws-scheduler:nfl:2026:1:daily",
     )
 
     assert captured["model_version"] == "2.0"
     assert captured["source_git_sha"] == "abc123"
     assert captured["allow_non_aws_write"] is True
+    assert captured["run_key_environment"] == "aws-scheduler:nfl:2026:1:daily"
+    assert "EXPECTED_POINTS_RUN_KEY" not in os.environ
 
 
 def test_notebook_runner_accepts_expected_post_persistence_stop(monkeypatch, tmp_path):

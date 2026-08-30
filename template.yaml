@@ -13,6 +13,12 @@ Parameters:
   TrainingFunctionName:
     Type: String
     Default: sports-models-training
+  CoordinatorFunctionName:
+    Type: String
+    Default: sports-models-schedule-coordinator
+  TrainingScheduleGroupName:
+    Type: String
+    Default: sports-models-training-updates
   Localhost:
     Type: String
     Default: "False"
@@ -74,6 +80,38 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       Name: !Ref HttpApiName
+
+  TrainingScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: !Ref TrainingScheduleGroupName
+
+  ScheduledUpdateDeliveryDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  TrainingScheduleInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeTrainingAndWriteDlq
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt TrainingLambdaFunction.Arn
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt ScheduledUpdateDeliveryDlq.Arn
 
   ApiLambdaFunction:
     Type: AWS::Serverless::Function
@@ -154,6 +192,80 @@ Resources:
       DockerContext: .
       DockerTag: python311-v1
 
+  ScheduleCoordinatorLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      FunctionName: !Ref CoordinatorFunctionName
+      Timeout: 180
+      MemorySize: 512
+      ReservedConcurrentExecutions: 1
+      ImageConfig:
+        Command:
+          - src.sports.football.schedule_coordinator.handler
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 1800
+        MaximumRetryAttempts: 1
+        DestinationConfig:
+          OnFailure:
+            Type: SQS
+      Environment:
+        Variables:
+          CFBD_API_KEY: !Ref CfbdApiKey
+          TRAINING_FUNCTION_ARN: !GetAtt TrainingLambdaFunction.Arn
+          SCHEDULER_TARGET_ROLE_ARN: !GetAtt TrainingScheduleInvokeRole.Arn
+          SCHEDULE_GROUP_NAME: !Ref TrainingScheduleGroupName
+          SCHEDULER_DLQ_ARN: !GetAtt ScheduledUpdateDeliveryDlq.Arn
+          SOURCE_GIT_SHA: !Ref SourceGitSha
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:DeleteSchedule
+                - scheduler:GetSchedule
+                - scheduler:UpdateSchedule
+              Resource: !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${TrainingScheduleGroupName}/*
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: !GetAtt TrainingScheduleInvokeRole.Arn
+              Condition:
+                StringEquals:
+                  iam:PassedToService: scheduler.amazonaws.com
+      Events:
+        MorningSchedulePlan:
+          Type: ScheduleV2
+          Properties:
+            Name: sports-models-training-schedule-check
+            Description: Plan the daily 5 AM and upcoming NFL/CFB game-window updates
+            ScheduleExpression: cron(45 4 * * ? *)
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            FlexibleTimeWindow:
+              Mode: "OFF"
+            Input: '{"job":"coordinate_expected_points_updates"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 1
+              MaximumEventAgeInSeconds: 1800
+        NoonSchedulePlan:
+          Type: ScheduleV2
+          Properties:
+            Name: sports-models-training-schedule-check-noon
+            Description: Reconcile same-day NFL and CFB kickoff schedule changes
+            ScheduleExpression: cron(0 12 * * ? *)
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            FlexibleTimeWindow:
+              Mode: "OFF"
+            Input: '{"job":"coordinate_expected_points_updates"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 1
+              MaximumEventAgeInSeconds: 1800
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: python311-v1
+
   TrainingLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -161,6 +273,13 @@ Resources:
       FunctionName: !Ref TrainingFunctionName
       Timeout: 900
       MemorySize: 10240
+      ReservedConcurrentExecutions: 1
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 3600
+        MaximumRetryAttempts: 1
+        DestinationConfig:
+          OnFailure:
+            Type: SQS
       Environment:
         Variables:
           CFBD_API_KEY: !Ref CfbdApiKey

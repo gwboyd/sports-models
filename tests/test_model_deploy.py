@@ -102,7 +102,8 @@ def test_production_deploy_requires_main_branch(monkeypatch):
 
 
 def test_aws_verification_accepts_active_lambda_with_exact_metadata(monkeypatch):
-    configuration = {
+    training_configuration = {
+        "FunctionArn": "arn:aws:lambda:us-east-1:123:function:sports-models-training-v2",
         "State": "Active",
         "LastUpdateStatus": "Successful",
         "Environment": {
@@ -114,10 +115,31 @@ def test_aws_verification_accepts_active_lambda_with_exact_metadata(monkeypatch)
             }
         },
     }
+    coordinator_configuration = {
+        "State": "Active",
+        "LastUpdateStatus": "Successful",
+        "Environment": {
+            "Variables": {
+                "SOURCE_GIT_SHA": "abc123",
+                "TRAINING_FUNCTION_ARN": "arn:aws:lambda:us-east-1:123:function:sports-models-training-v2",
+                "SCHEDULE_GROUP_NAME": "sports-models-training-updates-v2",
+            }
+        },
+    }
+
+    def get_configuration(args, **_kwargs):
+        function_name = args[args.index("--function-name") + 1]
+        configuration = (
+            coordinator_configuration
+            if function_name == deploy_models.COORDINATOR_FUNCTION_NAME
+            else training_configuration
+        )
+        return SimpleNamespace(stdout=json.dumps(configuration))
+
     monkeypatch.setattr(
         deploy_models.subprocess,
         "run",
-        lambda *_args, **_kwargs: SimpleNamespace(stdout=json.dumps(configuration)),
+        get_configuration,
     )
 
     deploy_models.verify_aws_deployment(
@@ -126,14 +148,16 @@ def test_aws_verification_accepts_active_lambda_with_exact_metadata(monkeypatch)
 
 
 def test_aws_verification_retries_a_stale_configuration(monkeypatch):
-    configurations = iter(
+    training_configurations = iter(
         [
             {
+                "FunctionArn": "arn:aws:lambda:us-east-1:123:function:sports-models-training-v2",
                 "State": "Active",
                 "LastUpdateStatus": "Successful",
                 "Environment": {"Variables": {}},
             },
             {
+                "FunctionArn": "arn:aws:lambda:us-east-1:123:function:sports-models-training-v2",
                 "State": "Active",
                 "LastUpdateStatus": "Successful",
                 "Environment": {
@@ -146,13 +170,32 @@ def test_aws_verification_retries_a_stale_configuration(monkeypatch):
             },
         ]
     )
+    coordinator_configuration = {
+        "State": "Active",
+        "LastUpdateStatus": "Successful",
+        "Environment": {
+            "Variables": {
+                "SOURCE_GIT_SHA": "abc123",
+                "TRAINING_FUNCTION_ARN": "arn:aws:lambda:us-east-1:123:function:sports-models-training-v2",
+                "SCHEDULE_GROUP_NAME": "sports-models-training-updates-v2",
+            }
+        },
+    }
     sleeps = []
+
+    def get_configuration(args, **_kwargs):
+        function_name = args[args.index("--function-name") + 1]
+        configuration = (
+            coordinator_configuration
+            if function_name == deploy_models.COORDINATOR_FUNCTION_NAME
+            else next(training_configurations)
+        )
+        return SimpleNamespace(stdout=json.dumps(configuration))
+
     monkeypatch.setattr(
         deploy_models.subprocess,
         "run",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            stdout=json.dumps(next(configurations))
-        ),
+        get_configuration,
     )
     monkeypatch.setattr(deploy_models.time, "sleep", sleeps.append)
 

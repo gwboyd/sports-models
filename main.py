@@ -14,6 +14,10 @@ from typing import List
 
 from src.sports.football.nfl.expected_points import handler as nfl_expected_points_handler
 from src.sports.football.cfb.expected_points import handler as cfb_expected_points_handler
+from src.sports.football.scheduled_updates import (
+    SCHEDULED_UPDATE_JOB,
+    run_scheduled_expected_points_update,
+)
 from src.sports.basketball.nba.first_basket_model import handler as nba_first_basket_handler
 
 load_dotenv()
@@ -137,7 +141,15 @@ if __name__ == "__main__":
     )
 
 
-handler = Mangum(app)
+api_handler = Mangum(app)
+
+
+def handler(event, context):
+    """Dispatch scheduled training events directly and HTTP events through Mangum."""
+
+    if isinstance(event, dict) and event.get("job") == SCHEDULED_UPDATE_JOB:
+        return run_scheduled_expected_points_update(event)
+    return api_handler(event, context)
 
 # uvicorn main:app --host 0.0.0.0 --port 3000 --reload --log-level warning
 

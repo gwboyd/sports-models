@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 from typing import Any, Iterable
 
@@ -231,6 +231,247 @@ def get_expected_points_results(league: ExpectedPointsLeague | str) -> list[dict
         return list(cur.fetchall())
 
 
+def is_scheduled_model_update_completed(
+    league: ExpectedPointsLeague | str,
+    run_key: str,
+) -> bool:
+    """Return whether a plan atomically linked its persisted model update."""
+
+    if not run_key.startswith("aws-scheduler:"):
+        raise ValueError("Scheduled run key must start with 'aws-scheduler:'")
+    league_value = _coerce_league(league).value
+    query = f"""
+        select 1
+        from {SCHEMA}.scheduled_model_updates
+        where run_key = %s
+          and league = %s
+          and model_key = %s
+          and status = 'completed'
+          and update_id is not null
+        limit 1
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(query, (run_key, league_value, model_key(league).value))
+        return cur.fetchone() is not None
+
+
+def get_schedule_coordinator_state(
+    league: ExpectedPointsLeague | str,
+) -> dict[str, Any] | None:
+    league_value = _coerce_league(league).value
+    query = f"""
+        select league, next_check_at, last_checked_at, next_game_at
+        from {SCHEMA}.schedule_coordinator_state
+        where league = %s
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(query, (league_value,))
+        return cur.fetchone()
+
+
+def update_schedule_coordinator_state(
+    league: ExpectedPointsLeague | str,
+    *,
+    next_check_at: datetime,
+    next_game_at: datetime | None,
+    checked_at: datetime,
+) -> None:
+    league_value = _coerce_league(league).value
+    query = f"""
+        insert into {SCHEMA}.schedule_coordinator_state (
+            league, next_check_at, last_checked_at, next_game_at
+        ) values (%s, %s, %s, %s)
+        on conflict (league) do update set
+            next_check_at = excluded.next_check_at,
+            last_checked_at = excluded.last_checked_at,
+            next_game_at = excluded.next_game_at
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(query, (league_value, next_check_at, checked_at, next_game_at))
+
+
+def get_scheduled_model_updates(
+    league: ExpectedPointsLeague | str | None = None,
+    *,
+    season: int | None = None,
+    week: int | None = None,
+    pending_only: bool = False,
+) -> list[dict[str, Any]]:
+    """Return persisted plans for operational reconciliation or API display."""
+
+    filters: list[str] = []
+    params: list[Any] = []
+    if league is not None:
+        filters.append("league = %s")
+        params.append(_coerce_league(league).value)
+    if season is not None:
+        filters.append("season = %s")
+        params.append(season)
+    if week is not None:
+        filters.append("week = %s")
+        params.append(week)
+    if pending_only:
+        filters.append("status in ('planned', 'scheduled', 'running', 'failed')")
+    where = f"where {' and '.join(filters)}" if filters else ""
+    query = f"""
+        select run_key, model_key, league, season, week, window_key, game_date,
+               scheduled_for, kickoff_at, aws_schedule_name, status, reason,
+               attempt_count, claimed_at, completed_at, update_id, last_error,
+               created_at, updated_at
+        from {SCHEMA}.scheduled_model_updates
+        {where}
+        order by scheduled_for asc, run_key asc
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(query, tuple(params))
+        return list(cur.fetchall())
+
+
+def upsert_scheduled_model_update(record: dict[str, Any]) -> dict[str, Any]:
+    """Create a plan or refresh its future AWS schedule without reopening history."""
+
+    query = f"""
+        insert into {SCHEMA}.scheduled_model_updates (
+            run_key, model_key, league, season, week, window_key, game_date,
+            scheduled_for, kickoff_at, aws_schedule_name, reason
+        ) values (
+            %(run_key)s, %(model_key)s, %(league)s, %(season)s, %(week)s, %(window_key)s, %(game_date)s,
+            %(scheduled_for)s, %(kickoff_at)s, %(aws_schedule_name)s, %(reason)s
+        )
+        on conflict (run_key) do update set
+            scheduled_for = case
+                when {SCHEMA}.scheduled_model_updates.status in ('running', 'completed')
+                    then {SCHEMA}.scheduled_model_updates.scheduled_for
+                else excluded.scheduled_for
+            end,
+            kickoff_at = case
+                when {SCHEMA}.scheduled_model_updates.status in ('running', 'completed')
+                    then {SCHEMA}.scheduled_model_updates.kickoff_at
+                else excluded.kickoff_at
+            end,
+            aws_schedule_name = case
+                when {SCHEMA}.scheduled_model_updates.status in ('running', 'completed')
+                    then {SCHEMA}.scheduled_model_updates.aws_schedule_name
+                else excluded.aws_schedule_name
+            end,
+            reason = case
+                when {SCHEMA}.scheduled_model_updates.status in ('running', 'completed')
+                    then {SCHEMA}.scheduled_model_updates.reason
+                else excluded.reason
+            end,
+            status = case
+                when {SCHEMA}.scheduled_model_updates.status in ('cancelled', 'missed')
+                    then 'planned'
+                else {SCHEMA}.scheduled_model_updates.status
+            end,
+            last_error = case
+                when {SCHEMA}.scheduled_model_updates.status in ('cancelled', 'missed')
+                    then null
+                else {SCHEMA}.scheduled_model_updates.last_error
+            end,
+            updated_at = now()
+        returning run_key, status, scheduled_for, aws_schedule_name
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(query, normalize_record(record))
+        row = cur.fetchone()
+        if row is None:
+            raise RuntimeError(f"Scheduled plan upsert returned no row for {record['run_key']}")
+        return row
+
+
+def set_scheduled_model_update_status(
+    run_key: str,
+    status: str,
+    *,
+    error: str | None = None,
+) -> None:
+    allowed = {"planned", "scheduled", "running", "failed", "cancelled", "missed"}
+    if status not in allowed:
+        raise ValueError(f"Unsupported scheduled update status: {status}")
+    query = f"""
+        update {SCHEMA}.scheduled_model_updates
+        set status = case
+                when status = 'completed' then status
+                when %s in ('scheduled', 'cancelled', 'missed')
+                     and status = 'running' then status
+                else %s
+            end,
+            last_error = case
+                when status = 'completed' then last_error
+                when %s in ('scheduled', 'cancelled', 'missed')
+                     and status = 'running' then last_error
+                else %s
+            end,
+            updated_at = now()
+        where run_key = %s
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            query,
+            (
+                status,
+                status,
+                status,
+                error[:2000] if error else None,
+                run_key,
+            ),
+        )
+        if cur.rowcount != 1:
+            raise ValueError(f"Unknown scheduled update run key: {run_key}")
+
+
+def claim_scheduled_model_update(
+    league: ExpectedPointsLeague | str,
+    run_key: str,
+    season: int,
+    week: int,
+    *,
+    lease: timedelta = timedelta(minutes=16),
+) -> str:
+    """Atomically claim one delivery, allowing retry after a full Lambda timeout."""
+
+    league_value = _coerce_league(league).value
+    query = f"""
+        update {SCHEMA}.scheduled_model_updates
+        set status = 'running',
+            claimed_at = now(),
+            attempt_count = attempt_count + 1,
+            last_error = null,
+            updated_at = now()
+        where run_key = %s
+          and league = %s
+          and model_key = %s
+          and season = %s
+          and week = %s
+          and (
+              status in ('planned', 'scheduled', 'failed')
+              or (status = 'running' and claimed_at < now() - %s)
+          )
+        returning status
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        identity = (run_key, league_value, model_key(league).value, season, week)
+        cur.execute(query, (*identity, lease))
+        claimed = cur.fetchone()
+        if claimed is not None:
+            return "claimed"
+        cur.execute(
+            f"""
+            select status
+            from {SCHEMA}.scheduled_model_updates
+            where run_key = %s
+              and league = %s
+              and model_key = %s
+              and season = %s
+              and week = %s
+            """,
+            identity,
+        )
+        existing = cur.fetchone()
+        return str(existing["status"]) if existing else "missing"
+
+
 def _upsert_picks(cur, league: ExpectedPointsLeague | str, records: list[dict[str, Any]]) -> None:
     if not records:
         return
@@ -299,16 +540,53 @@ def _insert_pick_update(
     cur,
     league: ExpectedPointsLeague | str,
     record: dict[str, Any],
-) -> datetime:
+) -> tuple[int, datetime]:
     columns = ", ".join(UPDATE_COLUMNS)
     values = ", ".join(f"%({column})s" for column in UPDATE_COLUMNS)
     query = f"""
         insert into {_table(league, 'pick_updates')} ({columns})
         values ({values})
-        returning write_time
+        returning id, write_time
     """
     cur.execute(query, record)
-    return cur.fetchone()["write_time"]
+    row = cur.fetchone()
+    return int(row["id"]), row["write_time"]
+
+
+def _complete_scheduled_model_update(
+    cur,
+    league: ExpectedPointsLeague | str,
+    run_key: str,
+    update_id: int,
+    season: int,
+    week: int,
+) -> None:
+    """Link a scheduled plan to its update row in the same write transaction."""
+
+    if not run_key.startswith("aws-scheduler:"):
+        raise ValueError("Scheduled run key must start with 'aws-scheduler:'")
+    league_value = _coerce_league(league).value
+    query = f"""
+        update {SCHEMA}.scheduled_model_updates
+        set update_id = %s,
+            status = 'completed',
+            completed_at = now(),
+            last_error = null,
+            updated_at = now()
+        where run_key = %s
+          and league = %s
+          and model_key = %s
+          and season = %s
+          and week = %s
+          and status = 'running'
+          and update_id is null
+    """
+    cur.execute(
+        query,
+        (update_id, run_key, league_value, model_key(league).value, season, week),
+    )
+    if cur.rowcount != 1:
+        raise RuntimeError(f"Scheduled plan is not claimable for completion: {run_key}")
 
 
 def write_expected_points_run(
@@ -359,7 +637,7 @@ def write_expected_points_run(
             )
             if cur.fetchone() is None:
                 raise ValueError(f"No registered release for {release_key} {referenced_version}")
-        persisted_time = _insert_pick_update(cur, league, update_record)
+        update_id, persisted_time = _insert_pick_update(cur, league, update_record)
         _upsert_picks(cur, league, pick_records)
         _upsert_results(cur, league, result_records)
         cur.execute(
@@ -370,6 +648,16 @@ def write_expected_points_run(
             """,
             (write_time, release_key, expected_model_version),
         )
+        scheduled_run_key = os.getenv("EXPECTED_POINTS_RUN_KEY")
+        if scheduled_run_key:
+            _complete_scheduled_model_update(
+                cur,
+                league,
+                scheduled_run_key,
+                update_id,
+                int(update_record["season"]),
+                int(update_record["week"]),
+            )
         return persisted_time
 
 

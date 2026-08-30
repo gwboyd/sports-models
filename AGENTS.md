@@ -8,6 +8,8 @@ newer deployment.
 ## Repository Structure
 - `src/model_patterns/`: Reusable modeling patterns; `expected_points/` is currently shared by NFL and CFB.
 - `src/sports/`: Sport- and model-specific implementations (NFL/NBA/CFB notebooks, handlers, utilities).
+- `src/sports/football/schedule_coordinator.py`: Dynamic calendar policy and lightweight Lambda entrypoint.
+- `src/sports/football/scheduled_updates.py`: Idempotent direct training-Lambda dispatcher.
 - `src/utils/db/`: Centralized Postgres data access for operational tables/views.
 - `src/utils/`: Shared infrastructure utilities and Pydantic models.
 - `frontend/`: Frontend app for serving model views.
@@ -68,6 +70,11 @@ npm run codegen
 flowchart LR
   U[Client Browser] --> FE[Frontend]
   FE --> API[FastAPI on AWS Lambda]
+  CLOCK[Recurring EventBridge Schedule] --> COORD[Small Schedule Planner Lambda]
+  COORD --> PLANS[(Supabase Update Plans)]
+  COORD --> SCH[One-time EventBridge Schedules]
+  SCH --> JOB[Direct Training Dispatcher]
+  JOB --> EP
   API --> NFL[NFL Router]
   API --> CFB[CFB Router]
   API --> NBA[NBA Router]
@@ -86,8 +93,18 @@ flowchart LR
 writes go through `src/utils/db/sports_models_db.py`. NFL and CFB update endpoints execute their notebooks via the
 shared runtime in `src/model_patterns/expected_points/runtime.py`. Shared tracking helpers validate picks, preserve
 started games, calculate changes, and grade completed picks. `write_expected_points_run` persists the update record,
-current picks, and newly graded results in one transaction so a failed run cannot partially commit. Initial Postgres
-connection failures use bounded retries in `src/utils/postgres.py`.
+current picks, and newly graded results in one transaction so a failed run cannot partially commit. For a scheduled
+run, that same transaction links `scheduled_model_updates.update_id` to the model-specific update-history row and
+marks the plan completed. Initial Postgres connection failures use bounded retries in `src/utils/postgres.py`.
+
+EventBridge invokes a 512 MB coordinator Lambda at 4:45 AM and noon Eastern. Its separate image command runs
+`src/sports/football/schedule_coordinator.py` from the same repository image without importing the FastAPI handler.
+The coordinator checks Supabase state before loading nflverse/CFBD, backs off to weekly checks when no game is within
+the active horizon, derives exact run windows from schedule dates, and reconciles named one-time EventBridge Scheduler
+resources. Those one-time schedules invoke the training Lambda through a dedicated IAM role; the coordinator never
+invokes training itself. `main.handler` sends `expected_points_update` events to `scheduled_updates.py` and HTTP events
+through Mangum. Scheduled exceptions must propagate so asynchronous retries and SQS failure destinations can observe
+them. The training Lambda has reserved concurrency of one, and the coordinator and trainer share a verified Git SHA.
 
 NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected_points/data_loader.py`: `nflreadpy`
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
@@ -101,6 +118,9 @@ Current expected-points schema model, mirrored for the `nfl` and `cfb` prefixes:
 - `<league>_expected_points_latest_updates`: latest update per `year_week`
 - `<league>_expected_points_results`: graded outcomes
 - `model_releases`: immutable NFL/CFB expected-points recipe releases and public/internal release notes
+- `schedule_coordinator_state`: per-league next-check timing for automatic active/offseason backoff
+- `scheduled_model_updates`: backend-readable plan and execution history for named one-time AWS schedules; its
+  `(model_key, update_id)` pair conditionally identifies the resulting model-specific update-history row
 
 Expected-points recipe releases use independent `MAJOR.MINOR` versions for NFL and CFB. A major release changes
 the model's methodology or expected behavior; a minor release is a smaller prediction-affecting change. Routine
@@ -141,8 +161,9 @@ The public NFL methodology lives in `frontend/content/nfl-how-it-works.md` and i
 production Info-page content. Its renderer must continue supporting headings through `h3`, lists, links, inline code,
 and responsive images; keep backend and deployment operations in the model README.
 
-Only the deployed AWS training Lambda writes expected-points records automatically. Runtime origin is determined from
-Lambda runtime markers while explicitly excluding `AWS_SAM_LOCAL`; `client_name` is audit metadata, not authority.
+Only the deployed AWS training Lambda writes expected-points records automatically; the coordinator writes scheduling
+state and plans but never picks, update history, or grading rows. Runtime origin is determined from Lambda runtime
+markers while explicitly excluding `AWS_SAM_LOCAL`; `client_name` is audit metadata, not authority.
 Local API, `sam local`, and interactive notebook executions are read-only by default. A non-AWS API request must set
 `allow_non_aws_write=true`, then it uses the latest registered release version. Notebooks default to
 `client_name="notebook"` and `allow_non_aws_write=False`; enabling the flag requires the exact interactive
@@ -191,11 +212,34 @@ major/minor for every non-empty draft, keeps empty drafts at their latest versio
 final confirmation. The checked-out branch must be `main`, and the working tree, including untracked files, must be
 completely clean so the deployed image matches the recorded Git SHA. NFL and CFB share one training Lambda image, so both populated drafts must be released
 in the same deployment. There is no GitHub Actions version gate, source fingerprint, or changed-path heuristic. After
-SAM succeeds, the command uses bounded retries to verify that the active training Lambda contains both planned model
-versions and the planned Git SHA; only then does it record release rows. A release is considered live only after its
+SAM succeeds, the command uses bounded retries to verify that the active training and coordinator Lambdas share the
+planned Git SHA and that training contains both planned model versions; only then does it record release rows. A release is considered live only after its
 first successful AWS pick update sets `first_pick_at`. The ignored `.aws-sam/model-release-plan.json` preserves exact
 draft snapshots for recovery. `make sam-register-releases` re-verifies AWS before registering, while
 `make sam-finalize-release-files` verifies the Supabase rows before archiving/resetting drafts and removing the plan.
+
+Production scheduling is source-controlled in `template.yaml` and `schedule_coordinator.py`. Recurring Scheduler
+resources wake the planner at 4:45 AM and noon Eastern; Supabase state suppresses feed work until an active-season
+reconciliation or weekly offseason feed check is due. The planner upserts
+`scheduled_model_updates` and creates or updates stable, one-time EventBridge schedules. Kickoff changes update the
+same named schedule rather than adding another trigger. The current model week cannot advance until its applicable
+games are final and the 5:00 AM Eastern rollover following the last game date has arrived. With no future games, the
+weekly check creates no training run. Once a future new-season slate is published outside the four-day horizon, the
+planner creates one weekly offseason training run; inside four days it switches to active cadence. While active, each
+league receives one daily training run at 5:00 AM Eastern through the date of that week's final game. Every game date independently receives up to three
+schedule-derived windows: one hour before the first game before 2:00 PM, one hour before the first 2:00-6:59 PM game,
+and one hour before the first game at or after 7:00 PM. Empty buckets are skipped; the rule does not depend on weekday.
+Completed picks, including a season's final games, are graded only by the next successful prediction run.
+
+EventBridge Scheduler is at-least-once. Stable schedule/run identities, the `scheduled_model_updates` atomic claim,
+the serialized training Lambda, and atomic `(model_key, update_id)` completion link jointly prevent duplicate notebook
+execution and recover a delivery whose database commit succeeded before its Lambda response completed. `client_name`
+remains source metadata (`aws-scheduler` for these runs); the deterministic `run_key` remains only in the orchestration
+path and is not added to model update-history tables. Unscheduled writes do not link to or satisfy a planned run.
+One-time schedules delete themselves after delivery, while Supabase retains planned, running, completed, failed,
+cancelled, and missed history. Schedule-only changes are infrastructure work and do not populate either
+`UNRELEASED.md`, but still deploy via the clean-main release workflow. SAM-local scheduled events remain read-only
+because they are not real Lambda runtimes.
 
 ## Testing Strategy
 1. Run `pytest` for backend smoke coverage.
@@ -236,6 +280,8 @@ draft snapshots for recovery. `make sam-register-releases` re-verifies AWS befor
   - `ADMIN_API_KEY`, `FRONT_END_API_KEY`, `READ_API_KEY`, `NBA_API_KEY`, `AWS_API_KEY`
   - `CFBD_API_KEY`
   - `SUPABASE_DB_URL`, `SUPABASE_SCHEMA`
+  - `TRAINING_FUNCTION_ARN` (coordinator target metadata, supplied by SAM)
+  - `SCHEDULER_TARGET_ROLE_ARN`, `SCHEDULE_GROUP_NAME`, `SCHEDULER_DLQ_ARN` (dynamic Scheduler resources, supplied by SAM)
 - Add new routers in `src/sports/<sport>/<league>/<model>/handler.py` and mount them in `main.py`.
 - Add new DB access helpers in `src/utils/db/`.
 - Add model-specific Pydantic schemas beside their API boundary; only truly application-wide schemas belong in a
