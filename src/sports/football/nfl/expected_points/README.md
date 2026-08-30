@@ -11,10 +11,25 @@ After picks are made, there is another model (classifier) that looks back on the
 
 ## Picks Update Cadence
 
-The model can be updated whenever, but is scheduled to and should always update at the following times:
-- Wednesday at 12:00 AM ET
-- Thursday at 7:20 PM ET
-- Sunday at 12:00 PM ET
+A small EventBridge-driven planner derives updates from the nflverse schedule rather than fixed NFL weekdays. It
+opens a week only after the prior week is final and the 5:00 AM Eastern rollover check has passed. A first week of a
+new season switches to active cadence when it enters the four-day horizon.
+
+An eligible NFL week trains daily at 5:00 AM Eastern through its final game date. Every date containing games receives
+up to three additional updates: one hour before the first early game, first afternoon game, and first night game.
+Early means before 2:00 PM Eastern, afternoon is 2:00-6:59 PM, and night begins at 7:00 PM. Empty buckets are skipped,
+and the same rule covers Thursday, Monday, international, Saturday, holiday, and playoff schedules. Multiple games in
+one bucket share the update before its earliest kickoff; a Saturday/Sunday slate can therefore have six game-window
+updates in addition to the daily 5:00 AM runs.
+
+The planner persists the week in `scheduled_model_updates` and creates or updates stable one-time EventBridge
+schedules. Each schedule invokes training directly through IAM, and kickoff changes overwrite its future trigger
+rather than creating a duplicate. The serialized training Lambda atomically claims the plan, then links the plan's
+generic `(model_key, update_id)` fields to the persisted NFL update row in the same transaction as the picks. No API
+Gateway request or API key is involved. With no published future game, weekly schedule-feed checks create no training
+run. Once next-season games are published outside the four-day horizon, one weekly offseason training run is created;
+inside four days, active cadence replaces it. Final-season picks are graded by that next successful notebook run, not
+by the coordinator.
 
 An existing prediction is locked 30 minutes before kickoff and preserved by later update runs. A game is removed from
 the live prediction slate entirely once kickoff is reached.

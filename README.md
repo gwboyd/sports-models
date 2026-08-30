@@ -84,6 +84,8 @@ This creates the `sports_models` schema and the tables/views used by the backend
 - `cfb_expected_points_pick_updates`
 - `cfb_expected_points_latest_updates`
 - `model_releases`
+- `schedule_coordinator_state`
+- `scheduled_model_updates`
 - `nba_first_basket_picks`
 
 Do not treat the setup file as an incremental production migration without reviewing its statements against
@@ -296,8 +298,10 @@ The SAM template deploys:
 
 - one HTTP API
 - one API Lambda for read/serve routes
-- one separate training Lambda for `POST /nfl-update-picks` and `POST /cfb-update-picks`
-- one shared Docker image build used by both functions
+- one separate training Lambda for `POST /nfl-update-picks`, `POST /cfb-update-picks`, and direct scheduled updates
+- one 512 MB schedule-coordinator Lambda that evaluates NFL and CFB calendars
+- two recurring planner schedules, one dynamic schedule group, and stack-managed failure queues and IAM roles
+- one shared Docker image source built for all three functions
 
 Repeat production deploys:
 
@@ -315,8 +319,8 @@ That target:
 - requires a major/minor choice for every non-empty queue and keeps empty queues unchanged
 - prints both model decisions and requires confirmation
 - runs `sam build` and deploys the `sports-models-v2` stack in `us-east-1`
-- verifies the deployed training Lambda is active and has the planned NFL version, CFB version, and Git SHA, using
-  bounded retries for AWS propagation
+- verifies the deployed training and coordinator Lambdas are active, share the planned Git SHA, and have the planned
+  model versions and target function configuration, using bounded retries for AWS propagation
 - registers finalized release rows only after SAM succeeds, then archives and resets the consumed drafts
 
 NFL and CFB share the training Lambda image. A populated queue for either model therefore ships in the same AWS
@@ -333,7 +337,54 @@ make sam-finalize-release-files
 ```
 
 Successful finalization removes the recovery plan. A failed SAM deployment cannot be registered unless a later AWS
-check confirms that the training Lambda actually has the planned versions and Git SHA.
+check confirms that the training and coordinator Lambdas have the planned configuration and Git SHA.
+
+### Scheduled Pick Updates
+
+`template.yaml` owns the production EventBridge Scheduler configuration. Schedule changes therefore follow the same
+clean-`main` `make sam-deploy` workflow as other infrastructure changes, but they do not require an expected-points
+version bump or an `UNRELEASED.md` entry unless the model recipe also changes.
+
+EventBridge invokes the small coordinator at 4:45 AM and noon Eastern. The early invocation registers the separate
+5:00 AM training schedule after evaluating the 5:00 AM rollover gate. The coordinator reads
+`schedule_coordinator_state` first; during the offseason it loads schedule feeds only for the weekly check. Apply the idempotent `schedule_coordinator_state` and
+`scheduled_model_updates` statements in `db/sql/001_create_sports_models_schema.sql` to an existing Supabase database
+before deploying this stack version.
+
+When active, the coordinator loads nflverse and CFBD schedules, persists the upcoming plan in Supabase, and creates or
+updates named one-time EventBridge schedules. Those schedules—not the coordinator—send IAM-authorized events directly
+to the training Lambda. Neither path calls API Gateway or carries an API key. If a kickoff moves, the stable schedule
+name and `aws-scheduler:<league>:...` run identity cause both AWS and Supabase to be updated instead of duplicated.
+
+Week transition is backend-gated. The coordinator keeps the currently published week active until every applicable
+schedule game is final and 5:00 AM Eastern has arrived on the morning after its last game date. It then opens the next
+same-season week. A new season cannot open until its first week enters the four-day horizon. The
+next successful notebook run grades prior picks and atomically publishes its slate. If no future games have been
+published, the weekly coordinator check creates no training run. Once the next season's games exist but its first
+kickoff is more than four days away, one weekly offseason training run is scheduled; this also gives the normal
+notebook workflow a chance to grade the prior season's final picks. Four days before kickoff, active cadence replaces
+the weekly offseason run. The coordinator itself never writes picks, update history, or grading rows.
+
+While a league has an eligible future week, it receives one training update at 5:00 AM Eastern every day through that
+week's final game date. Every date containing games also receives up to three window updates: one hour before the
+first game before 2:00 PM, one hour before the first 2:00-6:59 PM game, and one hour before the first game at or after
+7:00 PM. Empty buckets are skipped, and the policy is identical on every weekday. Two games in the same window share
+one update before the earlier kickoff; games spread across Saturday and Sunday can create three windows on each day.
+Schedules use the exact kickoff minute: a 7:10 PM first game schedules at 6:10 PM.
+
+The training Lambda has reserved concurrency of one, allowing simultaneous NFL/CFB decisions to serialize safely.
+Because EventBridge Scheduler delivers at least once, the training handler atomically claims the Supabase plan before
+Papermill starts. A successful database transaction stores the new model-specific update row and writes its `id` to
+the plan's generic `update_id` while marking the plan completed. `model_key` identifies which update-history table to
+join, so adding a scheduled model does not require another link column. This polymorphic link is written atomically
+rather than declared as a cross-table foreign key, which Postgres cannot express. `client_name='aws-scheduler'`
+continues to identify the writer in update history; unscheduled writes have no schedule link and cannot satisfy a
+planned run. Duplicate or concurrent deliveries are no-ops, including recovery when persistence committed before the
+Lambda response completed; failed runs release the claim for Lambda retry. One-time AWS schedules delete themselves after delivery, while
+Supabase retains their lifecycle for operations and a future frontend view. Sample coordinator and direct-training
+events are available at `events/schedule-coordinator.json`, `events/scheduled-nfl-update.json`, and
+`events/scheduled-cfb-update.json`. SAM-local scheduled invocations remain read-only under the normal non-AWS write
+policy; only deployed Lambda runtimes write automatically.
 
 For each model, an empty `UNRELEASED.md` means no version change. A non-empty file must use the documented Markdown
 sections and is released as either the next minor or next major version. Version rows may be deployed before they

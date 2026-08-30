@@ -1,0 +1,7 @@
+{
+  "job": "expected_points_update",
+  "league": "cfb",
+  "season": 2026,
+  "week": 1,
+  "run_key": "aws-scheduler:cfb:2026:1:manual"
+}

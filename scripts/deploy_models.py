@@ -39,6 +39,8 @@ from src.utils.db.sports_models_db import (
 RECOVERY_PATH = ROOT / ".aws-sam" / "model-release-plan.json"
 AWS_REGION = "us-east-1"
 TRAINING_FUNCTION_NAME = "sports-models-training-v2"
+COORDINATOR_FUNCTION_NAME = "sports-models-schedule-coordinator-v2"
+TRAINING_SCHEDULE_GROUP_NAME = "sports-models-training-updates-v2"
 AWS_VERIFICATION_DELAYS = (0, 1, 2, 4, 8)
 
 
@@ -345,59 +347,77 @@ def verify_aws_deployment(
     *,
     delays: tuple[int, ...] = AWS_VERIFICATION_DELAYS,
 ) -> None:
-    expected_environment = _expected_lambda_environment(source_git_sha, serialized_choices)
+    expected_configurations = {
+        TRAINING_FUNCTION_NAME: _expected_lambda_environment(source_git_sha, serialized_choices),
+        COORDINATOR_FUNCTION_NAME: {
+            "SOURCE_GIT_SHA": source_git_sha,
+            "SCHEDULE_GROUP_NAME": TRAINING_SCHEDULE_GROUP_NAME,
+        },
+    }
     last_problem = "AWS Lambda configuration was not available"
     for delay in delays:
         if delay:
             time.sleep(delay)
         try:
-            result = subprocess.run(
-                [
-                    "aws",
-                    "lambda",
-                    "get-function-configuration",
-                    "--function-name",
-                    TRAINING_FUNCTION_NAME,
-                    "--region",
-                    AWS_REGION,
-                    "--output",
-                    "json",
-                ],
-                cwd=ROOT,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            configuration = json.loads(result.stdout)
+            configurations = {}
+            for function_name in expected_configurations:
+                result = subprocess.run(
+                    [
+                        "aws",
+                        "lambda",
+                        "get-function-configuration",
+                        "--function-name",
+                        function_name,
+                        "--region",
+                        AWS_REGION,
+                        "--output",
+                        "json",
+                    ],
+                    cwd=ROOT,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                configurations[function_name] = json.loads(result.stdout)
         except FileNotFoundError as exc:
             raise RuntimeError("AWS CLI is required to verify the deployed Lambda") from exc
         except (json.JSONDecodeError, subprocess.CalledProcessError) as exc:
             last_problem = f"AWS configuration lookup failed ({type(exc).__name__})"
             continue
 
-        update_status = configuration.get("LastUpdateStatus")
-        if update_status == "Failed":
-            reason = configuration.get("LastUpdateStatusReason") or "no failure reason returned"
-            raise RuntimeError(f"AWS training Lambda update failed: {reason}")
-
-        function_state = configuration.get("State")
-        actual_environment = configuration.get("Environment", {}).get("Variables", {})
-        mismatches = [
-            key
-            for key, expected_value in expected_environment.items()
-            if actual_environment.get(key) != expected_value
-        ]
-        if update_status == "Successful" and function_state == "Active" and not mismatches:
-            print("AWS training Lambda version and Git SHA verified.")
-            return
-
         problems = []
-        if update_status != "Successful":
-            problems.append(f"LastUpdateStatus={update_status!r}")
-        if function_state != "Active":
-            problems.append(f"State={function_state!r}")
-        if mismatches:
-            problems.append(f"environment mismatch: {', '.join(mismatches)}")
+        for function_name, expected_environment in expected_configurations.items():
+            configuration = configurations[function_name]
+            update_status = configuration.get("LastUpdateStatus")
+            if update_status == "Failed":
+                reason = configuration.get("LastUpdateStatusReason") or "no failure reason returned"
+                raise RuntimeError(f"AWS Lambda {function_name} update failed: {reason}")
+            function_state = configuration.get("State")
+            actual_environment = configuration.get("Environment", {}).get("Variables", {})
+            mismatches = [
+                key
+                for key, expected_value in expected_environment.items()
+                if actual_environment.get(key) != expected_value
+            ]
+            if update_status != "Successful":
+                problems.append(f"{function_name} LastUpdateStatus={update_status!r}")
+            if function_state != "Active":
+                problems.append(f"{function_name} State={function_state!r}")
+            if mismatches:
+                problems.append(
+                    f"{function_name} environment mismatch: {', '.join(mismatches)}"
+                )
+        training_arn = configurations[TRAINING_FUNCTION_NAME].get("FunctionArn")
+        coordinator_environment = configurations[COORDINATOR_FUNCTION_NAME].get(
+            "Environment", {}
+        ).get("Variables", {})
+        if not training_arn or coordinator_environment.get("TRAINING_FUNCTION_ARN") != training_arn:
+            problems.append(
+                f"{COORDINATOR_FUNCTION_NAME} target does not match {TRAINING_FUNCTION_NAME}"
+            )
+        if not problems:
+            print("AWS training and coordinator Lambdas, model versions, and Git SHA verified.")
+            return
         last_problem = "; ".join(problems)
 
     raise RuntimeError(
@@ -418,6 +438,8 @@ def _sam_deploy(
         "HttpApiName=sports-models-http-api-v2",
         "ApiFunctionName=sports-models-api-v2",
         "TrainingFunctionName=sports-models-training-v2",
+        "CoordinatorFunctionName=sports-models-schedule-coordinator-v2",
+        "TrainingScheduleGroupName=sports-models-training-updates-v2",
         "Localhost=False",
         "EnvironmentName=PROD",
         f"SourceGitSha={source_git_sha}",

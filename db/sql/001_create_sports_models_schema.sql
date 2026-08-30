@@ -26,6 +26,63 @@ create table if not exists sports_models.model_releases (
     check (version = major_version::text || '.' || minor_version::text)
 );
 
+create table if not exists sports_models.schedule_coordinator_state (
+    league text primary key,
+    next_check_at timestamptz not null default now(),
+    last_checked_at timestamptz,
+    next_game_at timestamptz,
+    check (league in ('nfl', 'cfb'))
+);
+
+alter table sports_models.schedule_coordinator_state enable row level security;
+
+insert into sports_models.schedule_coordinator_state (league)
+values ('nfl'), ('cfb')
+on conflict (league) do nothing;
+
+create table if not exists sports_models.scheduled_model_updates (
+    run_key text primary key,
+    model_key text not null,
+    league text not null,
+    season integer not null,
+    week integer not null,
+    window_key text not null,
+    game_date date,
+    scheduled_for timestamptz not null,
+    kickoff_at timestamptz,
+    aws_schedule_name text not null unique,
+    status text not null default 'planned',
+    reason text not null,
+    attempt_count integer not null default 0,
+    claimed_at timestamptz,
+    completed_at timestamptz,
+    update_id bigint,
+    last_error text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    check (league in ('nfl', 'cfb')),
+    check (season >= 2000),
+    check (week >= 1),
+    check (attempt_count >= 0),
+    check (status in ('planned', 'scheduled', 'running', 'completed', 'failed', 'cancelled', 'missed')),
+    check (status <> 'completed' or update_id is not null)
+);
+
+-- `model_key` determines which model-specific update-history table owns `update_id`,
+-- allowing new scheduled models without adding another link column.
+create unique index if not exists scheduled_model_updates_result_idx
+    on sports_models.scheduled_model_updates (model_key, update_id)
+    where update_id is not null;
+
+create index if not exists scheduled_model_updates_week_idx
+    on sports_models.scheduled_model_updates (league, season, week, scheduled_for);
+
+create index if not exists scheduled_model_updates_pending_idx
+    on sports_models.scheduled_model_updates (status, scheduled_for)
+    where status in ('planned', 'scheduled', 'running', 'failed');
+
+alter table sports_models.scheduled_model_updates enable row level security;
+
 create table if not exists sports_models.nfl_expected_points_picks (
     season integer not null,
     week text not null,
@@ -135,7 +192,6 @@ alter table sports_models.nfl_expected_points_pick_updates
     add column if not exists source_git_sha text;
 alter table sports_models.nfl_expected_points_pick_updates
     add column if not exists evaluation_metrics jsonb not null default '{}'::jsonb;
-
 create table if not exists sports_models.nba_first_basket_picks (
     pick_date date not null,
     player_name text not null,
@@ -330,7 +386,6 @@ alter table sports_models.cfb_expected_points_pick_updates
     add column if not exists source_git_sha text;
 alter table sports_models.cfb_expected_points_pick_updates
     add column if not exists evaluation_metrics jsonb not null default '{}'::jsonb;
-
 insert into sports_models.model_releases (
     model_key, version, major_version, minor_version, title, public_summary,
     changes_md, evaluation_md, internal_notes_md, source_git_sha, deployed_at, first_pick_at

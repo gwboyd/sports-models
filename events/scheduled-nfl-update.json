@@ -1,0 +1,7 @@
+{
+  "job": "expected_points_update",
+  "league": "nfl",
+  "season": 2026,
+  "week": 1,
+  "run_key": "aws-scheduler:nfl:2026:1:manual"
+}
