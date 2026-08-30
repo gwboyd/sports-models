@@ -202,7 +202,15 @@ def select_plannable_week(
     if latest_week is not None:
         active_games = _games_for_week(relevant, *latest_week)
         if active_games and not _week_is_complete(active_games):
-            return PlannableWeek(tuple(active_games))
+            first_kickoff = min(
+                game.kickoff.astimezone(UTC) for game in active_games
+            )
+            cadence = (
+                "offseason"
+                if first_kickoff - compare_time.astimezone(UTC) > ACTIVE_HORIZON
+                else "active"
+            )
+            return PlannableWeek(tuple(active_games), cadence=cadence)
         if active_games:
             if not _rollover_is_due(active_games, compare_time):
                 return None
