@@ -161,6 +161,10 @@ Model-update timestamps also render in the device timezone and include the appli
 Keep the NBA route functional while its global tab is temporarily hidden; NFL and CFB are the visible league tabs.
 Results summary cards lead with spread/total locks and omit a standalone predicted-games tile. In favorites and mobile
 game cards, emphasize the actionable spread/total picks and outline each locked market individually in the lock blue.
+When a graded result matches a current pick by `year_week` and `game_id`, its individual market outline must override
+lock styling with green for a win or red for a loss across favorite, lock, mobile, and desktop presentations. Standard
+picks remain unfilled, while locks retain a label and add a light outcome-colored fill; use the same distinction with
+a neutral treatment for pushes and state outcomes in the expanded model details rather than adding result badges.
 The public NFL methodology lives in `frontend/content/nfl-how-it-works.md` and intentionally preserves the detailed
 production Info-page content. Its renderer must continue supporting headings through `h3`, lists, links, inline code,
 and responsive images; keep backend and deployment operations in the model README.

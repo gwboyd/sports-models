@@ -94,6 +94,10 @@ Favorites are device-local and stored under `sports-models:favorites:v1`, separa
 current league slate and matches team names, abbreviations, aliases, and CFB conferences.
 Favorite cards with a qualifying spread and/or total use the same light-blue outline as lock cards and display a
 separate compact tag for each qualifying market.
+When a current-slate game has a graded result, every presentation of its individual market pick uses a green win or
+red loss outline. Standard picks remain unfilled, while locks add a light matching fill and retain a lock label.
+Pushes use the same outlined-versus-filled distinction in neutral colors, and expanded model details state outcomes
+in text. Results are matched to current picks by `year_week` and `game_id`.
 The slate header exposes only the game-search field; favorite-team management opens from the Favorites section's
 `Edit teams` action. The manager keeps its search field fixed above an independently scrolling result list and resets
 that list to the top whenever the query changes. Mobile sheets lock the document for their full open lifetime and

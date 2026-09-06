@@ -1,13 +1,28 @@
 import { displaySpread, formatGameDate } from "@/app/lib/formatting";
 import { getTeamIdentity, normalizedSearch, teamSearchText } from "@/app/lib/team-data";
-import type { CFBPick, ExpectedPointsPick, FootballLeague } from "@/app/types/types";
+import type { CFBPick, ExpectedPointsPick, FootballLeague, GameResult } from "@/app/types/types";
+
+export type FootballMarket = "spread" | "total";
+export type MarketOutcome = "win" | "loss" | "push" | undefined;
 
 export type LockPick = {
   id: string;
-  market: "spread" | "total";
+  market: FootballMarket;
   game: ExpectedPointsPick;
   probability: number;
 };
+
+export function gameResultKey(game: Pick<ExpectedPointsPick | GameResult, "year_week" | "game_id">): string {
+  return `${game.year_week}:${game.game_id}`;
+}
+
+export function marketOutcome(result: GameResult | undefined, market: FootballMarket): MarketOutcome {
+  if (!result) return undefined;
+  const value = market === "spread" ? result.spread_win : result.total_win;
+  if (value === 1) return "win";
+  if (value === 0) return "loss";
+  return "push";
+}
 
 export function spreadPickLabel(game: ExpectedPointsPick): string {
   const multiplier = game.spread_play === game.away_team ? -1 : 1;
