@@ -266,7 +266,7 @@ If a graded result exists for a current-slate game, green win and red loss outli
 that individual spread or total everywhere it appears. Standard picks remain unfilled; locks retain their label and
 add a light outcome-colored fill. Pushes use a neutral treatment, with outcomes stated in the model details.
 Graded current-slate presentations replace kickoff time with the compact away/home final score.
-They also state how many points each bet won or lost by while removing pregame-only card detail.
+They also show the winning-team margin for spreads and combined final score for totals while removing pregame-only card detail.
 The NFL How It Works route renders the full public methodology document, including its detailed feature sections and
 responsive Markdown charts, while developer operations remain in the model README.
 On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the

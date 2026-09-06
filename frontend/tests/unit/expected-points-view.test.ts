@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterGamesByConference, finalScoreLabel, gameResultKey, getLocks, marketBetOutcomeLabel, marketOutcome, searchGames, spreadModelLabel, spreadPickLabel, totalPickLabel } from "@/app/models/_components/expected-points/view-model";
+import { filterGamesByConference, finalScoreLabel, gameResultKey, getLocks, marketFinalResultLabel, marketOutcome, searchGames, spreadModelLabel, spreadPickLabel, totalPickLabel } from "@/app/models/_components/expected-points/view-model";
 import type { CFBPick, GameResult, NFLPick } from "@/app/types/types";
 
 const pick: NFLPick = {
@@ -38,10 +38,8 @@ describe("expected points view models", () => {
     expect(finalScoreLabel(pick, result, "nfl")).toBe("SEA 20 · SF 27");
     expect(marketOutcome(result, "spread")).toBe("win");
     expect(marketOutcome(result, "total")).toBe("win");
-    expect(marketBetOutcomeLabel(pick, result, "spread")).toBe("Pick won by 8.5 pts");
-    expect(marketBetOutcomeLabel(pick, result, "total")).toBe("Pick won by 2.5 pts");
-    expect(marketBetOutcomeLabel(pick, { ...result, true_total: 44, total_win: 0 }, "total")).toBe("Pick lost by 0.5 pts");
-    expect(marketBetOutcomeLabel(pick, { ...result, total_win: undefined }, "total")).toBe("Pick pushed");
+    expect(marketFinalResultLabel(pick, result, "spread", "nfl")).toBe("Final margin: SF by 7");
+    expect(marketFinalResultLabel(pick, result, "total", "nfl")).toBe("Final total: 47");
     expect(marketOutcome({ ...result, total_win: undefined }, "total")).toBe("push");
     expect(marketOutcome(undefined, "spread")).toBeUndefined();
   });

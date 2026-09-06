@@ -35,22 +35,12 @@ function displayPoints(value: number): string {
   return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
 }
 
-function marketResultMargin(game: ExpectedPointsPick, result: GameResult, market: FootballMarket): number {
-  if (market === "spread") {
-    return game.spread_play === game.home_team
-      ? game.spread_line - result.true_spread
-      : result.true_spread - game.spread_line;
-  }
-  return game.total_play.toLowerCase() === "over"
-    ? result.true_total - game.total_line
-    : game.total_line - result.true_total;
-}
-
-export function marketBetOutcomeLabel(game: ExpectedPointsPick, result: GameResult, market: FootballMarket): string {
-  const outcome = marketOutcome(result, market);
-  if (outcome === "push") return "Pick pushed";
-  const margin = displayPoints(marketResultMargin(game, result, market));
-  return `Pick ${outcome === "win" ? "won" : "lost"} by ${margin} pts`;
+export function marketFinalResultLabel(game: ExpectedPointsPick, result: GameResult, market: FootballMarket, league: FootballLeague): string {
+  if (market === "total") return `Final total: ${displayPoints(result.true_total)}`;
+  if (result.home_score === result.away_score) return "Final margin: Tie";
+  const winner = result.home_score > result.away_score ? game.home_team : game.away_team;
+  const margin = Math.abs(result.home_score - result.away_score);
+  return `Final margin: ${getTeamIdentity(winner, league).abbreviation} by ${margin}`;
 }
 
 export function spreadPickLabel(game: ExpectedPointsPick): string {

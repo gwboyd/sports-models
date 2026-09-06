@@ -42,8 +42,8 @@ test("favorites are saved across reloads", async ({ page }) => {
   await expect(favoriteCard).toContainText("Total lock");
   await expect(favoriteCard).not.toContainText("Model score");
   await expect(favoriteCard).not.toContainText("win probability");
-  await expect(favoriteCard.locator("[data-market-result='spread']")).toHaveText("Pick won by 6.5 pts");
-  await expect(favoriteCard.locator("[data-market-result='total']")).toHaveText("Pick lost by 0.5 pts");
+  await expect(favoriteCard.locator("[data-market-result='spread']")).toHaveText("Final margin: HOME by 4");
+  await expect(favoriteCard.locator("[data-market-result='total']")).toHaveText("Final total: 44");
   await expect(favoriteCard).toHaveClass(/border-\[var\(--lock-border\)\]/);
   await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
   await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveAttribute("data-outcome", "win");
@@ -101,14 +101,14 @@ test("graded outcomes override lock styling on every current-pick card type", as
   await expect(game.locator("[data-final-score]")).toHaveText("AWAY 20 · HOME 24");
   await expect(game.locator("[data-mobile-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
   await expect(game.locator("[data-mobile-market='spread']")).toHaveClass(/bg-green-50/);
-  await expect(game.locator("[data-market-result='spread']")).toHaveText("Pick won by 6.5 pts");
+  await expect(game.locator("[data-market-result='spread']")).toHaveText("Final margin: HOME by 4");
   await expect(game.locator("[data-mobile-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
   await expect(game.locator("[data-mobile-market='total']")).toHaveClass(/bg-red-50/);
-  await expect(game.locator("[data-market-result='total']")).toHaveText("Pick lost by 0.5 pts");
+  await expect(game.locator("[data-market-result='total']")).toHaveText("Final total: 44");
   await expect(game.getByText("Lock", { exact: true })).toHaveCount(2);
   await expect(page.locator("[data-lock-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
   await expect(page.locator("[data-lock-market='spread']")).toHaveClass(/bg-green-50/);
-  await expect(page.locator("[data-lock-market='spread'] [data-market-result='spread']")).toHaveText("Pick won by 6.5 pts");
+  await expect(page.locator("[data-lock-market='spread'] [data-market-result='spread']")).toHaveText("Final margin: HOME by 4");
   await expect(page.locator("[data-lock-market='spread'] [data-final-score]")).toHaveText("AWAY 20 · HOME 24");
   await expect(page.locator("[data-lock-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
   await expect(page.locator("[data-lock-market='total']")).toHaveClass(/bg-red-50/);
