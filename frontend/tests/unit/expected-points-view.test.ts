@@ -38,8 +38,9 @@ describe("expected points view models", () => {
     expect(finalScoreLabel(pick, result, "nfl")).toBe("SEA 20 · SF 27");
     expect(marketOutcome(result, "spread")).toBe("win");
     expect(marketOutcome(result, "total")).toBe("win");
-    expect(marketFinalResultLabel(pick, result, "spread", "nfl")).toBe("Final margin: SF by 7");
-    expect(marketFinalResultLabel(pick, result, "total", "nfl")).toBe("Final total: 47");
+    expect(marketFinalResultLabel(pick, result, "spread", "nfl")).toBe("Final: SF won by 7");
+    expect(marketFinalResultLabel({ ...pick, spread_play: "SEA" }, result, "spread", "nfl")).toBe("Final: SEA lost by 7");
+    expect(marketFinalResultLabel(pick, result, "total", "nfl")).toBe("Final: 47");
     expect(marketOutcome({ ...result, total_win: undefined }, "total")).toBe("push");
     expect(marketOutcome(undefined, "spread")).toBeUndefined();
   });

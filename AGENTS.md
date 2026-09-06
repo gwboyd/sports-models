@@ -167,9 +167,9 @@ picks remain unfilled, while locks retain a label and add a light outcome-colore
 a neutral treatment for pushes and state outcomes in the expanded model details rather than adding result badges.
 For a graded current-slate game, replace kickoff information with a compact `Final` label and away/home final score in
 favorite, lock, mobile, and desktop presentations.
-Finalized spread markets must state the winning team and final margin in text; finalized totals must state the combined
-final score. Remove pregame-only detail from final favorite and lock surfaces while retaining model projection context
-in expandable or hover details.
+Finalized spread markets must state the result from the picked team's perspective, such as `Final: SAC lost by 11`;
+finalized totals use only `Final: <combined score>`. Remove pregame-only detail from final favorite and lock surfaces
+while retaining model projection context in expandable or hover details.
 The public NFL methodology lives in `frontend/content/nfl-how-it-works.md` and intentionally preserves the detailed
 production Info-page content. Its renderer must continue supporting headings through `h3`, lists, links, inline code,
 and responsive images; keep backend and deployment operations in the model README.

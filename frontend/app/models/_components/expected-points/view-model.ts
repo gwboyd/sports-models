@@ -36,11 +36,13 @@ function displayPoints(value: number): string {
 }
 
 export function marketFinalResultLabel(game: ExpectedPointsPick, result: GameResult, market: FootballMarket, league: FootballLeague): string {
-  if (market === "total") return `Final total: ${displayPoints(result.true_total)}`;
-  if (result.home_score === result.away_score) return "Final margin: Tie";
-  const winner = result.home_score > result.away_score ? game.home_team : game.away_team;
-  const margin = Math.abs(result.home_score - result.away_score);
-  return `Final margin: ${getTeamIdentity(winner, league).abbreviation} by ${margin}`;
+  if (market === "total") return `Final: ${displayPoints(result.true_total)}`;
+  const pickedHome = game.spread_play === game.home_team;
+  const pickedScore = pickedHome ? result.home_score : result.away_score;
+  const opponentScore = pickedHome ? result.away_score : result.home_score;
+  const abbreviation = getTeamIdentity(game.spread_play, league).abbreviation;
+  if (pickedScore === opponentScore) return `Final: ${abbreviation} tied`;
+  return `Final: ${abbreviation} ${pickedScore > opponentScore ? "won" : "lost"} by ${Math.abs(pickedScore - opponentScore)}`;
 }
 
 export function spreadPickLabel(game: ExpectedPointsPick): string {
