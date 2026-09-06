@@ -44,9 +44,9 @@ uvicorn main:app --host 0.0.0.0 --port 3000 --reload --log-level warning
 ```
 
 ```sh
-sam local invoke "FastAPILambdaFunction"
+sam local invoke "ApiLambdaFunction"
 sam local start-api
-sam local invoke FastAPILambdaFunction -e events/get-health-event.json
+sam local invoke ApiLambdaFunction -e events/get-health-event.json
 ```
 
 ```sh
@@ -287,7 +287,9 @@ A manual job is cancelled before notebook execution if a newer model week has al
 trainer's version/SHA at execution time and never satisfies an automatic plan.
 
 Admin-only `GET /model-update-jobs/{run_key}` returns persisted lifecycle/error fields and the compact linked update
-summary, including version/SHA. Repeated POSTs return the same status (`202` pending, `200` terminal or unconfirmed).
+summary, including version/SHA (omit the SHA for historical rows where it is null). Preserve Lambda's log handler and
+explicitly enable INFO logging for API/training audit events. Repeated POSTs return the same status (`202` pending,
+`200` terminal or unconfirmed).
 NFL schedule reads disable caching and honor the requested feed timeout under a process lock; restore nflreadpy
 settings afterward. Status reads never mutate or repair jobs. `failed` denotes the last failed attempt, not exhausted AWS retries.
 Nonterminal rows more than three hours after `scheduled_for`, and `planned` rows past their delivery time, report

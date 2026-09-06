@@ -192,8 +192,8 @@ curl "$API_URL/model-update-jobs/$RUN_KEY" -H "Authorization: $ADMIN_API_KEY"
 
 GET is read-only and admin-protected for both automatic and manual jobs. It returns persisted status, source/client,
 timestamps, attempts, last error, and the linked update ID. Completed jobs include the actual execution version/SHA,
-runtime, pick count, and change counts from update history. A repeated POST returns `202` while pending, or `200` for a
-completed/cancelled/missed or unconfirmed job. Missing jobs return `404`.
+runtime, pick count, and change counts from update history; older rows without a recorded SHA omit that field.
+A repeated POST returns `202` while pending, or `200` for a completed/cancelled/missed or unconfirmed job. Missing jobs return `404`.
 
 `failed` means the last attempt failed; AWS may still retry. Pending/failed jobs more than three hours past their
 scheduled time have `outcome_unconfirmed=true`; this conservative bound covers the configured Scheduler and Lambda
@@ -209,7 +209,8 @@ grading behavior remains in the notebook workflow.
 
 The trainer records the requesting client and its deployed version/SHA at execution time, including if a deployment
 happens after submission. Older preserved picks/results retain their original versions; canonical release SHAs and
-`first_pick_at` behavior are unchanged. Request IDs and run keys correlate dispatch/training logs.
+`first_pick_at` behavior are unchanged. INFO logging is explicitly enabled for the API/trainer, preserving Lambda's
+log handler so request IDs and run keys correlate dispatch/training logs.
 
 CFB market selection is deterministic and independent of CFBD provider ordering. A game enters the model when at
 least one participant is FBS and at least one real sportsbook supplies each of the current spread and total. A
@@ -495,9 +496,9 @@ the plan's generic `update_id` while marking the plan completed. `model_key` ide
 join, so adding a scheduled model does not require another link column. This polymorphic link is written atomically
 rather than declared as a cross-table foreign key, which Postgres cannot express. `client_name='aws-scheduler'`
 identifies automatic runs; API-created schedules retain the original requesting client. Unscheduled notebook writes
-have no schedule link and cannot satisfy a planned run. Duplicate or concurrent deliveries are no-ops, including recovery when persistence committed before the
-Lambda response completed; failed runs release the claim for Lambda retry. Claims use a 15-minute lease matching
-the serialized trainer's timeout. An unexpired running claim raises an error rather than acknowledging a retry as
+have no schedule link and cannot satisfy a planned run. Completed duplicates are no-ops, including recovery when
+persistence committed before the Lambda response completed; failed runs release the claim for Lambda retry. Claims
+use a 15-minute lease matching the serialized trainer's timeout. An unexpired running claim raises an error rather than acknowledging a retry as
 successful; terminal duplicates remain no-ops. One-time AWS schedules delete themselves after delivery, while
 Supabase retains their lifecycle for operations and a future frontend view. Sample coordinator and direct-training
 events are available at `events/schedule-coordinator.json`, `events/scheduled-nfl-update.json`, and

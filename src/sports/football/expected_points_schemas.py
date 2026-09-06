@@ -92,29 +92,9 @@ class PickResultsResponse(BaseModel):
     games: list[GameResult]
 
 
-class UpdatePicksData(BaseModel):
-    write_time: str
-    week: int
-    season: int
-    environment: str
-    client_name: str
-    runtime: float
-    pick_changes: int
-    pick_changes_games: list[str]
-    play_changes: int
-    play_changes_games: list[str]
-    updates_skipped: int
-    picks_num: int
-    database_updated: bool
-
-
-class UpdatePicksResponse(BaseModel):
-    status: str
-    message: str
-    data: UpdatePicksData | None = None
-
-
 class UpdatePicksRequest(BaseModel):
+    """Internal runner inputs; HTTP submissions resolve their own current slate."""
+
     season: int
     week: int
     allow_non_aws_write: bool = False
@@ -129,7 +109,7 @@ class CurrentSlateUpdateRequest(BaseModel):
 class ModelUpdateJobResult(BaseModel):
     id: int
     model_version: str
-    source_git_sha: str
+    source_git_sha: str | None = None
     write_time: datetime
     runtime: float
     picks_num: int
@@ -170,7 +150,5 @@ __all__ = [
     "PickResponse",
     "PickResultsData",
     "PickResultsResponse",
-    "UpdatePicksData",
     "UpdatePicksRequest",
-    "UpdatePicksResponse",
 ]

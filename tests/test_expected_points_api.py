@@ -117,6 +117,23 @@ def test_update_and_status_routes_require_admin(monkeypatch):
         assert request(url, headers={"Authorization": "admin", "client-name": "will"}).status_code in (200, 202)
 
 
+def test_status_serializes_legacy_update_without_source_sha(monkeypatch):
+    job = {
+        "status": "completed", "league": "nfl", "run_key": "aws-scheduler:nfl:legacy",
+        "update_id": 42,
+        "data": {
+            "id": 42, "model_version": "1.0", "source_git_sha": None,
+            "write_time": "2026-09-01T12:00:00Z", "runtime": 120,
+            "picks_num": 16, "pick_changes": 1, "play_changes": 2, "updates_skipped": 0,
+        },
+    }
+    monkeypatch.setattr(expected_points_api, "get_manual_update_status", lambda *_a: job)
+    response = make_client().get("/model-update-jobs/aws-scheduler:nfl:legacy")
+    assert response.status_code == 200
+    assert response.json()["data"]["model_version"] == "1.0"
+    assert "source_git_sha" not in response.json()["data"]
+
+
 def test_interactive_notebook_client_is_rejected_before_submission(monkeypatch):
     monkeypatch.setattr(expected_points_api, 'submit_manual_update', lambda *_a: (_ for _ in ()).throw(AssertionError()))
     result = make_client().post('/cfb-update-picks', headers={'client-name': 'notebook'})

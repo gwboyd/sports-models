@@ -51,23 +51,18 @@ by the coordinator.
 
 ## On-demand refresh
 
-`POST /cfb-update-picks` on the deployed API accepts no season/week body. Use admin `Authorization`, `client-name`,
-and an optional `Idempotency-Key`; the interactive client name `notebook` is reserved and rejected here. It selects the current eligible model slate with the same calendar/rollover policy
-as the coordinator and creates one EventBridge schedule approximately one minute later. A confirmed submission
-returns `202` with the resolved season/week, run key, and status URL; no eligible upcoming slate returns
-`200` / `not_scheduled`. Old explicit-week bodies return `422`.
+`POST /cfb-update-picks` on the deployed API takes no body (or `{}`) and requires admin `Authorization` and
+`client-name` headers. It selects the current eligible slate and schedules the existing trainer 60–120 seconds later.
+A confirmed submission returns `202` with the selected season/week, run key, and status URL; no eligible slate returns
+`200` / `not_scheduled`. Explicit-week bodies and the reserved client name `notebook` return `422`.
 
-`GET /model-update-jobs/{run_key}` is an admin-only status read. Reusing the same POST key returns the original job;
-it never moves the target week/time or retrains a completed job. A new key requests a fresh run. The response echoes
-the effective key, including on scheduling errors. Manual jobs share `scheduled_model_updates` and the existing
-versioned atomic writer, retaining the requesting client and the deployed version/SHA at execution time. Calendar
-reconciliation excludes these manual jobs. A delayed job is cancelled if a newer model week has already published.
+Supply an `Idempotency-Key` for safe retries. Reusing it retrieves the same job; a new key requests another run.
+Poll admin-only `GET /model-update-jobs/{run_key}` for state, errors, and the completed update's version/SHA and counts.
+Manual jobs retain the requesting client and use the trainer's version at execution time. Older protected picks keep
+their original versions.
 
-A failed attempt may still be retried by AWS. Stale jobs are marked `outcome_unconfirmed` in the response rather than
-claiming success or terminal failure; inspect existing logs and failure queues before requesting another run. Apply
-the additive run-table `trigger_source`/`client_name` SQL before deployment; the deployment command checks those
-columns before building or changing AWS. See the root README's on-demand update
-section for request examples, idempotency recovery, timing, status semantics, and rollout checks.
+See [On-demand updates](../../../../../README.md#on-demand-updates) for request examples, retry/status semantics,
+and the required database additions and deployment checks under [Scheduled Pick Updates](../../../../../README.md#scheduled-pick-updates).
 
 ## Model Release Queue
 

@@ -1,4 +1,8 @@
 import json
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
 
 from mangum import Mangum
 
@@ -7,6 +11,36 @@ from src.sports.football import expected_points_api
 
 
 handler = Mangum(main.app)
+
+
+def test_dispatch_audit_logs_with_preinstalled_lambda_handler():
+    # A fresh interpreter reproduces Lambda installing a WARN-level root handler
+    # before main imports; pytest's own logging configuration would hide this bug.
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent("""
+            import io
+            import logging
+            from types import SimpleNamespace
+
+            output = io.StringIO()
+            handler = logging.StreamHandler(output)
+            root = logging.getLogger()
+            root.handlers = [handler]
+            root.setLevel(logging.WARNING)
+            import main
+
+            main.run_scheduled_expected_points_update = lambda event: {"status": "success"}
+            main.handler(
+                {"job": "expected_points_update", "run_key": "api:nfl:audit"},
+                SimpleNamespace(aws_request_id="request-123"),
+            )
+            assert root.handlers == [handler]
+            assert "run_key=api:nfl:audit aws_request_id=request-123" in output.getvalue()
+        """)],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_lambda_handler(monkeypatch):

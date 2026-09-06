@@ -21,7 +21,7 @@ SCHEDULED_CLIENT_NAME = "aws-scheduler"
 def run_scheduled_expected_points_update(
     event: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Run one coordinator-created update without the HTTP/API Gateway adapter.
+    """Run one automatic or manual update without the HTTP/API Gateway adapter.
 
     Exceptions intentionally propagate so Lambda asynchronous retries and its
     on-failure destination can observe a failed model update.

@@ -378,7 +378,7 @@ def get_scheduled_model_updates(
     week: int | None = None,
     pending_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return persisted plans for operational reconciliation or API display."""
+    """Return automatic plans for calendar reconciliation, excluding manual jobs."""
 
     # Calendar reconciliation must never cancel a manually requested schedule.
     filters: list[str] = ["trigger_source = 'scheduler'"]

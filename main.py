@@ -28,6 +28,8 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(message)s',
     stream=sys.stderr
 )
+# Lambda installs its own handler before import, so basicConfig can be a no-op.
+logging.getLogger().setLevel(logging.INFO)
 
 app = FastAPI(
     title="Will's Sports Models",

@@ -364,7 +364,7 @@ export interface components {
             /** Model Version */
             model_version: string;
             /** Source Git Sha */
-            source_git_sha: string;
+            source_git_sha?: string | null;
             /**
              * Write Time
              * Format: date-time
