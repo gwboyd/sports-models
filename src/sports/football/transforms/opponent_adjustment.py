@@ -8,6 +8,8 @@ prevents mirrored provider rows from being counted twice.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
+import time
 from typing import Literal, Mapping, Sequence
 
 import numpy as np
@@ -15,6 +17,8 @@ import pandas as pd
 from sklearn.linear_model import Ridge
 
 from src.sports.data_validation import enforce_contract, validate_frame
+
+LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class OpponentMetricSpec:
@@ -78,14 +82,16 @@ def build_opponent_adjusted_team_metrics(
     observed = _attach_opponents(observations, schedule)
     output = targets.copy()
     output["start_date"] = pd.to_datetime(output["start_date"], utc=True, errors="coerce")
-    specs_by_key = {spec.key: spec for spec in specs}
-
     for spec in specs:
+        started = time.monotonic()
+        LOGGER.info("Opponent adjustment: %s started (%s snapshots, %s target rows)",
+                    spec.key, config.rating_snapshot, len(targets))
         metric = observed.loc[observed["metric"] == spec.key].copy()
         adjusted = _adjust_metric_at_targets(targets, metric, spec, config)
         for column in adjusted.columns:
             if column not in {"game_id", "season", "week", "team"}:
                 output[column] = adjusted[column].to_numpy()
+        LOGGER.info("Opponent adjustment: %s finished in %.1fs", spec.key, time.monotonic() - started)
 
     # A missing metric is legitimate for a scheduled game.  Chronology fields
     # are not; they are validated above and converted once here.
@@ -197,7 +203,8 @@ def _adjust_metric_at_targets(
         for team in set(offense_histories) | set(defense_histories)
     }
 
-    for target in targets.itertuples(index=False):
+    progress_at = time.monotonic()
+    for position, target in enumerate(targets.itertuples(index=False), start=1):
         cutoff = (
             pd.Timestamp(week_openers[(target.season, target.week)])
             if config.rating_snapshot == "week"
@@ -214,6 +221,10 @@ def _adjust_metric_at_targets(
         )
         for name, value in rendered.items():
             values[name].append(value)
+        if time.monotonic() - progress_at >= 30:
+            LOGGER.info("Opponent adjustment: %s %s/%s target rows; %s snapshots fitted",
+                        spec.key, position, len(targets), len(cache))
+            progress_at = time.monotonic()
 
     for name, value in values.items():
         output[name] = value
@@ -301,7 +312,7 @@ def _smooth(history: pd.DataFrame, target: object, spec: OpponentMetricSpec, out
             # ``dynamic_period_ewma`` uses the current row's week to choose
             # the final span. Only that final value is needed for a target,
             # so calculating the earlier intermediate points is redundant.
-            span = max(spec.span, int(ordered["week"].iloc[-1]))
+            span = max(spec.span, int(target.week))
             dynamic = float(values.ewm(min_periods=1, span=span).mean().iloc[-1])
     result = {
         output: raw,

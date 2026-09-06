@@ -136,3 +136,23 @@ def test_nfl_adapter_keeps_the_legacy_model_feature_names():
 
     assert "ewma_dynamic_window_rushing_offense" in epa
     assert "ewma_success_rate_rushing_offense" in success
+
+
+@pytest.mark.parametrize("history_week,target_week", [(10, 11), (14, 17), (18, 1)])
+def test_dynamic_smoothing_matches_existing_shifted_smoother(history_week, target_week):
+    from types import SimpleNamespace
+    from src.sports.football.transforms.common import dynamic_period_ewma
+    from src.sports.football.transforms.opponent_adjustment import _smooth
+
+    values = [1.0, 8.0, -2.0]
+    history = pd.DataFrame({
+        "game_id": ["a", "b", "c"], "start_date": pd.date_range("2025-09-01", periods=3),
+        "week": [1, 2, history_week], "adjusted": values,
+    })
+    # The established transform shifts observations onto the next game before
+    # choosing that game's span. This includes byes and the new-season reset.
+    timeline = pd.DataFrame({"week": [1, 2, history_week, target_week], "shifted": [float("nan"), *values]})
+    expected = dynamic_period_ewma(timeline, "shifted").iloc[-1]
+    actual = _smooth(history, SimpleNamespace(week=target_week),
+                     OpponentMetricSpec("x", "off", "def", "dynamic"), "off")
+    assert actual["off_ewma_dynamic_window"] == pytest.approx(expected)

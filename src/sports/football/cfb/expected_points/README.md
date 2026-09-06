@@ -24,8 +24,8 @@ features, selected execution quote, prediction, and lock decision; `inspect_team
 Interactive users may set `write_backtest_frame=True` and run through the dedicated frame-save cell without running
 the normal model train. Training, game inspection, and comparison are separate stages. Set
 `run_historical_backtest=True` only to launch `quick`, `standard`, or `full`; Papermill/API runs reject the expensive
-option. The notebook-saved frame also supports
-`make backtest-expected-points LEAGUE=cfb PROFILE=standard BASELINE=deployed`. Persistent cutoff artifacts live under
+option. The standard CLI command automatically prepares its own frames:
+`make backtest-expected-points LEAGUE=cfb`. Persistent cutoff artifacts live under
 ignored `.backtests/expected_points/` and are invalidated by recipe/configuration or relevant historical-input
 changes. Working-tree fits are fresh by default; set notebook parameter `backtest_cache_working_tree=True` or Make
 variable `CACHE_WORKING_TREE=1` only when resumable candidate caching is desired. CFBD has no point-in-time provider
@@ -35,8 +35,8 @@ controls, artifacts, cache behavior, and metric interpretation.
 
 `CFBExpectedPointsRecipe` owns final schedule/pregame-feature/market joins, eligibility filtering, kickoff and column
 normalization, validation, feature selection, tuning grids, confidence inputs, betting transform, and lock thresholds.
-The notebook keeps `joined_features` and `df` visible. Versions needing different prepared feature columns can use
-`BASELINE_FRAME` and `CANDIDATE_FRAME`; cutoff fitting remains fresh and both evaluation universes must match.
+The notebook keeps `joined_features` and `df` visible. Versions may use different feature columns automatically. Optional `BASELINE_FRAME`/`CANDIDATE_FRAME`
+overrides reuse explicit saved inputs; both evaluation universes must still match.
 
 ## Picks Update Cadence
 
@@ -80,3 +80,18 @@ and `allow_non_aws_write=False`, so they remain read-only. To perform an intenti
 `allow_non_aws_write=True`; the notebook resolves the latest registered CFB version and requires the exact
 `WRITE CFB <VERSION>` confirmation before using the shared atomic writer. Local API and `sam local` calls are also
 read-only unless their request explicitly enables `allow_non_aws_write`.
+
+### Evaluating local changes against deployed
+
+**For any prediction-affecting change, just run `make backtest-expected-points LEAGUE=cfb` from the repository
+root.** Adding, removing, renaming, or recalculating features uses the same command as changing training, estimators,
+confidence inputs, or lock rules. It automatically prepares baseline and candidate features using each version's
+code, validates their common historical evaluation universe, and runs the standard three-season weekly comparison.
+It saves reports, prediction/lock changes, input bundles, notebooks, and logs in a new timestamped job directory.
+
+No notebook run, `prepare-frame`, preflight, or quick run is required beforehand. `PROFILE=quick` is an optional
+smaller run and repeats overlapping candidate fits if followed by standard with default caching. Optional controls
+for dates/seasons, caching, saved frames, alternate baselines, and recovery are described in the
+[backtesting guide](../../../../../docs/expected-points-backtesting.md#evaluate-working-tree-changes-against-deployed).
+Keep code/settings fixed during evaluation and run the same command again after another model change. Opponent-adjusted
+dynamic smoothing uses the target game's week for its span; older frames need regeneration after that correction.

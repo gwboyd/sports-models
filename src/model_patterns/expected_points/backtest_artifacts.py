@@ -361,7 +361,6 @@ def write_run_artifacts(run: BacktestRun, output_dir: str | Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     write_parquet_atomic(root / "predictions.parquet", run.predictions)
     write_json_atomic(root / "summary.json", run.summary.to_dict(orient="records"))
-    write_text_atomic(root / "report.md", render_run_report(run))
     write_json_atomic(root / "manifest.json", {
         "artifact_type": "expected_points_backtest_run",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -385,6 +384,9 @@ def write_run_artifacts(run: BacktestRun, output_dir: str | Path) -> Path:
             "not an exact intraday line or roster snapshot replay."
         ),
     })
+    # Commit the loadable evidence before optional human-readable rendering:
+    # a report failure must not require fitting these predictions again.
+    write_text_atomic(root / "report.md", render_run_report(run))
     return root
 
 
@@ -420,30 +422,42 @@ def save_backtest_frame(
     league: ExpectedPointsLeague | str,
     *,
     root: str | Path = Path(".backtests/expected_points"),
+    destination: str | Path | None = None,
+    provenance: dict | None = None,
 ) -> Path:
+    import hashlib
     from .backtesting import frame_fingerprint
 
     parsed = league if isinstance(league, ExpectedPointsLeague) else ExpectedPointsLeague(league)
-    destination = Path(root) / "frames" / parsed.value / "latest.parquet"
+    destination = Path(destination) if destination is not None else Path(root) / "frames" / parsed.value / "latest.parquet"
     write_parquet_atomic(destination, frame)
     write_json_atomic(destination.with_suffix(".json"), {
+        "schema_version": 2,
+        "parquet_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
         "league": parsed.value,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "fingerprint": frame_fingerprint(frame),
         "rows": len(frame),
         "columns": list(frame.columns),
         "json_columns": json_object_columns(frame),
+        "provenance": provenance or {},
     })
     return destination
 
 
 def load_backtest_frame(path: str | Path) -> pd.DataFrame:
+    import hashlib
+
     source = Path(path)
     frame = pd.read_parquet(source)
     metadata_path = source.with_suffix(".json")
     if not metadata_path.exists():
-        return frame
+        raise ValueError(f"Missing frame metadata: {metadata_path}. Regenerate the frame bundle; do not copy Parquet alone.")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if metadata.get("parquet_sha256") and metadata["parquet_sha256"] != hashlib.sha256(source.read_bytes()).hexdigest():
+        raise ValueError(f"Frame/metadata checksum mismatch: {source}. Regenerate this frame bundle.")
+    if metadata.get("rows") != len(frame) or metadata.get("columns") != list(frame.columns):
+        raise ValueError(f"Stale frame metadata: {metadata_path}. Save filtered frames with save_backtest_frame.")
     return restore_json_columns(frame, metadata.get("json_columns", []))
 
 

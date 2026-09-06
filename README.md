@@ -186,17 +186,27 @@ MAE/RMSE/bias come from the outer score holdout. Confidence, calibration, and lo
 portion of that holdout, with historical top-N locks ranked independently inside each season/week. Interactive
 notebooks display these metrics, and update rows retain their flat values in the existing `evaluation_metrics` JSON.
 
-The shared walk-forward runner provides fuller baseline-versus-candidate evidence by retraining an unfitted NFL or
-CFB recipe before historical weekly slates. In either notebook, set `write_backtest_frame=True` and run through the
-dedicated frame-save stage; this does not require running the normal model train. Then run:
+For **any prediction-affecting NFL/CFB change**, including adding/removing features or changing training,
+run this command from the repository root:
 
 ```sh
-make backtest-expected-points LEAGUE=nfl PROFILE=standard BASELINE=deployed
+make backtest-expected-points LEAGUE=nfl
 ```
 
-See [`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md) for the complete notebook, CLI,
-baseline-resolution, cache, artifact, and interpretation workflow. The Make target also accepts `SEASONS`, `CADENCE`,
-`BOOTSTRAP_SAMPLES`, `OUTPUT_DIR`, `BASELINE_FRAME`, `CANDIDATE_FRAME`, `CACHE_WORKING_TREE=1`, and `NO_CACHE=1`.
+Use `LEAGUE=cfb` for CFB; Make defaults to NFL if omitted. This automatically prepares each version's own inputs,
+checks compatibility, and compares deployed versus working-tree with the **standard three-season weekly** profile.
+No notebook run, separate preparation command, or quick-first run is required. Each version may use different
+features and model code while evaluating the same historical games/outcomes/markets. Automatic preparation uses a
+conservative completed-season bound; see the guide for the date policy and overrides.
+
+See the [working-tree versus deployed guide](docs/expected-points-backtesting.md#evaluate-working-tree-changes-against-deployed)
+for setup, reports, and optional parameters. `PROFILE=quick` requests a smaller preliminary run; it is not a
+prerequisite and a subsequent standard run repeats candidate fits with default caching. Other optional controls
+include `SEASONS`, `THROUGH_SEASON`, `CADENCE`, `BOOTSTRAP_SAMPLES`, `OUTPUT_DIR`, `BASELINE`, `CANDIDATE`,
+`BASELINE_FRAME`, `CANDIDATE_FRAME`, `PREFLIGHT_ONLY=1`, `CACHE_WORKING_TREE=1`, and `NO_CACHE=1`. Advanced
+`CURRENT_YEAR`/`CURRENT_WEEK` override preparation context only. Saved frames are used only when explicitly requested;
+otherwise each run prepares fresh version-specific inputs. Comparisons retain independent baseline/candidate runs,
+input bundles, requests, notebooks, status, and logs. Completed artifacts remain reusable after a later failure.
 
 `quick` samples the latest evaluable season, `standard` runs every week across the latest three, and `full` requests
 four. `BASELINE` accepts `deployed`, `version:N.N`, `sha:<git-sha>`, or `artifact:<path>`. Historical refs execute in
@@ -219,10 +229,10 @@ cache. Set `CACHE_WORKING_TREE=1` (or notebook parameter `backtest_cache_working
 rolling caching for an expensive unchanged candidate. Released/version/SHA baselines continue caching by default.
 
 The saved frame is input data, not a cached model or substitute for recipe code: every cutoff refits from scratch.
-When recipe versions require differently prepared frames, pass `BASELINE_FRAME=<path>` and
-`CANDIDATE_FRAME=<path>`; compatibility is checked against their shared game/outcome/market universe rather than
-requiring identical feature columns. League recipes own final model-frame assembly and validation. Estimators are
-never pickled.
+The command prepares differently shaped frames automatically. To reuse known saved inputs, optionally pass
+`BASELINE_FRAME=<path>` and/or `CANDIDATE_FRAME=<path>`; compatibility is checked against their shared
+game/outcome/market universe rather than requiring identical feature columns. League recipes own final model-frame
+assembly and validation. Estimators are never pickled.
 
 Single-run and comparison reports include fixed-seed, season-week block-bootstrap intervals for score/home/away,
 margin, total, spread/total result, confidence, calibration, coverage, and lock-frequency metrics. Reports also show

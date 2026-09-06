@@ -584,3 +584,22 @@ def test_league_recipes_match_notebook_feature_ordering():
     assert cfb.betting_transform is not None
     assert cfb.spread_class_features[-1] == "spread_diff"
     assert cfb.total_class_features[-1] == "total_diff"
+
+
+def test_run_remains_loadable_when_report_rendering_fails(tmp_path, monkeypatch):
+    from src.model_patterns.expected_points import backtest_artifacts
+
+    monkeypatch.setattr(
+        "src.model_patterns.expected_points.backtesting.run_expected_points_at_cutoff",
+        _fake_cutoff_run,
+    )
+    run = run_walk_forward(_historical_frame(), TinyRecipe("working-tree"),
+                           BacktestSpec(profile="quick", cache_root=tmp_path / "cache"))
+    def fail_report(_run):
+        raise RuntimeError("report rendering failed")
+    monkeypatch.setattr(backtest_artifacts, "render_run_report", fail_report)
+    with pytest.raises(RuntimeError, match="report rendering failed"):
+        write_run_artifacts(run, tmp_path / "saved")
+    restored = load_backtest_run(tmp_path / "saved")
+    assert restored.predictions.game_id.tolist() == run.predictions.game_id.tolist()
+    assert restored.source_fingerprint == run.source_fingerprint

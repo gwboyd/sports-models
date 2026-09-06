@@ -242,8 +242,26 @@ operational picks, update history, results, or releases to Supabase. `write_back
 interactive stage before training so a user can assemble and save `.backtests/expected_points/frames/<league>/latest.parquet`
 without fitting the current model. Training, inspection/experiments, and historical comparison remain separate cells;
 experiment frames/configuration must be copies rather than aliases. The canonical operating guide is
-`docs/expected-points-backtesting.md`; update it whenever flags, profiles, commands, artifacts, cache behavior, or
-metric interpretation changes.
+[`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md#evaluate-working-tree-changes-against-deployed).
+For **any prediction-affecting NFL/CFB change**, the standard workflow is simply
+`make backtest-expected-points LEAGUE=nfl` (or `LEAGUE=cfb`). This includes adding/removing/renaming features,
+changing calculations, training windows, estimators, tuning, confidence, and lock rules. The command automatically
+resolves/pins the deployed baseline, prepares each version's features in its own source context, preflights input
+compatibility, runs the standard three-season weekly comparison, and saves reports/logs in a new timestamped job.
+Do not require users or agents to run notebooks, prepare-frame, preflight, or quick first. `PROFILE=quick` is an
+optional smaller run, not a prerequisite; with working-tree caching off it duplicates candidate fits if followed by
+standard. Baseline/candidate feature schemas may differ; the historical game/outcome/market evaluation universe must
+match. A change to that population requires an explicit evaluation design rather than a silent intersection.
+Automatic preparation defaults to a conservative closed-season bound (previous year from March onward, two years
+prior in January/February), or the last explicitly requested `SEASONS`; `THROUGH_SEASON` overrides it. Earlier training
+history is retained. Explicit frame paths bypass preparation for that side; never silently use `latest.parquet`.
+CLI `prepare-frame` is an optional inspection tool that stops before training. `PREFLIGHT_ONLY=1` prepares/checks
+inputs without fitting. The guide documents date/context overrides, frame reuse, caches, artifacts, and recovery.
+Keep candidate code/settings fixed throughout the job; prepared provenance rejects stale code. Retain Parquet/JSON
+pairs and regenerate metadata with `save_backtest_frame(..., destination=...)` after filtering. Finished baseline and
+candidate runs survive later failures and can be reused with `artifact:<path>`; comparison artifacts automatically
+locate their saved sibling frame bundles. Inspect actual process/session state and logs before retrying quiet runs,
+and avoid overlapping retries. Update the guide whenever commands, defaults, cache behavior, or metrics change.
 
 League-level validation belongs in `src/sports/football/<league>/data_validation.py`; generic dataframe contracts
 belong in `src/sports/data_validation.py`. Validate only feeds a model actually consumes. Production notebook runs use
@@ -305,8 +323,9 @@ because they are not real Lambda runtimes.
 4. For notebook-driven NFL or CFB changes, require a human-verified run of the update workflow before merging.
 5. Verify persisted pick counts, update history, started-game preservation, graded results when applicable, and the
    corresponding read endpoints.
-6. For expected-points recipe work, run a `quick` backtest first and use the `standard` three-season weekly profile for
-   normal baseline-versus-candidate evidence. Treat reports as evidence rather than an automatic release gate.
+6. For expected-points recipe work, run `make backtest-expected-points LEAGUE=<nfl|cfb>` for the automatic standard
+   deployed-versus-working-tree comparison. `PROFILE=quick` is optional, never a required first step. Treat reports
+   as evidence rather than an automatic release gate.
 
 ## Security & Compliance
 - Never commit secrets; use `.env` locally and secret stores in deployment.

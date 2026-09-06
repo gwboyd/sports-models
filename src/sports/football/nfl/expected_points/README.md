@@ -82,8 +82,8 @@ complete model row, exact home/away score representations, confidence inputs, an
 Set `write_backtest_frame=True` and run through the dedicated frame-save cell to write `df` without running the normal
 model train. Training, game inspection, and the optional historical comparison are separate notebook stages. Set
 `run_historical_backtest=True` only for an interactive `quick`, `standard`, or `full` comparison; Papermill/API runs
-reject it. The saved frame also supports
-`make backtest-expected-points LEAGUE=nfl PROFILE=standard BASELINE=deployed`. Compatible local cutoff results under
+reject it. The standard CLI command automatically prepares its own frames:
+`make backtest-expected-points LEAGUE=nfl`. Compatible local cutoff results under
 `.backtests/expected_points/` are appendable and reusable; recipe/configuration changes or corrected prior inputs
 invalidate affected fits. Working-tree fits are fresh by default; set notebook parameter
 `backtest_cache_working_tree=True` or Make variable `CACHE_WORKING_TREE=1` only when resumable candidate caching is
@@ -93,9 +93,9 @@ baseline references, expense controls, artifacts, cache behavior, and metric int
 
 `NFLExpectedPointsRecipe` owns final schedule/score/feature-frame joins, column normalization, kickoff conversion,
 line orientation, validation, feature selection, tuning grids, and lock thresholds. The notebook calls that assembly
-while retaining `scores`, `schedule_scores`, and `df` for inspection. When refs need different prepared feature
-columns, provide `BASELINE_FRAME` and `CANDIDATE_FRAME`; every cutoff is still refit and both frames must describe the
-same game/outcome/market universe.
+while retaining `scores`, `schedule_scores`, and `df` for inspection. Different feature columns are supported automatically. Optional
+`BASELINE_FRAME`/`CANDIDATE_FRAME` overrides reuse explicit saved inputs; both frames must still describe the same
+game/outcome/market universe.
 
 ## Operational Update Workflow
 
@@ -198,3 +198,18 @@ logic and does not feed the expected-points picks or confidence classifiers.
 - Revamp how metrics are handled for rookies (only player specific metric right now is QBR)
 - Get to a place where I can remove any information that relies on Vegas odds.. it helps but sorta feels like cheating
 - If I do keep Vegas lines, find a way to get opening odds or where the public is so I better arbitrage the "vibes vs metrics" dynamic
+
+### Evaluating local changes against deployed
+
+**For any prediction-affecting change, just run `make backtest-expected-points LEAGUE=nfl` from the repository
+root.** Adding, removing, renaming, or recalculating features uses the same command as changing training, estimators,
+confidence inputs, or lock rules. It automatically prepares baseline and candidate features using each version's
+code, validates their common historical evaluation universe, and runs the standard three-season weekly comparison.
+It saves reports, prediction/lock changes, input bundles, notebooks, and logs in a new timestamped job directory.
+
+No notebook run, `prepare-frame`, preflight, or quick run is required beforehand. `PROFILE=quick` is an optional
+smaller run and repeats overlapping candidate fits if followed by standard with default caching. Optional controls
+for dates/seasons, caching, saved frames, alternate baselines, and recovery are described in the
+[backtesting guide](../../../../../docs/expected-points-backtesting.md#evaluate-working-tree-changes-against-deployed).
+Keep code/settings fixed during evaluation and run the same command again after another model change. Opponent-adjusted
+dynamic smoothing uses the target game's week for its span; older frames need regeneration after that correction.

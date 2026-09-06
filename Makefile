@@ -46,7 +46,7 @@ LEAGUE ?= nfl
 PROFILE ?= standard
 BASELINE ?= deployed
 CANDIDATE ?= working-tree
-FRAME ?= .backtests/expected_points/frames/$(LEAGUE)/latest.parquet
+FRAME ?=
 BASELINE_FRAME ?=
 CANDIDATE_FRAME ?=
 SEASONS ?=
@@ -55,15 +55,34 @@ BOOTSTRAP_SAMPLES ?= 2000
 OUTPUT_DIR ?=
 NO_CACHE ?=
 CACHE_WORKING_TREE ?=
-BACKTEST_FRAME_ARGS = --frame $(FRAME)
+THROUGH_SEASON ?=
+PREFLIGHT_ONLY ?=
+CURRENT_YEAR ?=
+CURRENT_WEEK ?=
+BACKTEST_FRAME_ARGS =
+ifneq ($(strip $(FRAME)),)
+BACKTEST_FRAME_ARGS += --frame "$(FRAME)"
+endif
 ifneq ($(strip $(BASELINE_FRAME)),)
-BACKTEST_FRAME_ARGS += --baseline-frame $(BASELINE_FRAME)
+BACKTEST_FRAME_ARGS += --baseline-frame "$(BASELINE_FRAME)"
 endif
 ifneq ($(strip $(CANDIDATE_FRAME)),)
-BACKTEST_FRAME_ARGS += --candidate-frame $(CANDIDATE_FRAME)
+BACKTEST_FRAME_ARGS += --candidate-frame "$(CANDIDATE_FRAME)"
 endif
 BACKTEST_OPTIONAL_ARGS = --bootstrap-samples $(BOOTSTRAP_SAMPLES)
+ifneq ($(strip $(CURRENT_YEAR)),)
+BACKTEST_OPTIONAL_ARGS += --current-year $(CURRENT_YEAR)
+endif
+ifneq ($(strip $(CURRENT_WEEK)),)
+BACKTEST_OPTIONAL_ARGS += --current-week $(CURRENT_WEEK)
+endif
 BACKTEST_TRUE_VALUES = 1 true TRUE yes YES
+ifneq ($(strip $(THROUGH_SEASON)),)
+BACKTEST_OPTIONAL_ARGS += --through-season $(THROUGH_SEASON)
+endif
+ifneq ($(filter $(BACKTEST_TRUE_VALUES),$(strip $(PREFLIGHT_ONLY))),)
+BACKTEST_OPTIONAL_ARGS += --preflight-only
+endif
 ifneq ($(strip $(SEASONS)),)
 BACKTEST_OPTIONAL_ARGS += --seasons $(SEASONS)
 endif
@@ -71,7 +90,7 @@ ifneq ($(strip $(CADENCE)),)
 BACKTEST_OPTIONAL_ARGS += --cadence $(CADENCE)
 endif
 ifneq ($(strip $(OUTPUT_DIR)),)
-BACKTEST_OPTIONAL_ARGS += --output-dir $(OUTPUT_DIR)
+BACKTEST_OPTIONAL_ARGS += --output-dir "$(OUTPUT_DIR)"
 endif
 ifneq ($(filter $(BACKTEST_TRUE_VALUES),$(strip $(NO_CACHE))),)
 BACKTEST_OPTIONAL_ARGS += --no-cache
@@ -85,8 +104,8 @@ backtest-expected-points:
 	.venv/bin/python scripts/backtest_expected_points.py compare \
 		--league $(LEAGUE) \
 		--profile $(PROFILE) \
-		--baseline $(BASELINE) \
-		--candidate $(CANDIDATE) \
+		--baseline "$(BASELINE)" \
+		--candidate "$(CANDIDATE)" \
 		$(BACKTEST_FRAME_ARGS) \
 		$(BACKTEST_OPTIONAL_ARGS)
 
