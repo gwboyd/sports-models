@@ -24,6 +24,12 @@ export function marketOutcome(result: GameResult | undefined, market: FootballMa
   return "push";
 }
 
+export function finalScoreLabel(game: ExpectedPointsPick, result: GameResult, league: FootballLeague): string {
+  const away = getTeamIdentity(game.away_team, league);
+  const home = getTeamIdentity(game.home_team, league);
+  return `${away.abbreviation} ${result.away_score} · ${home.abbreviation} ${result.home_score}`;
+}
+
 export function spreadPickLabel(game: ExpectedPointsPick): string {
   const multiplier = game.spread_play === game.away_team ? -1 : 1;
   return `${game.spread_play} ${displaySpread(multiplier * game.spread_line)}`;

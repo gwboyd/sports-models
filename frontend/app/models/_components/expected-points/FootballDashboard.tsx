@@ -9,6 +9,7 @@ import type { ExpectedPointsPick, FootballLeague, GameResult } from "@/app/types
 import { OverlayPanel } from "./OverlayPanel";
 import {
   filterGamesByConference,
+  finalScoreLabel,
   gameResultKey,
   gameDomId,
   getConferences,
@@ -57,6 +58,17 @@ function Matchup({ game, league, compact = false }: { game: ExpectedPointsPick; 
       <TeamIdentity team={home} compact={compact} showName={false} />
       <span className="truncate font-semibold text-[var(--ink)]">{home.abbreviation}</span>
     </div>
+  );
+}
+
+function GameStatus({ game, result, league, timeZone, align = "right" }: { game: ExpectedPointsPick; result?: GameResult; league: FootballLeague; timeZone?: string; align?: "left" | "right" }) {
+  const alignment = align === "right" ? "text-right" : "text-left";
+  if (!result) return <span className={`shrink-0 text-xs font-medium text-[var(--muted)] ${alignment}`}>{formatKickoff(game.date_time, timeZone)}</span>;
+  return (
+    <span data-game-status="final" className={`shrink-0 text-xs font-medium text-[var(--muted)] ${alignment}`}>
+      <span className="block text-[10px] font-bold uppercase tracking-wider">Final</span>
+      <span data-final-score className="numbers-tabular mt-0.5 block whitespace-nowrap font-semibold text-[var(--ink)]">{finalScoreLabel(game, result, league)}</span>
+    </span>
   );
 }
 
@@ -116,7 +128,7 @@ function FavoriteGameCard({ game, result, league, timeZone }: { game: ExpectedPo
     <article className={`rounded-lg border bg-white p-3.5 ${locked ? "border-[var(--lock-border)]" : "border-[var(--border)]"}`}>
       <div className="flex items-start justify-between gap-3">
         <Matchup game={game} league={league} />
-        <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</span>
+        <GameStatus game={game} result={result} league={league} timeZone={timeZone} />
       </div>
       {locked ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -156,7 +168,7 @@ function LockCard({ lock, result, league, timeZone }: { lock: LockPick; result?:
       <p className="mt-3 text-xl font-bold tracking-tight text-[var(--ink)]">{isSpread ? spreadPickLabel(lock.game) : totalPickLabel(lock.game)}</p>
       <div className="mt-2 space-y-0.5 text-xs leading-5 text-[var(--muted)]">
         <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p>
-        <p>{formatKickoff(lock.game.date_time, timeZone)}</p>
+        <GameStatus game={lock.game} result={result} league={league} timeZone={timeZone} align="left" />
       </div>
     </article>
   );
@@ -171,7 +183,7 @@ function GameMobileCard({ game, result, league, highlighted, timeZone }: { game:
         <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-start justify-between gap-3">
             <Matchup game={game} league={league} compact />
-            <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</span>
+            <GameStatus game={game} result={result} league={league} timeZone={timeZone} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div data-mobile-market="spread" data-outcome={spreadOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(spreadOutcome, Boolean(game.spread_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>{game.spread_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
@@ -208,16 +220,19 @@ function GameDesktopTable({ games, resultsByGame, league, highlightedId, timeZon
   return (
     <div className="hidden overflow-visible rounded-lg border border-[var(--border)] bg-white md:block">
       <table className="w-full table-fixed text-left">
-        <thead><tr className="border-b border-[var(--border)] bg-slate-50 text-xs uppercase tracking-wider text-[var(--muted)]"><th className="w-[38%] px-4 py-3">Matchup</th><th className="w-[20%] px-4 py-3">Kickoff</th><th className="w-[21%] px-4 py-3">Spread pick</th><th className="w-[21%] px-4 py-3">Total pick</th></tr></thead>
+        <thead><tr className="border-b border-[var(--border)] bg-slate-50 text-xs uppercase tracking-wider text-[var(--muted)]"><th className="w-[38%] px-4 py-3">Matchup</th><th className="w-[20%] px-4 py-3">Status</th><th className="w-[21%] px-4 py-3">Spread pick</th><th className="w-[21%] px-4 py-3">Total pick</th></tr></thead>
         <tbody>
-          {games.map((game) => (
-            <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-[var(--accent-soft)]" : "hover:bg-slate-50/70"}`}>
-              <td className="px-4 py-3"><Matchup game={game} league={league} compact /></td>
-              <td className="px-4 py-3 text-sm text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</td>
-              <td className="px-2 py-2"><DesktopMarketCell game={game} result={resultsByGame.get(gameResultKey(game))} market="spread" /></td>
-              <td className="px-2 py-2"><DesktopMarketCell game={game} result={resultsByGame.get(gameResultKey(game))} market="total" /></td>
-            </tr>
-          ))}
+          {games.map((game) => {
+            const result = resultsByGame.get(gameResultKey(game));
+            return (
+              <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-[var(--accent-soft)]" : "hover:bg-slate-50/70"}`}>
+                <td className="px-4 py-3"><Matchup game={game} league={league} compact /></td>
+                <td className="px-4 py-3"><GameStatus game={game} result={result} league={league} timeZone={timeZone} align="left" /></td>
+                <td className="px-2 py-2"><DesktopMarketCell game={game} result={result} market="spread" /></td>
+                <td className="px-2 py-2"><DesktopMarketCell game={game} result={result} market="total" /></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -165,6 +165,8 @@ When a graded result matches a current pick by `year_week` and `game_id`, its in
 lock styling with green for a win or red for a loss across favorite, lock, mobile, and desktop presentations. Standard
 picks remain unfilled, while locks retain a label and add a light outcome-colored fill; use the same distinction with
 a neutral treatment for pushes and state outcomes in the expanded model details rather than adding result badges.
+For a graded current-slate game, replace kickoff information with a compact `Final` label and away/home final score in
+favorite, lock, mobile, and desktop presentations.
 The public NFL methodology lives in `frontend/content/nfl-how-it-works.md` and intentionally preserves the detailed
 production Info-page content. Its renderer must continue supporting headings through `h3`, lists, links, inline code,
 and responsive images; keep backend and deployment operations in the model README.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterGamesByConference, gameResultKey, getLocks, marketOutcome, searchGames, spreadModelLabel, spreadPickLabel, totalPickLabel } from "@/app/models/_components/expected-points/view-model";
+import { filterGamesByConference, finalScoreLabel, gameResultKey, getLocks, marketOutcome, searchGames, spreadModelLabel, spreadPickLabel, totalPickLabel } from "@/app/models/_components/expected-points/view-model";
 import type { CFBPick, GameResult, NFLPick } from "@/app/types/types";
 
 const pick: NFLPick = {
@@ -35,6 +35,7 @@ describe("expected points view models", () => {
 
   it("matches graded games to the current slate and distinguishes market outcomes", () => {
     expect(gameResultKey(pick)).toBe(gameResultKey(result));
+    expect(finalScoreLabel(pick, result, "nfl")).toBe("SEA 20 · SF 27");
     expect(marketOutcome(result, "spread")).toBe("win");
     expect(marketOutcome(result, "total")).toBe("loss");
     expect(marketOutcome({ ...result, total_win: undefined }, "total")).toBe("push");

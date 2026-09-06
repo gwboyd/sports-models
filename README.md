@@ -265,6 +265,7 @@ spread and/or total lock tags when those markets qualify.
 If a graded result exists for a current-slate game, green win and red loss outlines replace the blue lock outline for
 that individual spread or total everywhere it appears. Standard picks remain unfilled; locks retain their label and
 add a light outcome-colored fill. Pushes use a neutral treatment, with outcomes stated in the model details.
+Graded current-slate presentations replace kickoff time with the compact away/home final score.
 The NFL How It Works route renders the full public methodology document, including its detailed feature sections and
 responsive Markdown charts, while developer operations remain in the model README.
 On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the
