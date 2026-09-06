@@ -15,6 +15,7 @@ import {
   getConferences,
   getLocks,
   groupGamesByDate,
+  marketBetOutcomeLabel,
   marketOutcome,
   predictedScoreLabel,
   searchGames,
@@ -79,24 +80,24 @@ function outcomeClasses(outcome: MarketOutcome, locked: boolean, fallback: strin
   return locked ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : fallback;
 }
 
-function OutcomeText({ outcome }: { outcome: Exclude<MarketOutcome, undefined> }) {
-  const labels = { win: "Won", loss: "Lost", push: "Push" } as const;
+function CompactLockBadge() {
+  return <span className="rounded bg-[var(--lock-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lock)]">Lock</span>;
+}
+
+function MarketResultLine({ game, result, market }: { game: ExpectedPointsPick; result?: GameResult; market: FootballMarket }) {
+  if (!result) return null;
+  const outcome = marketOutcome(result, market);
   const classes = outcome === "win"
     ? "text-[var(--success)]"
     : outcome === "loss"
       ? "text-[var(--danger)]"
       : "text-slate-700";
-  return <strong className={classes}>{labels[outcome]}</strong>;
-}
-
-function CompactLockBadge() {
-  return <span className="rounded bg-[var(--lock-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lock)]">Lock</span>;
+  return <span data-market-result={market} className={`numbers-tabular block text-[11px] font-semibold leading-4 ${classes}`}>{marketBetOutcomeLabel(game, result, market)}</span>;
 }
 
 function MarketDetails({ game, result, market, descriptiveLabels = false, showPick = true, showStatus = true }: { game: ExpectedPointsPick; result?: GameResult; market: FootballMarket; descriptiveLabels?: boolean; showPick?: boolean; showStatus?: boolean }) {
   const probability = market === "spread" ? game.spread_win_prob : game.total_win_prob;
   const locked = market === "spread" ? Boolean(game.spread_lock) : Boolean(game.total_lock);
-  const outcome = marketOutcome(result, market);
   const modelLabel = descriptiveLabels ? `Model ${market} prediction` : "Model";
   const probabilityLabel = descriptiveLabels ? `${market === "spread" ? "Spread" : "Total"} win probability` : "Pick win probability";
   return (
@@ -104,7 +105,7 @@ function MarketDetails({ game, result, market, descriptiveLabels = false, showPi
       {showPick ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick</span><strong>{market === "spread" ? spreadPickLabel(game) : totalPickLabel(game)}</strong></div> : null}
       <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{modelLabel}</span><strong>{market === "spread" ? spreadModelLabel(game) : game.total_pred.toFixed(1)}</strong></div>
       <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{probabilityLabel}</span><strong className="numbers-tabular">{displayProbability(probability)}</strong></div>
-      {showStatus ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{outcome ? "Result" : "Status"}</span>{outcome ? <OutcomeText outcome={outcome} /> : <strong className={locked ? "text-[var(--warning)]" : "text-slate-600"}>{locked ? "Lock" : "Standard pick"}</strong>}</div> : null}
+      {showStatus ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{result ? "Result" : "Status"}</span>{result ? <strong className="numbers-tabular">{marketBetOutcomeLabel(game, result, market)}</strong> : <strong className={locked ? "text-[var(--warning)]" : "text-slate-600"}>{locked ? "Lock" : "Standard pick"}</strong>}</div> : null}
     </div>
   );
 }
@@ -140,17 +141,15 @@ function FavoriteGameCard({ game, result, league, timeZone }: { game: ExpectedPo
         <div data-favorite-market="spread" data-outcome={spreadOutcome} className={`rounded-md border px-3 py-2.5 ${outcomeClasses(spreadOutcome, spreadLocked, "border-slate-200 bg-slate-50")}`}>
           <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>
           <strong className="mt-1 block text-lg tracking-tight text-[var(--ink)]">{spreadPickLabel(game)}</strong>
+          <MarketResultLine game={game} result={result} market="spread" />
         </div>
         <div data-favorite-market="total" data-outcome={totalOutcome} className={`rounded-md border px-3 py-2.5 ${outcomeClasses(totalOutcome, totalLocked, "border-slate-200 bg-slate-50")}`}>
           <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span>
           <strong className="mt-1 block text-lg tracking-tight text-[var(--ink)]">{totalPickLabel(game)}</strong>
+          <MarketResultLine game={game} result={result} market="total" />
         </div>
       </div>
-      <p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
-      <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
-        <MarketDetails game={game} result={result} market="spread" descriptiveLabels showPick={false} showStatus={false} />
-        <MarketDetails game={game} result={result} market="total" descriptiveLabels showPick={false} showStatus={false} />
-      </div>
+      {!result ? <><p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p><div className="mt-2.5 grid gap-3 sm:grid-cols-2"><MarketDetails game={game} market="spread" descriptiveLabels showPick={false} showStatus={false} /><MarketDetails game={game} market="total" descriptiveLabels showPick={false} showStatus={false} /></div></> : null}
     </article>
   );
 }
@@ -162,12 +161,13 @@ function LockCard({ lock, result, league, timeZone }: { lock: LockPick; result?:
     <article data-lock-market={lock.market} data-outcome={outcome} className={`w-[76vw] max-w-[300px] shrink-0 snap-start rounded-lg border p-3 md:w-auto md:max-w-none ${outcomeClasses(outcome, true, "border-[var(--lock-border)] bg-white")}`}>
       <div className="flex items-center justify-between gap-3">
         <LockBadge market={lock.market} />
-        <span className="numbers-tabular text-sm font-semibold text-[var(--lock)]">{displayProbability(lock.probability)}</span>
+        {!result ? <span className="numbers-tabular text-sm font-semibold text-[var(--lock)]">{displayProbability(lock.probability)}</span> : null}
       </div>
       <div className="mt-3"><Matchup game={lock.game} league={league} compact /></div>
       <p className="mt-3 text-xl font-bold tracking-tight text-[var(--ink)]">{isSpread ? spreadPickLabel(lock.game) : totalPickLabel(lock.game)}</p>
+      {result ? <div className="mt-1"><MarketResultLine game={lock.game} result={result} market={lock.market} /></div> : null}
       <div className="mt-2 space-y-0.5 text-xs leading-5 text-[var(--muted)]">
-        <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p>
+        {!result ? <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p> : null}
         <GameStatus game={lock.game} result={result} league={league} timeZone={timeZone} align="left" />
       </div>
     </article>
@@ -186,8 +186,8 @@ function GameMobileCard({ game, result, league, highlighted, timeZone }: { game:
             <GameStatus game={game} result={result} league={league} timeZone={timeZone} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div data-mobile-market="spread" data-outcome={spreadOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(spreadOutcome, Boolean(game.spread_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>{game.spread_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
-            <div data-mobile-market="total" data-outcome={totalOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(totalOutcome, Boolean(game.total_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span>{game.total_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong></div>
+            <div data-mobile-market="spread" data-outcome={spreadOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(spreadOutcome, Boolean(game.spread_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>{game.spread_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong><MarketResultLine game={game} result={result} market="spread" /></div>
+            <div data-mobile-market="total" data-outcome={totalOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(totalOutcome, Boolean(game.total_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span>{game.total_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong><MarketResultLine game={game} result={result} market="total" /></div>
           </div>
           <span className="mt-3 block text-center text-xs font-semibold text-[var(--accent)] group-open:hidden">View model details</span>
           <span className="mt-3 hidden text-center text-xs font-semibold text-[var(--accent)] group-open:block">Hide model details</span>
@@ -207,7 +207,7 @@ function DesktopMarketCell({ game, result, market }: { game: ExpectedPointsPick;
   const outcome = marketOutcome(result, market);
   return (
     <div data-desktop-market={market} data-outcome={outcome} tabIndex={0} className={`group relative inline-flex min-h-11 items-center gap-2 rounded-md border px-2 focus:bg-[var(--accent-soft)] ${outcomeClasses(outcome, locked, "border-transparent bg-transparent")}`}>
-      <span className="font-semibold text-[var(--ink)]">{label}</span>
+      <span><span className="block font-semibold text-[var(--ink)]">{label}</span><MarketResultLine game={game} result={result} market={market} /></span>
       {locked ? <span className="rounded-md bg-[var(--lock-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--lock)]">Lock</span> : null}
       <div className="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] z-30 hidden w-64 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3.5 text-left shadow-lg group-hover:block group-focus:block">
         <MarketDetails game={game} result={result} market={market} />

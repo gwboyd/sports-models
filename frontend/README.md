@@ -100,6 +100,9 @@ Pushes use the same outlined-versus-filled distinction in neutral colors, and ex
 in text. Results are matched to current picks by `year_week` and `game_id`.
 Graded cards replace their now-obsolete kickoff label with a compact `Final` status and the away/home final score.
 This applies to favorites, lock cards, mobile game cards, and the desktop game-status column.
+Each finalized market states its accessible, bet-relative outcome in plain text, such as `Pick won by 3.5 pts`,
+`Pick lost by 0.5 pts`, or `Pick pushed`. Final favorite and lock surfaces omit their pregame-only detail blocks;
+expandable and hover details retain the model projection for deeper inspection.
 The slate header exposes only the game-search field; favorite-team management opens from the Favorites section's
 `Edit teams` action. The manager keeps its search field fixed above an independently scrolling result list and resets
 that list to the top whenever the query changes. Mobile sheets lock the document for their full open lifetime and
