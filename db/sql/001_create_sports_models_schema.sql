@@ -404,6 +404,10 @@ insert into sports_models.model_releases (
     )
 on conflict (model_key, version) do nothing;
 
+-- Bootstrap 1.0 predates source-SHA tracking. Its null source_git_sha is filled
+-- exactly once by the first verified protocol-capable production deployment;
+-- all later deployments retain that canonical registry SHA.
+
 update sports_models.nfl_expected_points_picks
 set model_version = '1.0'
 where model_version is null;

@@ -32,6 +32,7 @@ from src.model_patterns.expected_points.versioning import (
 from src.utils.db.sports_models_db import (
     get_latest_model_release,
     get_model_release,
+    initialize_model_release_source,
     insert_model_releases,
 )
 
@@ -235,11 +236,24 @@ def register_releases(
         source_git_sha=source_git_sha,
         deployed_at=deployed_at_value,
     )
+    for item in serialized_choices:
+        if item["action"] == "keep":
+            initialize_model_release_source(
+                item["model_key"],
+                item["proposed_version"],
+                source_git_sha=source_git_sha,
+            )
 
 
 def verify_registered_releases(source_git_sha: str, serialized_choices: list[dict]) -> None:
     for item in serialized_choices:
         if item["action"] == "keep":
+            release = get_model_release(item["model_key"], item["proposed_version"])
+            if release is None or not release.get("source_git_sha"):
+                raise RuntimeError(
+                    f"Supabase release {item['model_key']} {item['proposed_version']} "
+                    "is missing its canonical source_git_sha"
+                )
             continue
         draft = _draft_from_serialized(item["draft"])
         if draft is None:

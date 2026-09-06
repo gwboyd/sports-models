@@ -181,6 +181,59 @@ score model is refit on all completed games without running a second GridSearch;
 uses one chronological validation split and then refits on its full outer-holdout dataset. This is intentionally a
 low-cost temporal evaluation design rather than full out-of-fold backtesting.
 
+Every normal expected-points train also reports a chronology-safe health slice. Team-score, margin, and total
+MAE/RMSE/bias come from the outer score holdout. Confidence, calibration, and lock metrics come from a later untouched
+portion of that holdout, with historical top-N locks ranked independently inside each season/week. Interactive
+notebooks display these metrics, and update rows retain their flat values in the existing `evaluation_metrics` JSON.
+
+The shared walk-forward runner provides fuller baseline-versus-candidate evidence by retraining an unfitted NFL or
+CFB recipe before historical weekly slates. In either notebook, set `write_backtest_frame=True` and run through the
+dedicated frame-save stage; this does not require running the normal model train. Then run:
+
+```sh
+make backtest-expected-points LEAGUE=nfl PROFILE=standard BASELINE=deployed
+```
+
+See [`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md) for the complete notebook, CLI,
+baseline-resolution, cache, artifact, and interpretation workflow. The Make target also accepts `SEASONS`, `CADENCE`,
+`BOOTSTRAP_SAMPLES`, `OUTPUT_DIR`, `BASELINE_FRAME`, `CANDIDATE_FRAME`, `CACHE_WORKING_TREE=1`, and `NO_CACHE=1`.
+
+`quick` samples the latest evaluable season, `standard` runs every week across the latest three, and `full` requests
+four. `BASELINE` accepts `deployed`, `version:N.N`, `sha:<git-sha>`, or `artifact:<path>`. Historical refs execute in
+isolated Git worktrees; dependency changes use fingerprinted environments cached under `.backtests/expected_points/`.
+A ref predating this protocol needs a bootstrapped run artifact. Deployed/version resolution uses the immutable
+`source_git_sha` registered when that live model version was released. Later retraining runs under the same version do
+not move its baseline. The bootstrap 1.0 rows predate SHA tracking, so the first verified protocol-capable deployment
+fills their currently missing registry SHA exactly once. Per-run pick-update SHAs remain audit metadata and are not
+used for baseline resolution. Recipe identities include the Git SHA, relevant
+dirty/untracked Python content discovered recursively rather than through a filename allowlist, recipe
+protocol/configuration, and dependency fingerprint. Ignored local data, cutoff
+caches, predictions, and reports live under `.backtests/expected_points/`. New weeks append to a compatible cache;
+an earlier feed correction invalidates that cutoff and every later expanding-history fit. Working-tree cutoffs use a
+single rolling namespace per league to avoid accumulating a directory for every local edit. `deployed` and
+`version:N.N` share a readable `version-N.N` namespace, with full metadata validation before reuse; explicit Git SHA
+references retain independent fingerprinted namespaces.
+
+Working-tree cutoff caching is disabled by default, so local candidate comparisons are fresh fits and write no cutoff
+cache. Set `CACHE_WORKING_TREE=1` (or notebook parameter `backtest_cache_working_tree=True`) to opt into resumable
+rolling caching for an expensive unchanged candidate. Released/version/SHA baselines continue caching by default.
+
+The saved frame is input data, not a cached model or substitute for recipe code: every cutoff refits from scratch.
+When recipe versions require differently prepared frames, pass `BASELINE_FRAME=<path>` and
+`CANDIDATE_FRAME=<path>`; compatibility is checked against their shared game/outcome/market universe rather than
+requiring identical feature columns. League recipes own final model-frame assembly and validation. Estimators are
+never pickled.
+
+Single-run and comparison reports include fixed-seed, season-week block-bootstrap intervals for score/home/away,
+margin, total, spread/total result, confidence, calibration, coverage, and lock-frequency metrics. Reports also show
+market-implied point-error benchmarks, confidence AUC, mean stated lock probability, and its observed calibration gap.
+A lock win rate with no decisions is `N/A`, never zero percent. Notebook-loaded comparison
+objects expose `summary`, `deltas`, `baseline_predictions`, `candidate_predictions`, and `lock_changes` as
+DataFrames; structured trace fields retain their original list/dict values after cache and artifact round trips.
+
+The runner is read-only with respect to Supabase. It uses currently available historical feed values and explicitly
+labels its output as a weekly pre-first-kickoff approximation rather than exact intraday line or roster replay.
+
 CFB confidence classifiers always receive the selected execution-line edge and select hyperparameters with log loss.
 Raw home moneyline is not an eligibility gate; paired provider moneylines are converted to an optional median no-vig
 home probability with an explicit missing indicator. Opening-line, movement, market-depth, and no-vig feature groups
@@ -321,7 +374,8 @@ That target:
 - runs `sam build` and deploys the `sports-models-v2` stack in `us-east-1`
 - verifies the deployed training and coordinator Lambdas are active, share the planned Git SHA, and have the planned
   model versions and target function configuration, using bounded retries for AWS propagation
-- registers finalized release rows only after SAM succeeds, then archives and resets the consumed drafts
+- registers finalized release rows only after SAM succeeds; for a kept bootstrap release whose registry SHA is still
+  null, initializes that SHA exactly once from the verified deployment; then archives and resets consumed drafts
 
 NFL and CFB share the training Lambda image. A populated queue for either model therefore ships in the same AWS
 deployment and must receive a release decision. Direct `sam deploy` bypasses this safety workflow and is not supported

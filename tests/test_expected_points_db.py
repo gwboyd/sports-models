@@ -155,6 +155,27 @@ def test_manual_run_does_not_touch_schedule_table(monkeypatch):
     )
 
     assert not any("set update_id = %s" in call[1] for call in cursor.calls)
+    assert not any("set first_pick_at" in call[1] for call in cursor.calls)
+
+
+def test_real_aws_run_marks_release_live(monkeypatch):
+    cursor = FakeCursor()
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "sports-models-training")
+    monkeypatch.delenv("AWS_SAM_LOCAL", raising=False)
+
+    @contextmanager
+    def fake_connection():
+        yield FakeConnection(cursor)
+
+    monkeypatch.setattr(sports_models_db, "get_connection", fake_connection)
+    sports_models_db.write_expected_points_run(
+        ExpectedPointsLeague.NFL,
+        [],
+        update_record(cursor, client_name="aws-scheduler"),
+    )
+
+    live_call = next(call for call in cursor.calls if "set first_pick_at" in call[1])
+    assert live_call[2] == (cursor.return_time, "nfl_expected_points", "1.0")
 
 
 def test_invalid_league_cannot_be_used_as_identifier():
@@ -164,6 +185,92 @@ def test_invalid_league_cannot_be_used_as_identifier():
         pass
     else:
         raise AssertionError("Invalid league identifier was accepted")
+
+
+def test_recipe_source_uses_immutable_registry_sha_for_requested_version(monkeypatch):
+    cursor = FakeCursor()
+    release = {
+        "version": "1.0",
+        "source_git_sha": "release-sha",
+        "deployed_at": cursor.return_time,
+        "first_pick_at": cursor.return_time,
+    }
+    cursor.fetchone = lambda: release
+
+    @contextmanager
+    def fake_connection():
+        yield FakeConnection(cursor)
+
+    monkeypatch.setattr(sports_models_db, "get_connection", fake_connection)
+    resolved = sports_models_db.get_expected_points_recipe_source(
+        ExpectedPointsLeague.NFL,
+        version="1.0",
+    )
+
+    assert resolved["source_git_sha"] == "release-sha"
+    assert cursor.calls[0][2] == ("nfl_expected_points", "1.0")
+    assert "first_pick_at is not null" in cursor.calls[0][1]
+    assert len(cursor.calls) == 1
+
+
+def test_recipe_source_returns_none_without_a_live_registry_release(monkeypatch):
+    cursor = FakeCursor()
+    cursor.fetchone = lambda: None
+
+    @contextmanager
+    def fake_connection():
+        yield FakeConnection(cursor)
+
+    monkeypatch.setattr(sports_models_db, "get_connection", fake_connection)
+    resolved = sports_models_db.get_expected_points_recipe_source(ExpectedPointsLeague.CFB)
+
+    assert resolved is None
+    assert cursor.calls[0][2] == ("cfb_expected_points",)
+    assert len(cursor.calls) == 1
+
+
+def test_bootstrap_release_source_is_initialized_only_when_missing(monkeypatch):
+    cursor = FakeCursor()
+    cursor.fetchone = lambda: {"source_git_sha": "first-protocol-sha"}
+
+    @contextmanager
+    def fake_connection():
+        yield FakeConnection(cursor)
+
+    monkeypatch.setattr(sports_models_db, "get_connection", fake_connection)
+    resolved = sports_models_db.initialize_model_release_source(
+        "nfl_expected_points",
+        "1.0",
+        source_git_sha="first-protocol-sha",
+    )
+
+    assert resolved == "first-protocol-sha"
+    assert "source_git_sha is null" in cursor.calls[0][1]
+    assert cursor.calls[0][2] == (
+        "first-protocol-sha",
+        "nfl_expected_points",
+        "1.0",
+    )
+    assert cursor.calls[1][2] == ("nfl_expected_points", "1.0")
+
+
+def test_bootstrap_release_source_never_replaces_an_existing_sha(monkeypatch):
+    cursor = FakeCursor()
+    cursor.fetchone = lambda: {"source_git_sha": "original-sha"}
+
+    @contextmanager
+    def fake_connection():
+        yield FakeConnection(cursor)
+
+    monkeypatch.setattr(sports_models_db, "get_connection", fake_connection)
+    resolved = sports_models_db.initialize_model_release_source(
+        "cfb_expected_points",
+        "1.0",
+        source_git_sha="later-deployment-sha",
+    )
+
+    assert resolved == "original-sha"
+    assert "source_git_sha is null" in cursor.calls[0][1]
 
 
 def test_scheduled_update_claim_is_atomic_and_leased(monkeypatch):
