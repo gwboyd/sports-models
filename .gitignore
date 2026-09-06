@@ -104,3 +104,6 @@ __pycache__/
 
 # Local modeling backlog (intentionally not a shared project artifact)
 TRAINING_DATA_TODO.local.md
+
+# Local, reproducible expected-points backtest frames, caches, and reports
+.backtests/

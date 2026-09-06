@@ -7,6 +7,9 @@ newer deployment.
 
 ## Repository Structure
 - `src/model_patterns/`: Reusable modeling patterns; `expected_points/` is currently shared by NFL and CFB.
+- `src/model_patterns/expected_points/backtesting.py`: Walk-forward cutoff orchestration, cache identity, and fitting.
+- `src/model_patterns/expected_points/backtest_metrics.py`: Historical summaries, uncertainty, and comparisons.
+- `src/model_patterns/expected_points/backtest_artifacts.py`: Parquet/JSON/Markdown persistence and frame loading.
 - `src/sports/`: Sport- and model-specific implementations (NFL/NBA/CFB notebooks, handlers, utilities).
 - `src/sports/football/schedule_coordinator.py`: Dynamic calendar policy and lightweight Lambda entrypoint.
 - `src/sports/football/scheduled_updates.py`: Idempotent direct training-Lambda dispatcher.
@@ -15,6 +18,7 @@ newer deployment.
 - `frontend/`: Frontend app for serving model views.
 - `tests/`: Python test modules for API/Lambda behavior.
 - `events/`: Sample AWS SAM event payloads for local invocation.
+- `scripts/backtest_expected_points.py`: Read-only NFL/CFB weekly walk-forward runner and baseline comparator.
 - `python/`: Vendored Python packages for Lambda packaging/layer-style usage.
 - `main.py`: FastAPI app entrypoint, auth/permissions, router mounting, and Mangum handler.
 - `template.yaml`: AWS SAM template for the Lambda function and API event wiring.
@@ -190,6 +194,51 @@ keeps every evaluated season within two percent of its baseline Brier score. Rea
 report this secondary chronological classifier evaluation; production/API notebook runs skip it. No optional market
 feature group is currently promoted.
 
+Expected-points evaluation has two shared tiers. Each normal train retains the outer chronological score holdout and
+adds an untouched confidence/lock health tail; top-N health locks reset inside each historical season/week. The
+read-only walk-forward runner consumes a notebook-saved model frame and retrains an unfitted versioned recipe before
+historical weekly slates. `quick`, `standard`, and `full` profiles change cutoff coverage, not per-cutoff tuning
+fidelity. Local frames, appendable cutoff caches, prediction Parquet files, and reports live under ignored
+`.backtests/expected_points/`; a corrected historical input invalidates that cutoff and every later expanding-history
+fit. Recipe keys hash the Git SHA, relevant working-tree content, configuration, protocol, and dependency files.
+Shared expected-points, selected-league, and football-transform Python files are discovered recursively for this
+identity; do not replace discovery with a filename allowlist that can miss a new dirty or untracked helper.
+Working-tree cutoffs occupy one rolling namespace per league: changed fingerprints retrain and atomically replace
+the applicable entries instead of accumulating one namespace per local edit. `deployed` and `version:N.N` share a
+readable `version-N.N` namespace whose entries still require full metadata matches; explicit Git references retain
+separate fingerprinted namespaces.
+Working-tree cutoff caching is disabled by default and must neither read nor write cache entries unless the CLI
+`--cache-working-tree`, Make `CACHE_WORKING_TREE=1`, notebook `backtest_cache_working_tree=True`, or equivalent
+`BacktestSpec` opt-in is explicit. Released/version/SHA baseline caching remains enabled by default; `NO_CACHE=1`
+disables caching for the entire comparison.
+Baselines resolve from deployed/version Git SHAs or explicit artifacts, execute in isolated worktrees, use cached
+fingerprinted environments when dependencies differ, and never use estimator pickles. League recipes own final
+model-frame assembly/validation; version-specific baseline and candidate frames may differ in feature columns but
+must hash to the same game/outcome/market evaluation universe.
+Deployed/version resolution must use the immutable `source_git_sha` stored on the live `model_releases` row. Routine
+retraining and later prediction-neutral commits under the same version must not move that baseline; a new canonical
+recipe SHA requires a new model version. Because bootstrap 1.0 predates SHA tracking, the first verified
+protocol-capable deployment initializes its null registry SHA exactly once during release registration. Pick-update
+SHAs remain per-run audit metadata and must never participate in baseline resolution.
+Comparisons require identical profile, season, and game-key universes and use fixed-seed season-week block-bootstrap
+intervals for score, market, confidence, calibration, coverage, and lock-frequency output. Cached and report Parquet
+round trips must preserve structured trace columns, and notebook comparison objects expose lock changes directly.
+Zero-decision win rates are undefined/null rather than zero percent. Single-run reports include per-season records,
+absolute block-bootstrap intervals, confidence AUC/calibration diagnostics, model-versus-market MAE benchmarks, and
+per-cutoff elapsed/cache timing. The CLI must log cutoff progress and ETA so long runs are observable.
+
+NFL and CFB notebooks remain first-class inspection surfaces. They expose schedules, intermediate feature frames,
+the complete model `df`, configuration, health results, current predictions, and picks. Notebook helpers trace exact
+score/confidence inputs and earlier team rows for a game. Full comparisons are guarded by
+`run_historical_backtest=False` and must never run in Papermill/API mode. Backtests use currently available historical
+feed values and must be described as weekly approximations, not exact intraday snapshot replays. They never write
+operational picks, update history, results, or releases to Supabase. `write_backtest_frame=True` belongs to a separate
+interactive stage before training so a user can assemble and save `.backtests/expected_points/frames/<league>/latest.parquet`
+without fitting the current model. Training, inspection/experiments, and historical comparison remain separate cells;
+experiment frames/configuration must be copies rather than aliases. The canonical operating guide is
+`docs/expected-points-backtesting.md`; update it whenever flags, profiles, commands, artifacts, cache behavior, or
+metric interpretation changes.
+
 League-level validation belongs in `src/sports/football/<league>/data_validation.py`; generic dataframe contracts
 belong in `src/sports/data_validation.py`. Validate only feeds a model actually consumes. Production notebook runs use
 `strict_data_validation=True`; warning mode is for feed investigation and must never weaken chronological/leakage
@@ -213,8 +262,10 @@ final confirmation. The checked-out branch must be `main`, and the working tree,
 completely clean so the deployed image matches the recorded Git SHA. NFL and CFB share one training Lambda image, so both populated drafts must be released
 in the same deployment. There is no GitHub Actions version gate, source fingerprint, or changed-path heuristic. After
 SAM succeeds, the command uses bounded retries to verify that the active training and coordinator Lambdas share the
-planned Git SHA and that training contains both planned model versions; only then does it record release rows. A release is considered live only after its
-first successful AWS pick update sets `first_pick_at`. The ignored `.aws-sam/model-release-plan.json` preserves exact
+planned Git SHA and that training contains both planned model versions; only then does it record release rows and
+initialize any kept bootstrap release's null source SHA. That conditional initialization is one-time and must never
+replace a non-null registry SHA. A release is considered live only after its first successful AWS pick update sets
+`first_pick_at`. The ignored `.aws-sam/model-release-plan.json` preserves exact
 draft snapshots for recovery. `make sam-register-releases` re-verifies AWS before registering, while
 `make sam-finalize-release-files` verifies the Supabase rows before archiving/resetting drafts and removing the plan.
 
@@ -248,6 +299,8 @@ because they are not real Lambda runtimes.
 4. For notebook-driven NFL or CFB changes, require a human-verified run of the update workflow before merging.
 5. Verify persisted pick counts, update history, started-game preservation, graded results when applicable, and the
    corresponding read endpoints.
+6. For expected-points recipe work, run a `quick` backtest first and use the `standard` three-season weekly profile for
+   normal baseline-versus-candidate evidence. Treat reports as evidence rather than an automatic release gate.
 
 ## Security & Compliance
 - Never commit secrets; use `.env` locally and secret stores in deployment.
@@ -289,6 +342,7 @@ because they are not real Lambda runtimes.
 
 ## Further Reading
 - [`README.md`](README.md)
+- [`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md)
 - [`db/sql/001_create_sports_models_schema.sql`](db/sql/001_create_sports_models_schema.sql)
 - [`template.yaml`](template.yaml)
 - [`main.py`](main.py)

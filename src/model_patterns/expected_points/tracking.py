@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import os
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
 
@@ -11,7 +12,6 @@ from src.sports.football.kickoff import parse_eastern_kickoffs
 
 from .betting import calculate_wins, determine_plays
 from .types import ExpectedPointsTrackingConfig
-
 
 PICK_COLUMNS = [
     "season",
@@ -338,7 +338,7 @@ def build_update_record(
     runtime: float,
     model_version: str | None = None,
     source_git_sha: str | None = None,
-    evaluation_metrics: dict[str, float] | None = None,
+    evaluation_metrics: dict[str, float | None] | None = None,
     write_time: datetime | None = None,
 ) -> dict[str, Any]:
     model_version = model_version or os.getenv("EXPECTED_POINTS_MODEL_VERSION")

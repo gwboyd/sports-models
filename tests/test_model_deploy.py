@@ -243,6 +243,60 @@ def test_release_file_finalization_requires_exact_database_release(monkeypatch):
         deploy_models.verify_registered_releases("abc123", choices)
 
 
+def test_release_registration_initializes_kept_bootstrap_sha(monkeypatch):
+    inserted = []
+    initialized = []
+    monkeypatch.setattr(
+        deploy_models,
+        "insert_model_releases",
+        lambda releases, **kwargs: inserted.append((list(releases), kwargs)),
+    )
+    monkeypatch.setattr(
+        deploy_models,
+        "initialize_model_release_source",
+        lambda model, version, **kwargs: initialized.append((model, version, kwargs)),
+    )
+
+    deploy_models.register_releases(
+        "abc123",
+        "2026-08-29T12:00:00+00:00",
+        serialized_choices(),
+    )
+
+    assert len(inserted) == 1
+    assert [(model.value, version) for model, version, _draft in inserted[0][0]] == [
+        ("nfl_expected_points", "1.3")
+    ]
+    assert inserted[0][1]["source_git_sha"] == "abc123"
+    assert initialized == [
+        (
+            "cfb_expected_points",
+            "1.2",
+            {"source_git_sha": "abc123"},
+        )
+    ]
+
+
+def test_release_verification_rejects_kept_version_without_canonical_sha(monkeypatch):
+    release_draft = draft()
+    assert release_draft is not None
+    released_row = {
+        "title": release_draft.title,
+        "public_summary": release_draft.public_summary,
+        "changes_md": release_draft.changes_md,
+        "evaluation_md": release_draft.evaluation_md,
+        "internal_notes_md": release_draft.internal_notes_md,
+        "source_git_sha": "abc123",
+    }
+
+    def release(model, _version):
+        return released_row if model == "nfl_expected_points" else {"source_git_sha": None}
+
+    monkeypatch.setattr(deploy_models, "get_model_release", release)
+    with pytest.raises(RuntimeError, match="canonical source_git_sha"):
+        deploy_models.verify_registered_releases("abc123", serialized_choices())
+
+
 def test_finalize_recovery_removes_completed_plan(tmp_path, monkeypatch):
     recovery_path = tmp_path / "model-release-plan.json"
     recovery_path.write_text(

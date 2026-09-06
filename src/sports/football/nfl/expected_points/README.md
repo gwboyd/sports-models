@@ -62,6 +62,30 @@ inside the outer holdout. The chosen score parameters are then refit once on all
 GridSearch is not repeated. This keeps update-time cost modest while removing random-split leakage, but it is not a
 full out-of-fold season backtest.
 
+The notebook remains the interactive analysis surface while `recipe.py` supplies the reproducible configuration used
+by historical runs. After training, `health_metrics` displays score-error, confidence, calibration, and weekly lock
+metrics, and `health_results` contains the untouched confidence-evaluation rows. `inspect_game(game_id)` returns the
+complete model row, exact home/away score representations, confidence inputs, and final pick;
+`inspect_team_history(team, before_game_id=...)` returns earlier team-game rows for feature investigation.
+
+Set `write_backtest_frame=True` and run through the dedicated frame-save cell to write `df` without running the normal
+model train. Training, game inspection, and the optional historical comparison are separate notebook stages. Set
+`run_historical_backtest=True` only for an interactive `quick`, `standard`, or `full` comparison; Papermill/API runs
+reject it. The saved frame also supports
+`make backtest-expected-points LEAGUE=nfl PROFILE=standard BASELINE=deployed`. Compatible local cutoff results under
+`.backtests/expected_points/` are appendable and reusable; recipe/configuration changes or corrected prior inputs
+invalidate affected fits. Working-tree fits are fresh by default; set notebook parameter
+`backtest_cache_working_tree=True` or Make variable `CACHE_WORKING_TREE=1` only when resumable candidate caching is
+desired. Historical line and roster values are the best currently available feed values, not exact
+intraday snapshots. See the root [`backtesting guide`](../../../../../docs/expected-points-backtesting.md) for
+baseline references, expense controls, artifacts, cache behavior, and metric interpretation.
+
+`NFLExpectedPointsRecipe` owns final schedule/score/feature-frame joins, column normalization, kickoff conversion,
+line orientation, validation, feature selection, tuning grids, and lock thresholds. The notebook calls that assembly
+while retaining `scores`, `schedule_scores`, and `df` for inspection. When refs need different prepared feature
+columns, provide `BASELINE_FRAME` and `CANDIDATE_FRAME`; every cutoff is still refit and both frames must describe the
+same game/outcome/market universe.
+
 ## Operational Update Workflow
 
 The NFL notebook shares its tracking, grading, reporting, notebook execution, and database persistence behavior with
@@ -100,8 +124,9 @@ this queue is non-empty, keeps the current version when it is empty, prints the 
 requires confirmation, a completely clean Git tree, and the checked-out `main` branch. Both models share one training Lambda image, so a populated
 NFL queue ships in the same AWS deployment as CFB. After SAM succeeds, the command verifies the active Lambda's model
 versions and Git SHA before registering the draft in the Supabase `model_releases` table and archiving it as
-`releases/vN.N.md`; the working queue is then reset. A release is considered live only after its first successful AWS
-pick update records `first_pick_at`.
+`releases/vN.N.md`; the working queue is then reset. When a kept bootstrap release still has no registry SHA, this
+verified registration step initializes it exactly once without moving an existing SHA. A release is considered live
+only after its first successful AWS pick update records `first_pick_at`.
 
 ## Features
 

@@ -1,14 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import os
-from typing import Any, Iterable
+from collections.abc import Iterable
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
-from src.model_patterns.expected_points.versioning import ModelKey, ReleaseDraft, parse_version
+from src.model_patterns.expected_points.versioning import (
+    ModelKey,
+    ReleaseDraft,
+    parse_version,
+)
 from src.model_patterns.expected_points.write_policy import is_aws_lambda_runtime
-from src.utils.postgres import get_connection, get_schema, json_dumps, normalize_record, normalize_records
-
+from src.utils.postgres import (
+    get_connection,
+    get_schema,
+    json_dumps,
+    normalize_record,
+    normalize_records,
+)
 
 SCHEMA = get_schema()
 
@@ -102,6 +112,77 @@ def get_latest_model_release(model: ModelKey | str) -> dict[str, Any] | None:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(query, (model_key_value,))
         return cur.fetchone()
+
+
+def get_expected_points_recipe_source(
+    league: ExpectedPointsLeague | str,
+    *,
+    version: str | None = None,
+) -> dict[str, Any] | None:
+    """Resolve a live version to its immutable release-registry SHA."""
+    release_key = model_key(league).value
+    params: list[Any] = [release_key]
+    version_filter = ""
+    if version is not None:
+        canonical = str(parse_version(version))
+        version_filter = "and version = %s"
+        params.append(canonical)
+    release_query = f"""
+        select version, source_git_sha, deployed_at, first_pick_at
+        from {SCHEMA}.model_releases
+        where model_key = %s
+          and first_pick_at is not null
+          {version_filter}
+        order by major_version desc, minor_version desc
+        limit 1
+    """
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(release_query, tuple(params))
+        return cur.fetchone()
+
+
+def initialize_model_release_source(
+    model: ModelKey | str,
+    version: str,
+    *,
+    source_git_sha: str,
+) -> str:
+    """Fill a bootstrap release's missing SHA once and return its canonical SHA."""
+    model_key_value = model.value if isinstance(model, ModelKey) else ModelKey(model).value
+    canonical_version = str(parse_version(version))
+    canonical_sha = source_git_sha.strip()
+    if not canonical_sha:
+        raise ValueError("Model release source Git SHA cannot be empty")
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            update {SCHEMA}.model_releases
+            set source_git_sha = %s
+            where model_key = %s
+              and version = %s
+              and source_git_sha is null
+            """,
+            (canonical_sha, model_key_value, canonical_version),
+        )
+        cur.execute(
+            f"""
+            select source_git_sha
+            from {SCHEMA}.model_releases
+            where model_key = %s and version = %s
+            """,
+            (model_key_value, canonical_version),
+        )
+        release = cur.fetchone()
+        if release is None:
+            raise ValueError(
+                f"Model release {model_key_value} {canonical_version} does not exist"
+            )
+        registered_sha = release.get("source_git_sha")
+        if not registered_sha:
+            raise ValueError(
+                f"Model release {model_key_value} {canonical_version} has no source Git SHA"
+            )
+        return str(registered_sha)
 
 
 def insert_model_release(
@@ -640,14 +721,18 @@ def write_expected_points_run(
         update_id, persisted_time = _insert_pick_update(cur, league, update_record)
         _upsert_picks(cur, league, pick_records)
         _upsert_results(cur, league, result_records)
-        cur.execute(
-            f"""
-            update {SCHEMA}.model_releases
-            set first_pick_at = coalesce(first_pick_at, %s)
-            where model_key = %s and version = %s
-            """,
-            (write_time, release_key, expected_model_version),
-        )
+        # A release becomes live only after code running in the real deployed
+        # Lambda writes picks. Explicitly authorized local writes are useful for
+        # recovery/testing but must never publish a release implicitly.
+        if is_aws_lambda_runtime():
+            cur.execute(
+                f"""
+                update {SCHEMA}.model_releases
+                set first_pick_at = coalesce(first_pick_at, %s)
+                where model_key = %s and version = %s
+                """,
+                (write_time, release_key, expected_model_version),
+            )
         scheduled_run_key = os.getenv("EXPECTED_POINTS_RUN_KEY")
         if scheduled_run_key:
             _complete_scheduled_model_update(
