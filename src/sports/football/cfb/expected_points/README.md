@@ -5,6 +5,16 @@ persistence workflow. CFB-specific acquisition and feature preparation remain in
 runs use strict validation, chronological training splits, and the direct CFBD client described in the repository
 README and `AGENTS.md`.
 
+The offense and defense explosiveness features retain their existing names, but their values are now adjusted for
+opponent quality before the existing dynamic moving average is calculated. The shared transform estimates
+ridge-regularized offense and defense effects from games strictly before each target kickoff, uses FBS/FCS group
+effects, and supports either partial pooling of individual FCS teams or one pooled FCS entity. Ridge strength,
+cross-season carryover, and the FCS policy are explicit backtest levers.
+Ratings default to the opening kickoff of the game week, excluding same-week outcomes; exact per-kickoff snapshots
+remain available when evaluating that additional cost.
+Set notebook/Papermill `opponent_adjustment_config` to a mapping such as
+`{"ridge_alpha": 10.0, "season_carryover": 0.25, "fcs_policy": "pooled"}` to evaluate an alternative.
+
 The notebook remains the interactive analysis surface. Its reproducible configuration lives in `recipe.py`, while
 `schedule`, `market_lines`, intermediate feature frames, the complete `df`, `ep_config`, `results`, and `plays` remain
 available for direct slicing. After training, `health_metrics` displays chronology-safe score, probability,

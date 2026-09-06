@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import pandas as pd
 
 from src.sports.data_validation import validate_frame
-from src.sports.football.transforms import build_lagged_team_metrics
+from src.sports.football.transforms import (
+    OpponentAdjustmentConfig,
+    OpponentMetricSpec,
+    build_lagged_team_metrics,
+    build_opponent_adjusted_team_metrics,
+)
 
 
 TEAM_GAME_KEYS = ("game_id", "season", "week", "team")
@@ -81,4 +86,49 @@ def build_pregame_advanced_stats(
     return build_lagged_team_metrics(timeline, columns)
 
 
-__all__ = ["build_pregame_advanced_stats"]
+def build_opponent_adjusted_advanced_stats(
+    advanced_stats: pd.DataFrame,
+    schedule: pd.DataFrame,
+    *,
+    config: OpponentAdjustmentConfig | Mapping[str, object] | None = None,
+    strict: bool = True,
+) -> pd.DataFrame:
+    """Build CFB explosiveness features with the established column names.
+
+    CFBD reports the offensive and defensive side of the same game metric.  We
+    intentionally use the offensive row as the one canonical observation and
+    infer the defensive observation from its opponent in the schedule.
+    """
+    required = (*TEAM_GAME_KEYS, "start_date", "offense_explosiveness")
+    validate_frame(
+        advanced_stats,
+        label="CFB opponent-adjusted advanced stats",
+        required_columns=required,
+        non_null_columns=(*TEAM_GAME_KEYS, "start_date"),
+        unique_keys=(TEAM_GAME_KEYS,),
+        strict=strict,
+    )
+    observations = advanced_stats.loc[:, [*TEAM_GAME_KEYS, "offense_explosiveness"]].rename(
+        columns={"offense_explosiveness": "value"}
+    )
+    observations["metric"] = "explosiveness"
+    return build_opponent_adjusted_team_metrics(
+        schedule,
+        observations,
+        (
+            OpponentMetricSpec(
+                key="explosiveness",
+                offense_output="offense_explosiveness",
+                defense_output="defense_explosiveness",
+                smoothing="dynamic",
+            ),
+        ),
+        config=config,
+        strict=strict,
+    )
+
+
+__all__ = [
+    "build_opponent_adjusted_advanced_stats",
+    "build_pregame_advanced_stats",
+]

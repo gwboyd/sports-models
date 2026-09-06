@@ -7,6 +7,17 @@ The model predicts **expected points scored** for each NFL team in a game, getti
 
 Metrics derived from play by play data is used starting from 2010 to now. EPA (expected points added) Per Play and Success Rate are the features the model has found the most useful to predict outcomes, but other features like starting-quarterback NFL passer rating (retained under the historical `qbr` feature name), days of rest, and the Vegas odds themselves are used.
 
+The existing EPA and success-rate feature names now contain opponent-adjusted values. Before each game's kickoff,
+the shared football transform fits ridge-regularized offense and defense effects only from earlier games, reassesses
+each prior team performance against the defense or offense it faced, and then applies the existing moving-average
+calculation. The adjustment therefore adds no future-game information and leaves downstream score and confidence
+schemas unchanged. Its ridge penalty and cross-season carryover are recipe parameters for backtesting. Ratings use
+the first kickoff of each game week by default, which excludes all same-week outcomes; the more expensive exact
+kickoff mode remains available for evaluation.
+In a notebook or Papermill run, set `opponent_adjustment_config` to a mapping such as
+`{"ridge_alpha": 10.0, "season_carryover": 0.25}`; CFB additionally accepts
+`{"fcs_policy": "pooled"}`.
+
 After picks are made, there is another model (classifier) that looks back on the historical picks the model has made against Vegas, analyzes patterns with which the mdoel has been succesful, and gives a percentage chance it belives the model has of being correct in it's pick. That score (along with a couple other heuristics) is how we decide what "plays" to make each week.
 
 ## Picks Update Cadence
@@ -181,7 +192,6 @@ logic and does not feed the expected-points picks or confidence classifiers.
 ### Ideas for the future
 
 - Add in more player specific data besides just quarterbacks to better account for injuries/trades
-- Adjust efficiency metrics for difficulty of opponent
 - Include explosiveness data 
 - Add some 3rd down specifc metrics data
 - Include some position group specific data to better catch matchup advantages

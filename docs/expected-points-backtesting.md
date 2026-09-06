@@ -29,6 +29,11 @@ Use either NFL or CFB `expected_points/notebook.ipynb`:
 This save stage does not train the current model. To prepare data and immediately stop, run only through that cell.
 The **Train model**, **Game-level inspection**, and **Historical baseline comparison** cells are independent stages.
 
+Opponent-adjustment settings are part of recipe construction. When changing its ridge penalty, prior-season
+carryover, CFB FCS-pooling policy, or rating snapshot cadence, regenerate the candidate frame before comparing it. The metric columns keep
+their established names, so use a separately saved baseline frame whenever comparing a pre-adjustment release with
+the adjusted candidate.
+
 For a full interactive notebook run, set `run_historical_backtest = True`. Its comparison cell saves the current `df`
 automatically when the frame-save cell was not enabled. Papermill/API runs leave both flags false and cannot run the
 historical comparison. Notebook experiment objects are deep copies; permanent candidate methodology must still move

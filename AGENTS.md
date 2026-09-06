@@ -114,6 +114,12 @@ NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
 CFB expected-points uses `src/sports/football/cfb/expected_points/cfbd_client.py` for direct authenticated REST
 requests; do not add a conflicting Python SDK dependency.
+Opponent-adjusted football efficiency features are implemented in
+`src/sports/football/transforms/opponent_adjustment.py`. It fits pre-kickoff ridge offense/defense effects, then
+recomputes each team's historical performance against the opponent it faced before applying the established smoother.
+Keep downstream feature names stable. Ridge strength, season carryover, CFB's FCS pooling policy, and rating snapshot
+cadence are versioned recipe/backtest levers; any change requires regenerated candidate frames and normal baseline
+comparison evidence.
 
 Current expected-points schema model, mirrored for the `nfl` and `cfb` prefixes:
 - `<league>_expected_points_picks`: latest pick per `(year_week, game_id)`

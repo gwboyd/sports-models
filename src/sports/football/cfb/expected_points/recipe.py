@@ -70,7 +70,7 @@ def assemble_cfb_model_frame(
 class CFBExpectedPointsRecipe:
     name: str = "cfb_expected_points"
     version: str = "working-tree"
-    protocol_version: str = "1"
+    protocol_version: str = "2"
     league: ExpectedPointsLeague = ExpectedPointsLeague.CFB
 
     def prepare_frame(
@@ -99,9 +99,23 @@ class CFBExpectedPointsRecipe:
         week: int,
         prediction_now: pd.Timestamp | None = None,
     ) -> ExpectedPointsConfig:
+        # Keep v1 feature names while replacing their raw values at preparation
+        # time.  Explicit selection prevents diagnostic columns from becoming
+        # score-model inputs as the adjustment engine grows.
         ewma_features = [
-            column for column in frame.columns if "ewma" in column and "dynamic" in column
+            column
+            for column in (
+                "offense_explosiveness_ewma_dynamic_window_home",
+                "defense_explosiveness_ewma_dynamic_window_home",
+                "offense_explosiveness_ewma_dynamic_window_away",
+                "defense_explosiveness_ewma_dynamic_window_away",
+            )
+            if column in frame.columns
         ]
+        if not ewma_features:
+            ewma_features = [
+                column for column in frame.columns if "ewma" in column and "dynamic" in column
+            ]
         cat_features = [column for column in ("weekday",) if column in frame.columns]
         other_features = [
             column
