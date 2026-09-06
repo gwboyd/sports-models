@@ -100,6 +100,8 @@ Pushes use the same outlined-versus-filled distinction in neutral colors, and ex
 in text. Results are matched to current picks by `year_week` and `game_id`.
 Graded cards replace their now-obsolete kickoff label with a compact `Final` status and the away/home final score.
 This applies to favorites, lock cards, mobile game cards, and the desktop game-status column.
+Current-picks pages treat results as supplemental data, so they still render ungraded picks if that request temporarily
+fails; the dedicated results pages continue to surface non-404 upstream failures.
 Each finalized market states the relevant actual result in plain text: spreads use the picked team's perspective,
 such as `Final: SAC lost by 11` or `Final: NDSU won by 26`, while totals show only the combined score, such as
 `Final: 66`. Final favorite and lock surfaces omit their pregame-only detail blocks; expandable and hover details

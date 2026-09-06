@@ -3,7 +3,7 @@ import { getTeamIdentity, normalizedSearch, teamSearchText } from "@/app/lib/tea
 import type { CFBPick, ExpectedPointsPick, FootballLeague, GameResult } from "@/app/types/types";
 
 export type FootballMarket = "spread" | "total";
-export type MarketOutcome = "win" | "loss" | "push" | undefined;
+export type MarketOutcome = "win" | "loss" | "push";
 
 export type LockPick = {
   id: string;
@@ -16,7 +16,7 @@ export function gameResultKey(game: Pick<ExpectedPointsPick | GameResult, "year_
   return `${game.year_week}:${game.game_id}`;
 }
 
-export function marketOutcome(result: GameResult | undefined, market: FootballMarket): MarketOutcome {
+export function marketOutcome(result: GameResult | undefined, market: FootballMarket): MarketOutcome | undefined {
   if (!result) return undefined;
   const value = market === "spread" ? result.spread_win : result.total_win;
   if (value === 1) return "win";
@@ -30,13 +30,13 @@ export function finalScoreLabel(game: ExpectedPointsPick, result: GameResult, le
   return `${away.abbreviation} ${result.away_score} · ${home.abbreviation} ${result.home_score}`;
 }
 
-function displayPoints(value: number): string {
-  const rounded = Math.round(Math.abs(value) * 10) / 10;
+function displayFinalTotal(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
   return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
 }
 
 export function marketFinalResultLabel(game: ExpectedPointsPick, result: GameResult, market: FootballMarket, league: FootballLeague): string {
-  if (market === "total") return `Final: ${displayPoints(result.true_total)}`;
+  if (market === "total") return `Final: ${displayFinalTotal(result.true_total)}`;
   const pickedHome = game.spread_play === game.home_team;
   const pickedScore = pickedHome ? result.home_score : result.away_score;
   const opponentScore = pickedHome ? result.away_score : result.home_score;

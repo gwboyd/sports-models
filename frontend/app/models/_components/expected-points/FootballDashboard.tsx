@@ -73,7 +73,7 @@ function GameStatus({ game, result, league, timeZone, align = "right" }: { game:
   );
 }
 
-function outcomeClasses(outcome: MarketOutcome, locked: boolean, fallback: string): string {
+function outcomeClasses(outcome: MarketOutcome | undefined, locked: boolean, fallback: string): string {
   if (outcome === "win") return `border-[var(--success)] ${locked ? "bg-green-50" : "bg-white"}`;
   if (outcome === "loss") return `border-[var(--danger)] ${locked ? "bg-red-50" : "bg-white"}`;
   if (outcome === "push") return `border-slate-400 ${locked ? "bg-slate-100" : "bg-white"}`;
@@ -92,7 +92,8 @@ function MarketResultLine({ game, result, market, league }: { game: ExpectedPoin
     : outcome === "loss"
       ? "text-[var(--danger)]"
       : "text-slate-700";
-  return <span data-market-result={market} className={`numbers-tabular block text-[11px] font-semibold leading-4 ${classes}`}>{marketFinalResultLabel(game, result, market, league)}</span>;
+  const spokenOutcome = outcome === "win" ? "Pick won." : outcome === "loss" ? "Pick lost." : "Pick pushed.";
+  return <span data-market-result={market} className={`numbers-tabular block text-[11px] font-semibold leading-4 ${classes}`}><span className="sr-only">{spokenOutcome} </span>{marketFinalResultLabel(game, result, market, league)}</span>;
 }
 
 function MarketDetails({ game, result, market, league, descriptiveLabels = false, showPick = true, showStatus = true }: { game: ExpectedPointsPick; result?: GameResult; market: FootballMarket; league: FootballLeague; descriptiveLabels?: boolean; showPick?: boolean; showStatus?: boolean }) {

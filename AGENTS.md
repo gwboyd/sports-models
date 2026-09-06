@@ -167,6 +167,8 @@ picks remain unfilled, while locks retain a label and add a light outcome-colore
 a neutral treatment for pushes and state outcomes in the expanded model details rather than adding result badges.
 For a graded current-slate game, replace kickoff information with a compact `Final` label and away/home final score in
 favorite, lock, mobile, and desktop presentations.
+Treat current-page result enrichment as supplemental so an upstream results failure does not prevent current picks
+from rendering; dedicated result routes should continue to surface non-404 failures.
 Finalized spread markets must state the result from the picked team's perspective, such as `Final: SAC lost by 11`;
 finalized totals use only `Final: <combined score>`. Remove pregame-only detail from final favorite and lock surfaces
 while retaining model projection context in expandable or hover details.
