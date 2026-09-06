@@ -1,9 +1,8 @@
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
 from src.sports.football.expected_points_api import build_expected_points_routers
-from src.sports.football.nfl.expected_points import update_picks
 
 
-_routers = build_expected_points_routers(ExpectedPointsLeague.NFL, update_picks.main)
+_routers = build_expected_points_routers(ExpectedPointsLeague.NFL)
 picks = _routers.picks
 pick_results = _routers.results
 update = _routers.update

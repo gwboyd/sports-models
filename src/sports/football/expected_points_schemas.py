@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PickResponse(BaseModel):
@@ -118,7 +120,51 @@ class UpdatePicksRequest(BaseModel):
     allow_non_aws_write: bool = False
 
 
+class CurrentSlateUpdateRequest(BaseModel):
+    """An optional empty body; explicit weeks and local-write flags are not HTTP inputs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ModelUpdateJobResult(BaseModel):
+    id: int
+    model_version: str
+    source_git_sha: str
+    write_time: datetime
+    runtime: float
+    picks_num: int
+    pick_changes: int
+    play_changes: int
+    updates_skipped: int
+
+
+class ModelUpdateJobResponse(BaseModel):
+    status: str
+    league: str
+    run_key: str | None = None
+    model_key: str | None = None
+    season: int | None = None
+    week: int | None = None
+    trigger_source: str | None = None
+    client_name: str | None = None
+    scheduled_for: datetime | None = None
+    created_at: datetime | None = None
+    claimed_at: datetime | None = None
+    completed_at: datetime | None = None
+    updated_at: datetime | None = None
+    attempt_count: int = 0
+    update_id: int | None = None
+    last_error: str | None = None
+    message: str | None = None
+    status_url: str | None = None
+    outcome_unconfirmed: bool = False
+    data: ModelUpdateJobResult | None = None
+
+
 __all__ = [
+    "CurrentSlateUpdateRequest",
+    "ModelUpdateJobResponse",
+    "ModelUpdateJobResult",
     "CFBPickResponse",
     "GameResult",
     "PickResponse",

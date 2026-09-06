@@ -140,6 +140,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/model-update-jobs/{run_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Update Job */
+        get: operations["get_update_job_model_update_jobs__run_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nba-first-basket-upload": {
         parameters: {
             query?: never;
@@ -221,10 +238,15 @@ export interface components {
             /** Write Time */
             write_time: string;
             /** Home Conference */
-            home_conference?: string;
+            home_conference?: string | null;
             /** Away Conference */
-            away_conference?: string;
+            away_conference?: string | null;
         };
+        /**
+         * CurrentSlateUpdateRequest
+         * @description An optional empty body; explicit weeks and local-write flags are not HTTP inputs.
+         */
+        CurrentSlateUpdateRequest: Record<string, never>;
         /** GameResult */
         GameResult: {
             /** Season */
@@ -256,9 +278,9 @@ export interface components {
             /** Spread Lock */
             spread_lock: number;
             /** Correct Spread Play */
-            correct_spread_play?: string;
+            correct_spread_play?: string | null;
             /** Spread Win */
-            spread_win?: number;
+            spread_win?: number | null;
             /** Total Pred */
             total_pred: number;
             /** Total Line */
@@ -272,9 +294,9 @@ export interface components {
             /** Total Lock */
             total_lock: number;
             /** Correct Total Play */
-            correct_total_play?: string;
+            correct_total_play?: string | null;
             /** Total Win */
-            total_win?: number;
+            total_win?: number | null;
             /** Year Week */
             year_week: string;
             /** Game Id */
@@ -286,6 +308,78 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ModelUpdateJobResponse */
+        ModelUpdateJobResponse: {
+            /** Status */
+            status: string;
+            /** League */
+            league: string;
+            /** Run Key */
+            run_key?: string | null;
+            /** Model Key */
+            model_key?: string | null;
+            /** Season */
+            season?: number | null;
+            /** Week */
+            week?: number | null;
+            /** Trigger Source */
+            trigger_source?: string | null;
+            /** Client Name */
+            client_name?: string | null;
+            /** Scheduled For */
+            scheduled_for?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Claimed At */
+            claimed_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
+            /** Update Id */
+            update_id?: number | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Status Url */
+            status_url?: string | null;
+            /**
+             * Outcome Unconfirmed
+             * @default false
+             */
+            outcome_unconfirmed: boolean;
+            data?: components["schemas"]["ModelUpdateJobResult"] | null;
+        };
+        /** ModelUpdateJobResult */
+        ModelUpdateJobResult: {
+            /** Id */
+            id: number;
+            /** Model Version */
+            model_version: string;
+            /** Source Git Sha */
+            source_git_sha: string;
+            /**
+             * Write Time
+             * Format: date-time
+             */
+            write_time: string;
+            /** Runtime */
+            runtime: number;
+            /** Picks Num */
+            picks_num: number;
+            /** Pick Changes */
+            pick_changes: number;
+            /** Play Changes */
+            play_changes: number;
+            /** Updates Skipped */
+            updates_skipped: number;
         };
         /** NBAFirstBasketPick */
         NBAFirstBasketPick: {
@@ -396,50 +490,6 @@ export interface components {
             /** Games */
             games: components["schemas"]["GameResult"][];
         };
-        /** UpdatePicksData */
-        UpdatePicksData: {
-            /** Write Time */
-            write_time: string;
-            /** Week */
-            week: number;
-            /** Season */
-            season: number;
-            /** Environment */
-            environment: string;
-            /** Client Name */
-            client_name: string;
-            /** Runtime */
-            runtime: number;
-            /** Pick Changes */
-            pick_changes: number;
-            /** Pick Changes Games */
-            pick_changes_games: string[];
-            /** Play Changes */
-            play_changes: number;
-            /** Play Changes Games */
-            play_changes_games: string[];
-            /** Updates Skipped */
-            updates_skipped: number;
-            /** Picks Num */
-            picks_num: number;
-            /** Database Updated */
-            database_updated: boolean;
-        };
-        /** UpdatePicksRequest */
-        UpdatePicksRequest: {
-            /** Season */
-            season: number;
-            /** Week */
-            week: number;
-        };
-        /** UpdatePicksResponse */
-        UpdatePicksResponse: {
-            /** Status */
-            status: string;
-            /** Message */
-            message: string;
-            data?: components["schemas"]["UpdatePicksData"];
-        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -544,23 +594,33 @@ export interface operations {
             header: {
                 /** @description Identifier for the requesting entity */
                 "client-name": string;
+                "idempotency-key"?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["UpdatePicksRequest"];
+                "application/json": components["schemas"]["CurrentSlateUpdateRequest"] | null;
             };
         };
         responses: {
-            /** @description Successful Response */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UpdatePicksResponse"];
+                    "application/json": components["schemas"]["ModelUpdateJobResponse"];
+                };
+            };
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUpdateJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -620,15 +680,56 @@ export interface operations {
             header: {
                 /** @description Identifier for the requesting entity */
                 "client-name": string;
+                "idempotency-key"?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["UpdatePicksRequest"];
+                "application/json": components["schemas"]["CurrentSlateUpdateRequest"] | null;
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUpdateJobResponse"];
+                };
+            };
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUpdateJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_update_job_model_update_jobs__run_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -636,7 +737,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UpdatePicksResponse"];
+                    "application/json": components["schemas"]["ModelUpdateJobResponse"];
                 };
             };
             /** @description Validation Error */

@@ -471,3 +471,31 @@ def test_coordinator_backoff_is_weekly_offseason_and_six_hours_active():
         games=[game(league, now + timedelta(days=1))],
         now=now,
     ) == now + timedelta(hours=6)
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_nfl_schedule_fetch_is_fresh_bounded_and_restores_config(monkeypatch, fail):
+    import nflreadpy as nfl
+    from nflreadpy.config import get_config
+    from types import SimpleNamespace
+
+    before = {name: getattr(get_config(), name) for name in ('cache_mode', 'timeout', 'verbose')}
+    def load(seasons):
+        assert seasons == [2025, 2026]
+        assert get_config().cache_mode == 'off'
+        assert get_config().timeout == 5
+        if fail:
+            raise RuntimeError('feed unavailable')
+        return SimpleNamespace(to_dicts=lambda: [{
+            'season': 2026, 'week': 1, 'gameday': '2026-09-06', 'gametime': '13:00',
+            'home_score': None, 'away_score': None,
+        }])
+    monkeypatch.setattr(nfl, 'load_schedules', load)
+    if fail:
+        with pytest.raises(RuntimeError, match='feed unavailable'):
+            schedule_coordinator.load_schedule(ExpectedPointsLeague.NFL, now=datetime(2026, 9, 6, tzinfo=UTC), timeout=5)
+    else:
+        games = schedule_coordinator.load_schedule(ExpectedPointsLeague.NFL, now=datetime(2026, 9, 6, tzinfo=UTC), timeout=5)
+        assert games[0].week == 1
+    assert {name: getattr(get_config(), name) for name in before} == before
+    assert not schedule_coordinator._NFL_SCHEDULE_LOCK.locked()

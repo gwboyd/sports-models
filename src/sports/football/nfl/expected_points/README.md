@@ -107,10 +107,30 @@ Each operational update:
 Only the deployed AWS training Lambda writes automatically. Interactive runs default to `client_name="notebook"`
 and `allow_non_aws_write=False`, so they remain read-only. To perform an intentional notebook write, set
 `allow_non_aws_write=True`; the notebook resolves the latest registered NFL version and requires the exact
-`WRITE NFL <VERSION>` confirmation before using the shared atomic writer. Local API and `sam local` calls are also
-read-only unless their request explicitly enables `allow_non_aws_write`. Changes to this workflow require a
+`WRITE NFL <VERSION>` confirmation before using the shared atomic writer. Local API and SAM-local update requests return `403` and cannot create production schedules. Explicit season/week
+and non-AWS write options remain available to the internal notebook runner, not the HTTP endpoint. Changes to this workflow require a
 human-verified update run before merging, including checks for pick counts, update history, locked-game preservation,
 graded results when applicable, and the read endpoints.
+
+## On-demand refresh
+
+`POST /nfl-update-picks` on the deployed API accepts no season/week body. Use admin `Authorization`, `client-name`,
+and an optional `Idempotency-Key`; the interactive client name `notebook` is reserved and rejected here. It selects the current eligible model slate with the same calendar/rollover policy
+as the coordinator and creates one EventBridge schedule approximately one minute later. A confirmed submission
+returns `202` with the resolved season/week, run key, and status URL; no eligible upcoming slate returns
+`200` / `not_scheduled`. Old explicit-week bodies return `422`.
+
+`GET /model-update-jobs/{run_key}` is an admin-only status read. Reusing the same POST key returns the original job;
+it never moves the target week/time or retrains a completed job. A new key requests a fresh run. The response echoes
+the effective key, including on scheduling errors. Manual jobs share `scheduled_model_updates` and the existing
+versioned atomic writer, retaining the requesting client and the deployed version/SHA at execution time. Calendar
+reconciliation excludes these manual jobs. A delayed job is cancelled if a newer model week has already published.
+
+A failed attempt may still be retried by AWS. Stale jobs are marked `outcome_unconfirmed` in the response rather than
+claiming success or terminal failure; inspect existing logs and failure queues before requesting another run. Apply
+the additive run-table `trigger_source`/`client_name` SQL before deployment; the deployment command checks those
+columns before building or changing AWS. See the root README's on-demand update
+section for request examples, idempotency recovery, timing, status semantics, and rollout checks.
 
 ## Model Release Queue
 

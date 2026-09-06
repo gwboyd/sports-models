@@ -137,6 +137,7 @@ Available routes:
 - `GET /cfb-picks`
 - `GET /cfb-pick-results`
 - `POST /cfb-update-picks`
+- `GET /model-update-jobs/{run_key}` (admin only)
 
 For each update, the shared tracking workflow:
 
@@ -147,12 +148,68 @@ For each update, the shared tracking workflow:
 5. Grades previously saved picks when completed scores are available.
 6. Atomically persists the update record, picks, and newly graded results.
 
-Only the deployed AWS training Lambda writes automatically. Local servers, `sam local`, and other non-AWS runtimes
-are read-only unless the update request explicitly sets `allow_non_aws_write=true`; an authorized non-AWS run uses
-the latest registered release version. Interactive notebooks default to `client_name="notebook"` and
-`allow_non_aws_write=False`. Enabling the flag in a notebook requires typing `WRITE <LEAGUE> <VERSION>` before the
-shared transaction writer can persist anything. Manual update rows retain the notebook/client name and local Git
-identity for auditing.
+Only the deployed AWS training Lambda writes automatically. HTTP update routes submit a current-slate refresh through
+EventBridge Scheduler; they never train in the HTTP invocation. Local API and SAM-local update requests return `403`
+and cannot create production schedules, even when AWS credentials are available. Interactive notebooks remain
+read-only by default (`client_name="notebook"`, `allow_non_aws_write=False`). An intentional notebook write requires
+`allow_non_aws_write=True` and the exact `WRITE <LEAGUE> <VERSION>` confirmation; it uses the latest registered release.
+Explicit season/week and non-AWS write options remain internal notebook-runner inputs, not HTTP request fields.
+
+### On-demand updates
+
+Call either update route with admin `Authorization` and `client-name` headers. The exact client name `notebook` is
+reserved for interactive execution and returns `422` on this API. Send no body (an empty `{}` is also
+accepted); old season/week or `allow_non_aws_write` bodies are rejected with `422`. The API reads current schedule data
+and saved picks, uses the coordinator's model-week selection policy at the actual request time, and saves that exact
+season/week. It honors the 5 AM Eastern rollover and can select a published offseason slate. It does not advance the
+coordinator's periodic-check state. NFL schedule reads disable nflreadpy caching and use the same five-second feed
+timeout as CFB; concurrent NFL fetches serialize briefly so process-global library settings cannot leak between requests.
+Feed failures return `503`; no eligible upcoming slate returns `200` with
+`status="not_scheduled"` and creates no job.
+
+```shell
+curl -i -X POST "$API_URL/nfl-update-picks" \
+  -H "Authorization: $ADMIN_API_KEY" \
+  -H "client-name: will" \
+  -H "Idempotency-Key: nfl-refresh-2026-09-06-1"
+```
+
+A confirmed schedule returns `202` with `run_key`, `season`, `week`, `scheduled_for`, and `status_url`; the `Location`
+header also points to that status URL. The schedule targets a UTC minute 60–120 seconds after selection, with flexible
+windows off; actual training can start later while another run occupies the serialized trainer. The existing
+Scheduler role, retry policy, delivery failure queue, and automatic schedule deletion are reused.
+
+`Idempotency-Key` is optional and scoped per league. Reuse it to retrieve the original job without choosing a new week,
+changing its client/time, or creating another execution. Omit it or choose a new key for an intentional fresh run.
+The effective key is returned in the `Idempotency-Key` response header, including on `503`; supply your own key when
+you need safe retries even after a connection loss. Keys accept 1–200 letters, digits, dots, underscores, colons, or
+hyphens. An uncertain submission can be retried with that same key before its original delivery time. After that time,
+an unconfirmed plan is reported as such and its schedule is never recreated automatically.
+
+```shell
+curl "$API_URL/model-update-jobs/$RUN_KEY" -H "Authorization: $ADMIN_API_KEY"
+```
+
+GET is read-only and admin-protected for both automatic and manual jobs. It returns persisted status, source/client,
+timestamps, attempts, last error, and the linked update ID. Completed jobs include the actual execution version/SHA,
+runtime, pick count, and change counts from update history. A repeated POST returns `202` while pending, or `200` for a
+completed/cancelled/missed or unconfirmed job. Missing jobs return `404`.
+
+`failed` means the last attempt failed; AWS may still retry. Pending/failed jobs more than three hours past their
+scheduled time have `outcome_unconfirmed=true`; this conservative bound covers the configured Scheduler and Lambda
+retry windows. A `planned` row past its delivery time is also unconfirmed. Status reads do not repair jobs or claim
+that missing completion proves a failure. Check CloudWatch and the existing failure queues before requesting another
+run in that situation. No failure-queue consumer or progress-percentage workflow is added.
+
+Manual plans use `trigger_source="api"`, `window_key="manual"`, and `api:<league>:<key-hash>` identities in the existing
+`scheduled_model_updates` table. The calendar coordinator only reconciles `trigger_source="scheduler"` rows. Manual
+and automatic jobs share atomic claiming and completion, but cannot satisfy each other's plans. A delayed manual job
+is cancelled before training if a newer model week has already been published. Existing kickoff preservation and
+grading behavior remains in the notebook workflow.
+
+The trainer records the requesting client and its deployed version/SHA at execution time, including if a deployment
+happens after submission. Older preserved picks/results retain their original versions; canonical release SHAs and
+`first_pick_at` behavior are unchanged. Request IDs and run keys correlate dispatch/training logs.
 
 CFB market selection is deterministic and independent of CFBD provider ordering. A game enters the model when at
 least one participant is FBS and at least one real sportsbook supplies each of the current spread and total. A
@@ -350,8 +407,8 @@ Frontend local testing notes live in [frontend/README.md](/Users/willboyd/Deskto
 The SAM template deploys:
 
 - one HTTP API
-- one API Lambda for read/serve routes
-- one separate training Lambda for `POST /nfl-update-picks`, `POST /cfb-update-picks`, and direct scheduled updates
+- one API Lambda for read/serve routes, current-slate update submission, and job status
+- one separate training Lambda for direct automatic and manually requested scheduled updates
 - one 512 MB schedule-coordinator Lambda that evaluates NFL and CFB calendars
 - two recurring planner schedules, one dynamic schedule group, and stack-managed failure queues and IAM roles
 - one shared Docker image source built for all three functions
@@ -367,12 +424,13 @@ That target:
 - loads deploy settings from `.env`
 - requires a completely clean Git working tree, including no untracked files
 - requires the checked-out branch to be `main`
+- checks that the additive manual-job columns already exist in Supabase before building or changing AWS
 - loads the latest NFL and CFB release rows from Supabase
 - reads each model's `UNRELEASED.md` queue
 - requires a major/minor choice for every non-empty queue and keeps empty queues unchanged
 - prints both model decisions and requires confirmation
 - runs `sam build` and deploys the `sports-models-v2` stack in `us-east-1`
-- verifies the deployed training and coordinator Lambdas are active, share the planned Git SHA, and have the planned
+- verifies the deployed API, training, and coordinator Lambdas are active, share the planned Git SHA, and have the planned
   model versions and target function configuration, using bounded retries for AWS propagation
 - registers finalized release rows only after SAM succeeds; for a kept bootstrap release whose registry SHA is still
   null, initializes that SHA exactly once from the verified deployment; then archives and resets consumed drafts
@@ -391,7 +449,7 @@ make sam-finalize-release-files
 ```
 
 Successful finalization removes the recovery plan. A failed SAM deployment cannot be registered unless a later AWS
-check confirms that the training and coordinator Lambdas have the planned configuration and Git SHA.
+check confirms that the API, training, and coordinator Lambdas have the planned configuration and Git SHA.
 
 ### Scheduled Pick Updates
 
@@ -403,7 +461,11 @@ EventBridge invokes the small coordinator at 4:45 AM and noon Eastern. The early
 5:00 AM training schedule after evaluating the 5:00 AM rollover gate. The coordinator reads
 `schedule_coordinator_state` first; during the offseason it loads schedule feeds only for the weekly check. Apply the idempotent `schedule_coordinator_state` and
 `scheduled_model_updates` statements in `db/sql/001_create_sports_models_schema.sql` to an existing Supabase database
-before deploying this stack version.
+before deploying this stack version. In particular, apply both additive `trigger_source` and `client_name` column
+statements to existing run tables before deploying the on-demand API. Existing rows default to automatic scheduling.
+Validate with `sam validate --lint --template-file template.yaml` and `pytest`; then use the clean-main
+`make sam-deploy` workflow. After deployment, human-verify one keyed update, its replay and GET status, persisted
+pick/update counts, version attribution, started-game preservation, applicable grading, and the read endpoints.
 
 When active, the coordinator loads nflverse and CFBD schedules, persists the upcoming plan in Supabase, and creates or
 updates named one-time EventBridge schedules. Those schedules—not the coordinator—send IAM-authorized events directly
@@ -412,7 +474,7 @@ name and `aws-scheduler:<league>:...` run identity cause both AWS and Supabase t
 
 Week transition is backend-gated. The coordinator keeps the currently published week active until every applicable
 schedule game is final and 5:00 AM Eastern has arrived on the morning after its last game date. It then opens the next
-same-season week. A new season cannot open until its first week enters the four-day horizon. The
+same-season week. A new season switches to active cadence when its first week enters the four-day horizon. The
 next successful notebook run grades prior picks and atomically publishes its slate. If no future games have been
 published, the weekly coordinator check creates no training run. Once the next season's games exist but its first
 kickoff is more than four days away, one weekly offseason training run is scheduled; this also gives the normal
@@ -432,9 +494,11 @@ Papermill starts. A successful database transaction stores the new model-specifi
 the plan's generic `update_id` while marking the plan completed. `model_key` identifies which update-history table to
 join, so adding a scheduled model does not require another link column. This polymorphic link is written atomically
 rather than declared as a cross-table foreign key, which Postgres cannot express. `client_name='aws-scheduler'`
-continues to identify the writer in update history; unscheduled writes have no schedule link and cannot satisfy a
-planned run. Duplicate or concurrent deliveries are no-ops, including recovery when persistence committed before the
-Lambda response completed; failed runs release the claim for Lambda retry. One-time AWS schedules delete themselves after delivery, while
+identifies automatic runs; API-created schedules retain the original requesting client. Unscheduled notebook writes
+have no schedule link and cannot satisfy a planned run. Duplicate or concurrent deliveries are no-ops, including recovery when persistence committed before the
+Lambda response completed; failed runs release the claim for Lambda retry. Claims use a 15-minute lease matching
+the serialized trainer's timeout. An unexpired running claim raises an error rather than acknowledging a retry as
+successful; terminal duplicates remain no-ops. One-time AWS schedules delete themselves after delivery, while
 Supabase retains their lifecycle for operations and a future frontend view. Sample coordinator and direct-training
 events are available at `events/schedule-coordinator.json`, `events/scheduled-nfl-update.json`, and
 `events/scheduled-cfb-update.json`. SAM-local scheduled invocations remain read-only under the normal non-AWS write

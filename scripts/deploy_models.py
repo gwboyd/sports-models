@@ -34,11 +34,13 @@ from src.utils.db.sports_models_db import (
     get_model_release,
     initialize_model_release_source,
     insert_model_releases,
+    verify_manual_update_schema,
 )
 
 
 RECOVERY_PATH = ROOT / ".aws-sam" / "model-release-plan.json"
 AWS_REGION = "us-east-1"
+API_FUNCTION_NAME = "sports-models-api-v2"
 TRAINING_FUNCTION_NAME = "sports-models-training-v2"
 COORDINATOR_FUNCTION_NAME = "sports-models-schedule-coordinator-v2"
 TRAINING_SCHEDULE_GROUP_NAME = "sports-models-training-updates-v2"
@@ -367,6 +369,10 @@ def verify_aws_deployment(
             "SOURCE_GIT_SHA": source_git_sha,
             "SCHEDULE_GROUP_NAME": TRAINING_SCHEDULE_GROUP_NAME,
         },
+        API_FUNCTION_NAME: {
+            "SOURCE_GIT_SHA": source_git_sha,
+            "SCHEDULE_GROUP_NAME": TRAINING_SCHEDULE_GROUP_NAME,
+        },
     }
     last_problem = "AWS Lambda configuration was not available"
     for delay in delays:
@@ -422,15 +428,12 @@ def verify_aws_deployment(
                     f"{function_name} environment mismatch: {', '.join(mismatches)}"
                 )
         training_arn = configurations[TRAINING_FUNCTION_NAME].get("FunctionArn")
-        coordinator_environment = configurations[COORDINATOR_FUNCTION_NAME].get(
-            "Environment", {}
-        ).get("Variables", {})
-        if not training_arn or coordinator_environment.get("TRAINING_FUNCTION_ARN") != training_arn:
-            problems.append(
-                f"{COORDINATOR_FUNCTION_NAME} target does not match {TRAINING_FUNCTION_NAME}"
-            )
+        for function_name in (COORDINATOR_FUNCTION_NAME, API_FUNCTION_NAME):
+            environment = configurations[function_name].get("Environment", {}).get("Variables", {})
+            if not training_arn or environment.get("TRAINING_FUNCTION_ARN") != training_arn:
+                problems.append(f"{function_name} target does not match {TRAINING_FUNCTION_NAME}")
         if not problems:
-            print("AWS training and coordinator Lambdas, model versions, and Git SHA verified.")
+            print("AWS API, training and coordinator Lambdas, model versions, and Git SHA verified.")
             return
         last_problem = "; ".join(problems)
 
@@ -499,6 +502,7 @@ def _main() -> int:
         return 0
 
     _ensure_clean_tree()
+    verify_manual_update_schema()
     source_git_sha = _git("rev-parse", "HEAD")
     releases = {spec.key: get_latest_model_release(spec.key) for spec in MODEL_SPECS}
     drafts = {spec.key: _draft_snapshot(spec) for spec in MODEL_SPECS}
