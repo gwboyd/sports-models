@@ -38,16 +38,17 @@ test("favorites are saved across reloads", async ({ page }) => {
   const favorites = page.locator("[aria-labelledby='favorites-title']");
   const favoriteCard = favorites.locator("article");
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
-  await expect(favoriteCard).toContainText("Model score");
   await expect(favoriteCard).toContainText("Spread lock");
   await expect(favoriteCard).toContainText("Total lock");
-  await expect(favoriteCard).toContainText("Model spread prediction");
-  await expect(favoriteCard).toContainText("Spread win probability");
-  await expect(favoriteCard).toContainText("Model total prediction");
-  await expect(favoriteCard).toContainText("Total win probability");
+  await expect(favoriteCard).not.toContainText("Model score");
+  await expect(favoriteCard).not.toContainText("win probability");
+  await expect(favoriteCard.locator("[data-market-result='spread']")).toContainText("Final: HOME won by 4");
+  await expect(favoriteCard.locator("[data-market-result='total']")).toContainText("Final: 44");
   await expect(favoriteCard).toHaveClass(/border-\[var\(--lock-border\)\]/);
-  await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
-  await expect(favoriteCard.locator("[data-favorite-market='total']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
+  await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
+  await expect(favoriteCard.locator("[data-favorite-market='spread']")).toHaveAttribute("data-outcome", "win");
+  await expect(favoriteCard.locator("[data-favorite-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
+  await expect(favoriteCard.locator("[data-favorite-market='total']")).toHaveAttribute("data-outcome", "loss");
 });
 
 test("results support shareable season selection and CFB empty state", async ({ page }) => {
@@ -92,10 +93,37 @@ test("primary pages do not create horizontal document overflow on mobile", async
   }
 });
 
-test("mobile game markets outline only qualifying locks", async ({ page }) => {
+test("graded outcomes override lock styling on every current-pick card type", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/models/nfl");
   const game = page.locator("[data-game-id='game-test-game']:visible");
-  await expect(game.locator("[data-mobile-market='spread']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
-  await expect(game.locator("[data-mobile-market='total']")).toHaveClass(/border-\[var\(--lock-border\)\]/);
+  await expect(game.locator("[data-game-status='final']")).toContainText("Final");
+  await expect(game.locator("[data-final-score]")).toHaveText("AWAY 20 · HOME 24");
+  await expect(game.locator("[data-mobile-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
+  await expect(game.locator("[data-mobile-market='spread']")).toHaveClass(/bg-green-50/);
+  await expect(game.locator("[data-market-result='spread']")).toContainText("Final: HOME won by 4");
+  await expect(game.locator("[data-mobile-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
+  await expect(game.locator("[data-mobile-market='total']")).toHaveClass(/bg-red-50/);
+  await expect(game.locator("[data-market-result='total']")).toContainText("Final: 44");
+  await expect(game.getByText("Lock", { exact: true })).toHaveCount(2);
+  await expect(page.locator("[data-lock-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
+  await expect(page.locator("[data-lock-market='spread']")).toHaveClass(/bg-green-50/);
+  await expect(page.locator("[data-lock-market='spread'] [data-market-result='spread']")).toContainText("Final: HOME won by 4");
+  await expect(page.locator("[data-lock-market='spread'] [data-final-score]")).toHaveText("AWAY 20 · HOME 24");
+  await expect(page.locator("[data-lock-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
+  await expect(page.locator("[data-lock-market='total']")).toHaveClass(/bg-red-50/);
+
+  const regularGame = page.locator("[data-game-id='game-regular-game']:visible");
+  await expect(regularGame.locator("[data-mobile-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
+  await expect(regularGame.locator("[data-mobile-market='spread']")).toHaveClass(/bg-white/);
+  await expect(regularGame.locator("[data-mobile-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
+  await expect(regularGame.locator("[data-mobile-market='total']")).toHaveClass(/bg-white/);
+  await expect(regularGame.getByText("Lock", { exact: true })).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator("[data-game-id='game-test-game']:visible [data-final-score]")).toHaveText("AWAY 20 · HOME 24");
+  await expect(page.locator("[data-game-id='game-test-game']:visible [data-desktop-market='spread']")).toHaveClass(/border-\[var\(--success\)\]/);
+  await expect(page.locator("[data-game-id='game-test-game']:visible [data-desktop-market='spread']")).toHaveClass(/bg-green-50/);
+  await expect(page.locator("[data-game-id='game-regular-game']:visible [data-desktop-market='total']")).toHaveClass(/border-\[var\(--danger\)\]/);
+  await expect(page.locator("[data-game-id='game-regular-game']:visible [data-desktop-market='total']")).toHaveClass(/bg-white/);
 });

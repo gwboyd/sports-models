@@ -1,13 +1,49 @@
 import { displaySpread, formatGameDate } from "@/app/lib/formatting";
 import { getTeamIdentity, normalizedSearch, teamSearchText } from "@/app/lib/team-data";
-import type { CFBPick, ExpectedPointsPick, FootballLeague } from "@/app/types/types";
+import type { CFBPick, ExpectedPointsPick, FootballLeague, GameResult } from "@/app/types/types";
+
+export type FootballMarket = "spread" | "total";
+export type MarketOutcome = "win" | "loss" | "push";
 
 export type LockPick = {
   id: string;
-  market: "spread" | "total";
+  market: FootballMarket;
   game: ExpectedPointsPick;
   probability: number;
 };
+
+export function gameResultKey(game: Pick<ExpectedPointsPick | GameResult, "year_week" | "game_id">): string {
+  return `${game.year_week}:${game.game_id}`;
+}
+
+export function marketOutcome(result: GameResult | undefined, market: FootballMarket): MarketOutcome | undefined {
+  if (!result) return undefined;
+  const value = market === "spread" ? result.spread_win : result.total_win;
+  if (value === 1) return "win";
+  if (value === 0) return "loss";
+  return "push";
+}
+
+export function finalScoreLabel(game: ExpectedPointsPick, result: GameResult, league: FootballLeague): string {
+  const away = getTeamIdentity(game.away_team, league);
+  const home = getTeamIdentity(game.home_team, league);
+  return `${away.abbreviation} ${result.away_score} · ${home.abbreviation} ${result.home_score}`;
+}
+
+function displayFinalTotal(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+}
+
+export function marketFinalResultLabel(game: ExpectedPointsPick, result: GameResult, market: FootballMarket, league: FootballLeague): string {
+  if (market === "total") return `Final: ${displayFinalTotal(result.true_total)}`;
+  const pickedHome = game.spread_play === game.home_team;
+  const pickedScore = pickedHome ? result.home_score : result.away_score;
+  const opponentScore = pickedHome ? result.away_score : result.home_score;
+  const abbreviation = getTeamIdentity(game.spread_play, league).abbreviation;
+  if (pickedScore === opponentScore) return `Final: ${abbreviation} tied`;
+  return `Final: ${abbreviation} ${pickedScore > opponentScore ? "won" : "lost"} by ${Math.abs(pickedScore - opponentScore)}`;
+}
 
 export function spreadPickLabel(game: ExpectedPointsPick): string {
   const multiplier = game.spread_play === game.away_team ? -1 : 1;
