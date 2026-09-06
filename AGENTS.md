@@ -257,6 +257,8 @@ prior in January/February), or the last explicitly requested `SEASONS`; `THROUGH
 history is retained. Explicit frame paths bypass preparation for that side; never silently use `latest.parquet`.
 CLI `prepare-frame` is an optional inspection tool that stops before training. `PREFLIGHT_ONLY=1` prepares/checks
 inputs without fitting. The guide documents date/context overrides, frame reuse, caches, artifacts, and recovery.
+Generated preparation cells must remain valid for the source notebook's schema, including older release notebooks
+without cell-ID support; validate the generated notebook before execution without changing its executable source.
 Keep candidate code/settings fixed throughout the job; prepared provenance rejects stale code. Retain Parquet/JSON
 pairs and regenerate metadata with `save_backtest_frame(..., destination=...)` after filtering. Finished baseline and
 candidate runs survive later failures and can be reused with `artifact:<path>`; comparison artifacts automatically

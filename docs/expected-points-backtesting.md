@@ -148,6 +148,8 @@ automatic comparison so each recipe uses its own feature logic. Standalone prepa
 frame boundary, saves `frame.parquet`/`frame.json` plus the executed notebook and log, and stops before training,
 inspection, comparison, or persistence. An absent/ambiguous boundary fails closed. Both the normal comparison and
 standalone preparation use the selected source's settings; they record code and notebook identities.
+Generated control/export cells preserve the source notebook schema, including legacy 4.4 notebooks, and are validated
+before execution. The checked-in source notebook is not rewritten.
 
 The NFL/CFB notebooks remain interactive inspection surfaces. Set `write_backtest_frame=True` and run only through
 **Save historical backtest frame (optional)** to export `df` to `frames/<league>/latest.parquet` without fitting.

@@ -125,7 +125,12 @@ def preparation_notebook(source: Path, *, export_root: Path, current_year: int, 
         f"save_backtest_frame(df, expected_points_recipe.league, root={str(export_root)!r})\n"
     ))
     for cell in notebook.cells:
+        # nbformat's new-cell helpers add IDs, but legacy 4.4 release notebooks
+        # cannot contain them. Preserve the source schema and executable code.
+        if notebook.nbformat_minor < 5:
+            cell.pop("id", None)
         if cell.cell_type == "code":
             cell.outputs = []
             cell.execution_count = None
+    nbformat.validate(notebook)
     return notebook

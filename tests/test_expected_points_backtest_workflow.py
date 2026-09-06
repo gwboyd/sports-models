@@ -306,3 +306,21 @@ def test_make_default_does_not_supply_implicit_latest_frame():
     assert '--baseline "deployed"' in result.stdout
     assert '--candidate "working-tree"' in result.stdout
     assert '--frame' not in result.stdout and '--candidate-frame' not in result.stdout
+
+
+@pytest.mark.parametrize('minor', [4, 5])
+def test_preparation_preserves_valid_legacy_and_current_notebook_schemas(tmp_path, minor):
+    path = tmp_path / 'source.ipynb'
+    synthetic_notebook(path)
+    original = nbformat.read(path, as_version=4)
+    original.nbformat_minor = minor
+    if minor < 5:
+        for cell in original.cells:
+            cell.pop('id', None)
+    nbformat.write(original, path)
+    prepared = preparation_notebook(path, export_root=tmp_path / 'export', current_year=2026, current_week=1)
+    nbformat.validate(prepared)
+    assert prepared.nbformat_minor == minor
+    assert all(('id' in cell) == (minor >= 5) for cell in prepared.cells)
+    assert prepared.cells[0].source == original.cells[0].source
+    assert prepared.cells[2].source == original.cells[1].source

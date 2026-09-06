@@ -207,6 +207,8 @@ include `SEASONS`, `THROUGH_SEASON`, `CADENCE`, `BOOTSTRAP_SAMPLES`, `OUTPUT_DIR
 `CURRENT_YEAR`/`CURRENT_WEEK` override preparation context only. Saved frames are used only when explicitly requested;
 otherwise each run prepares fresh version-specific inputs. Comparisons retain independent baseline/candidate runs,
 input bundles, requests, notebooks, status, and logs. Completed artifacts remain reusable after a later failure.
+Generated preparation notebooks preserve and validate the selected source's schema, including legacy release
+notebooks; the versioned source notebooks remain untouched.
 
 `quick` samples the latest evaluable season, `standard` runs every week across the latest three, and `full` requests
 four. `BASELINE` accepts `deployed`, `version:N.N`, `sha:<git-sha>`, or `artifact:<path>`. Historical refs execute in
