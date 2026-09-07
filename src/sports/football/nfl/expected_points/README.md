@@ -166,14 +166,30 @@ plain language; omit code references, experiment settings, and evaluations. Keep
 as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Optional evaluation/internal
 sections remain supported by the parser for compatibility, but are not part of new public drafts.
 
-Production deployment is performed through `make sam-deploy`. The command prompts for `major` or `minor` whenever
-this queue is non-empty, keeps the current version when it is empty, prints the NFL and CFB decisions together, and
-requires confirmation, a completely clean Git tree, and the checked-out `main` branch. Both models share one training Lambda image, so a populated
-NFL queue ships in the same AWS deployment as CFB. After SAM succeeds, the command verifies the active Lambda's model
-versions and Git SHA before registering the draft in the Supabase `model_releases` table and archiving it as
-`releases/vN.N.md`; the working queue is then reset. When a kept bootstrap release still has no registry SHA, this
-verified registration step initializes it exactly once without moving an existing SHA. A release is considered live
-only after its first successful AWS pick update records `first_pick_at`.
+Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
+registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
+notes to `releases/vN.N.md`, clearing the drafts, and updating root `model-versions.json`. Commit these files and the
+updated whole-model How It Works pages with the implementation, then merge once. Preparation writes no Supabase rows
+and does not deploy. If more prediction changes follow preparation, copy the unpublished release notes back into
+UNRELEASED.md, update the complete draft and How It Works, and rerun prep. After confirmation it amends that same
+unregistered version and clears the draft. Any nonblank draft blocks deployment. After registration, new prediction
+changes require a new major/minor version. Do not manually clear drafts to bypass these checks.
+
+Run `make sam-deploy` on clean `main` to deploy the committed versions. It rejects unprepared drafts, stale versions,
+and changed registered notes, prints both versions, and requires confirmation. Both commands show changed source
+and dependency inputs since the immutable registered SHA. Keeping the version despite those signals requires an
+explicit prediction-neutral classification; they never choose a bump automatically. After SAM succeeds it verifies the
+API, training, and coordinator Lambdas, registers/verifies releases in Supabase, and clears its ignored recovery plan.
+It does not modify tracked files, so there is no second documentation merge. Existing canonical SHAs remain fixed;
+a null bootstrap SHA is initialized only once. Supabase records actual deployment metadata and marks a release live
+at its first successful AWS pick update (`first_pick_at`). The manifest and notes alone only indicate preparation.
+
+For a failed build/deploy, rerun `make sam-deploy` at the same clean commit to resume its plan. After AWS succeeds,
+Deployment rechecks the registry after confirmation and build to reject competing releases. Recovery validates both
+league snapshots and their note hashes before verifying AWS or registering releases.
+`make sam-register-releases` can recover registration without rebuilding or changing tracked files. See the root
+README for recovery and preparation details. Prediction-neutral changes keep the manifest versions and empty drafts.
+
 
 ## Features
 

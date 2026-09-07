@@ -185,21 +185,6 @@ def initialize_model_release_source(
         return str(registered_sha)
 
 
-def insert_model_release(
-    model: ModelKey | str,
-    version: str,
-    draft: ReleaseDraft,
-    *,
-    source_git_sha: str | None,
-    deployed_at: datetime,
-) -> None:
-    insert_model_releases(
-        [(model, version, draft)],
-        source_git_sha=source_git_sha,
-        deployed_at=deployed_at,
-    )
-
-
 def insert_model_releases(
     releases: Iterable[tuple[ModelKey | str, str, ReleaseDraft]],
     *,

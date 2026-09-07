@@ -20,6 +20,8 @@ newer deployment.
 - `tests/`: Python test modules for API/Lambda behavior.
 - `events/`: Sample AWS SAM event payloads for local invocation.
 - `scripts/backtest_expected_points.py`: Read-only NFL/CFB weekly walk-forward runner and baseline comparator.
+- `scripts/deploy_models.py`: Local release preparation, clean-main deployment, and registration recovery.
+- `model-versions.json`: Committed intended NFL/CFB versions; actual deployment/live status remains in Supabase.
 - `python/`: Vendored Python packages for Lambda packaging/layer-style usage.
 - `main.py`: FastAPI app entrypoint, auth/permissions, router mounting, and Mangum handler.
 - `template.yaml`: AWS SAM template for the Lambda function and API event wiring.
@@ -305,7 +307,9 @@ and avoid overlapping retries. Update the guide whenever commands, defaults, cac
 The improvement workflow is: define the question and evidence population; implement the candidate with focused
 correctness/leakage checks; use the standard comparison unless an explicit research design needs a different profile;
 record every attempted variant and uncertainty in local studies/reports; select based on the complete evidence;
-update public release notes and the whole-model explanation; complete the required review and clean-main deployment.
+update public release notes and the whole-model explanation; run `make prepare-model-release` before the original
+commit/merge; complete the required review and clean-main deployment. The detailed optimization and release-preparation
+workflow is in [`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md#from-an-improvement-idea-to-a-release).
 If the user explicitly waives a fresh comparison after a prediction change, record that gap in the existing evaluation report
 and index. Do not present earlier results as measurements of the changed recipe or assume a correctness fix improves
 accuracy. Later comparisons must rebuild from the current source and preserve the deployed baseline unchanged.
@@ -326,9 +330,10 @@ shaping belong beside the NFL or CFB workflow. Shared NFL/CFB HTTP schemas belon
 `src/sports/football/expected_points_schemas.py`.
 
 Prediction-affecting expected-points work must be recorded in the applicable
-`src/sports/football/<league>/expected_points/UNRELEASED.md`. The file is intentionally empty when there is no
-pending model release. A non-empty draft must be released as either a major or minor version by the next production
-deployment; it cannot ship under the old version.
+`src/sports/football/<league>/expected_points/UNRELEASED.md`. The file is intentionally empty when there are no
+unprepared model changes. Before commit/merge, prepare a non-empty draft as a major or minor release; it cannot ship
+under the old version. After preparation, pending release notes live in `releases/vN.N.md` and the intended version
+lives in root `model-versions.json`, even though `UNRELEASED.md` is empty.
 
 Keep the three documentation surfaces distinct:
 
@@ -356,25 +361,58 @@ across variants; studies should reference normal comparison jobs instead of copy
 rather than new ad hoc top-level folders. Cleanup must preserve selected runs, referenced research, baseline caches,
 and complete frame/metadata bundles; check references and active runs before removing superseded artifacts.
 
-After a successful release, the deployment command archives the exact draft under `releases/vN.N.md` and resets the
-working file. Documentation, frontend, API-output, database, and infrastructure-only changes do not belong in the draft.
+Before merging a model release, `make prepare-model-release` saves the exact draft under `releases/vN.N.md`, clears
+the working file, and updates `model-versions.json`. Commit these with the model changes and applicable whole-model
+How It Works pages. Documentation, frontend, API-output, database, and infrastructure-only changes do not belong in
+the draft and keep the prepared versions unchanged.
 
 `.dockerignore` must exclude `.backtests/` as well as `.env` and other local artifacts. Git-ignore rules alone do
 not keep reports, snapshots, caches, or environment directories out of Docker's `COPY . .` build context.
 
-Production model deployments use the interactive `make sam-deploy` workflow only. It loads both drafts, prompts for
-major/minor for every non-empty draft, keeps empty drafts at their latest version, prints both decisions, and requires
-final confirmation. The checked-out branch must be `main`, and the working tree, including untracked files, must be
-completely clean so the deployed image matches the recorded Git SHA. NFL and CFB share one training Lambda image, so both populated drafts must be released
-in the same deployment. Before building/changing AWS, verify the additive manual-job database columns exist.
-There is no GitHub Actions version gate, source fingerprint, or changed-path heuristic. After
-SAM succeeds, the command uses bounded retries to verify that the active API, training, and coordinator Lambdas share the
-planned Git SHA and that training contains both planned model versions; only then does it record release rows and
-initialize any kept bootstrap release's null source SHA. That conditional initialization is one-time and must never
-replace a non-null registry SHA. A release is considered live only after its first successful AWS pick update sets
-`first_pick_at`. The ignored `.aws-sam/model-release-plan.json` preserves exact
-draft snapshots for recovery. `make sam-register-releases` re-verifies AWS before registering, while
-`make sam-finalize-release-files` verifies the Supabase rows before archiving/resetting drafts and removing the plan.
+The release workflow is **prepare on the feature branch, commit/merge once, then deploy clean main**.
+`make prepare-model-release` reads Supabase versions, prompts for major/minor for every non-empty draft, and confirms
+before writing local release files and `model-versions.json`. It never deploys or writes Supabase. Both populated
+league drafts must be prepared together because they share one training image. Empty drafts retain their prepared
+versions. If prediction changes continue after preparation, copy the unpublished release notes back to UNRELEASED.md,
+update that consolidated draft and the whole-model explanation, then rerun preparation. It shows the diff and amends
+the same unregistered version after confirmation. Never clear a draft manually to bypass deployment or drop prior
+changes while consolidating notes. Any nonblank UNRELEASED.md content blocks deployment, including after preparation.
+Once registered, new prediction changes require a fresh major/minor bump. Registered notes are immutable.
+Preparation rejects stale versions, unrelated existing destinations, and unresolved recovery plans, rechecks registry
+versions after confirmation, and restores original files on ordinary write failures. Write notes and versions before
+clearing drafts so a process interruption cannot permit deployment under old versions.
+After a hard-killed preparation, inspect/restore the affected Git diff before retrying rather than committing partial files.
+
+Production deployments use interactive `make sam-deploy` only. It reads the committed manifest and release notes,
+rejects non-empty drafts, downgrades, invalid version increments, and edits to registered notes, prints both versions,
+and requires confirmation. The checked-out branch must be `main` and the entire working tree, including untracked
+files, must be clean. Check source cleanliness/SHA before build and again before deployment. Before changing AWS,
+verify the additive manual-job database columns exist. Recheck registered versions after confirmation and after the
+build; a competing release or a planned version registered from different source blocks deployment. Run only one
+production deployment at a time; these checks are not a distributed deployment lock. Preparation and deployment show
+broad source/dependency review signals against each league's immutable registered SHA, including shared source, notebooks/data, deleted files and
+untracked helpers. Changed inputs with a kept registered version require explicit `neutral` classification; `release`
+or `abort` stops the command so the draft can be updated. Missing Git history blocks review; a bootstrap release with
+no SHA requires manual classification. File changes are indicators, not an automatic major/minor decision or proof of
+prediction impact. For a prepared new version, review the changed inputs against its notes and How It Works before
+confirming deployment. These signals do not replace recording changes as they happen or guarantee detection of every
+semantic change. There is no automatic version bump.
+After SAM succeeds, bounded retries verify the API, training, and coordinator Lambdas share the planned Git SHA and
+training contains both planned versions. Only then register and verify release rows. Existing canonical release SHAs
+remain immutable; initialize a kept bootstrap release's null SHA at most once. Supabase owns deployed timestamps and
+canonical SHAs, and a release becomes live when its first successful AWS update sets `first_pick_at`. The tracked
+manifest/notes describe prepared intent; new notes must not claim deployment timestamps or source SHAs. Preserve the
+historical metadata in existing archives through 2.0.
+
+Deploy and registration recovery never modify tracked files. The ignored `.aws-sam/model-release-plan.json` retains
+exact notes, versions, source SHA, and verified deployment time until registry verification succeeds.
+Recovery must validate exactly one choice per league, version increments, note fields/hashes, and deployment time
+before contacting AWS or writing releases; malformed plans must be restored, not discarded to bypass verification.
+Retry a failed build/deploy with `make sam-deploy` on the same clean commit; retain the original plan even if registry
+writes already succeeded. Different source/releases cannot overwrite an unfinished plan. If AWS succeeded, `make sam-register-releases`
+re-verifies AWS, registers/verifies the saved release snapshots, and clears the plan without rebuilding. Resolve an
+old deployment's actual AWS/registry state before deliberately retiring a plan for a source fix. The former
+`sam-finalize-release-files` command is removed: preparation replaces post-deployment archiving and the second merge.
 
 On-demand `POST /nfl-update-picks` and `POST /cfb-update-picks` require admin auth and `client-name`, take no body
 (or `{}`), and optionally accept an `Idempotency-Key` scoped per league. Reject the reserved interactive client name `notebook`. They use the shared week selector at actual

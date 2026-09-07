@@ -1,8 +1,8 @@
 """Expected-points model release drafts and version arithmetic.
 
-The release queue is intentionally Markdown rather than a second configuration
-language.  This module owns the small, strict subset of Markdown that the
-deployment command needs to persist safely.
+Release notes use a small, strict Markdown format. Prepared versions live in
+model-versions.json; this module owns version arithmetic and note parsing shared
+by preparation, deployment, and persistence.
 """
 
 from __future__ import annotations
@@ -132,18 +132,3 @@ def parse_release_markdown(markdown: str, *, source: str = "release draft") -> R
 def parse_release_file(path: str | Path) -> ReleaseDraft | None:
     path = Path(path)
     return parse_release_markdown(path.read_text(encoding="utf-8"), source=str(path))
-
-
-def build_archive_markdown(
-    draft: ReleaseDraft,
-    *,
-    model_key: ModelKey,
-    version: ModelVersion,
-    deployed_at: str,
-    source_git_sha: str,
-) -> str:
-    metadata = (
-        f"<!-- model_key: {model_key.value}; version: {version}; "
-        f"deployed_at: {deployed_at}; source_git_sha: {source_git_sha} -->\n\n"
-    )
-    return metadata + draft.original_markdown.rstrip() + "\n"
