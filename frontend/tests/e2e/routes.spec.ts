@@ -76,6 +76,17 @@ test("legacy model information redirects into the NFL section", async ({ page })
   await expect(page.getByRole("heading", { name: "Dynamic moving averages" })).toHaveCount(0);
 });
 
+test("CFB methodology is reachable from league navigation", async ({ page }) => {
+  await page.goto("/models/cfb");
+  const navigation = page.getByRole("navigation", { name: "CFB model navigation" });
+  await navigation.getByRole("link", { name: "How it works" }).click();
+  await expect(page).toHaveURL(/\/models\/cfb\/how-it-works$/);
+  await expect(navigation.getByRole("link", { name: "How it works" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "CFB Expected Points Model" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Opponent adjustment with ridge regression" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "FBS and FCS opponents" })).toBeVisible();
+});
+
 test("NBA route preserves the bankroll workflow", async ({ page }) => {
   await page.goto("/models/nba?bankroll=500");
   await expect(page.locator("input")).toHaveValue("500");
@@ -85,7 +96,7 @@ test("NBA route preserves the bankroll workflow", async ({ page }) => {
 
 test("primary pages do not create horizontal document overflow on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const route of ["/models/nfl", "/models/cfb", "/models/nfl/results?season=2024", "/models/nfl/how-it-works"]) {
+  for (const route of ["/models/nfl", "/models/cfb", "/models/nfl/results?season=2024", "/models/nfl/how-it-works", "/models/cfb/how-it-works"]) {
     await page.goto(route);
     const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
     expect(widths.scroll).toBeLessThanOrEqual(widths.client);

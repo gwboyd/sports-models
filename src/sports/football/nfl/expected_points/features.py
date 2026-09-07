@@ -11,8 +11,11 @@ from src.sports.football.transforms import (
     OpponentAdjustmentConfig,
     OpponentMetricSpec,
     build_opponent_adjusted_team_metrics,
+    resolve_opponent_adjustment_config,
 )
 from src.sports.football.kickoff import parse_eastern_kickoffs
+
+DEFAULT_NFL_OPPONENT_ADJUSTMENT = OpponentAdjustmentConfig(adjustment_strength=0.5)
 
 
 def calculate_nfl_passer_rating(
@@ -58,6 +61,37 @@ def calculate_nfl_passer_rating(
     )
     bounded = [min(2.375, max(0.0, component)) for component in components]
     return float(sum(bounded) / 6 * 100)
+
+
+def build_pregame_quarterback_metrics(starting_qbs: pd.DataFrame) -> pd.DataFrame:
+    """Smooth only earlier starts; unknown/debut quarterbacks remain missing.
+
+    The caller joins scheduled starters to game-level passer ratings. Never fill
+    a debut from a full-dataset average: that would incorporate future outcomes.
+    Missing inputs are handled natively by the score estimator inside each fit.
+    """
+    required = {"player_id", "season", "week", "gameday", "gametime", "qbr", "passer_rating", "player_name"}
+    missing = sorted(required - set(starting_qbs.columns))
+    if missing:
+        raise ValueError(f"Quarterback history is missing columns: {missing}")
+    output = starting_qbs.copy()
+    output["__kickoff"] = parse_eastern_kickoffs(
+        output["gameday"].astype(str) + "-" + output["gametime"].astype(str)
+    )
+    if output["__kickoff"].isna().any():
+        raise ValueError("Quarterback history has invalid kickoff times")
+    known = output.loc[output["player_id"].notna()]
+    if known.duplicated(["player_id", "__kickoff"]).any():
+        raise ValueError("A quarterback cannot have multiple starts at the same kickoff")
+    output = output.sort_values(["__kickoff", "player_id"], kind="stable").reset_index(drop=True)
+    for metric in ("passer_rating", "qbr"):
+        shifted = f"{metric}_shifted"
+        output[shifted] = output.groupby("player_id")[metric].shift()
+        output[f"ewma_{metric}"] = output.groupby("player_id")[shifted].transform(
+            lambda values: values.ewm(min_periods=1, span=10).mean()
+        )
+    output["player_name"] = output.groupby("player_id")["player_name"].shift()
+    return output.drop(columns=["__kickoff", "gameday", "gametime"])
 
 
 def build_nfl_opponent_adjusted_metrics(
@@ -117,7 +151,7 @@ def build_nfl_opponent_adjusted_metrics(
             OpponentMetricSpec("rush_success", "success_rate_rushing_offense", "success_rate_rushing_defense", "static"),
             OpponentMetricSpec("pass_success", "success_rate_passing_offense", "success_rate_passing_defense", "static"),
         ),
-        config=config,
+        config=resolve_opponent_adjustment_config(config, defaults=DEFAULT_NFL_OPPONENT_ADJUSTMENT),
         strict=strict,
     )
     metrics = metrics.rename(columns={
@@ -164,4 +198,4 @@ def build_nfl_opponent_adjusted_metrics(
     return metrics.loc[:, epa_columns], success
 
 
-__all__ = ["build_nfl_opponent_adjusted_metrics", "calculate_nfl_passer_rating"]
+__all__ = ["DEFAULT_NFL_OPPONENT_ADJUSTMENT", "build_nfl_opponent_adjusted_metrics", "calculate_nfl_passer_rating"]

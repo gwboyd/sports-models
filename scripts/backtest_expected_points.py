@@ -24,7 +24,6 @@ if str(ROOT) not in sys.path:
 
 from src.model_patterns.expected_points.backtesting import (
     BacktestSpec,
-    compare_backtest_runs,
     dependency_fingerprint,
     load_backtest_frame,
     load_backtest_run,
@@ -35,7 +34,7 @@ from src.model_patterns.expected_points.backtesting import (
 )
 from src.model_patterns.expected_points.backtest_artifacts import save_backtest_frame, write_json_atomic
 from src.model_patterns.expected_points.backtest_workflow import (
-    historical_frame, preflight_artifact, preflight_frames, preparation_notebook,
+    historical_frame, preflight_artifact, preflight_frames, preparation_notebook, compare_prepared_runs,
 )
 from src.model_patterns.expected_points.recipes import get_expected_points_recipe
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
@@ -368,6 +367,13 @@ def _comparison_inputs(args: argparse.Namespace, output: Path) -> None:
         setattr(args, f"{side}_frame", str(path))
 
 
+def _comparison_code_identity(league: str) -> tuple[str, str]:
+    """Include orchestration/feature cells throughout the full comparison job."""
+    notebook = ROOT / f"src/sports/football/{league}/expected_points/notebook.ipynb"
+    return (recipe_code_identity(ExpectedPointsLeague(league)),
+            hashlib.sha256(notebook.read_bytes()).hexdigest())
+
+
 def _compare(args: argparse.Namespace) -> Path:
     output = Path(args.output_dir).resolve() if args.output_dir else (
         ROOT / ".backtests/expected_points/comparisons" / args.league / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -375,7 +381,7 @@ def _compare(args: argparse.Namespace) -> Path:
     with _job(output, args):
         spec = _spec(args)
         frames = {}
-        current_identity = recipe_code_identity(ExpectedPointsLeague(args.league))
+        current_identity = _comparison_code_identity(args.league)
         logging.info("Comparison job: %s; profile=%s; %s vs %s", output, args.profile, args.baseline, args.candidate)
         _comparison_inputs(args, output)
         write_json_atomic(output / "resolved_request.json", vars(args))
@@ -424,20 +430,26 @@ def _compare(args: argparse.Namespace) -> Path:
         write_json_atomic(output / "resolved_request.json", vars(args))
         logging.info("Preflight passed: %s source rows, seasons %s, %s cutoffs per recipe",
                      report["rows"], report["seasons"], len(report["cutoffs"]))
+        if report["training_history_differs"]:
+            logging.info("Earlier training history differs: baseline=%s; candidate=%s. Evaluation inputs match.",
+                         report["baseline_training_seasons"], report["candidate_training_seasons"])
         if args.preflight_only:
             return output
         runs = {}
         for side in ("baseline", "candidate"):
             if "working-tree" in (args.baseline, args.candidate):
-                if recipe_code_identity(ExpectedPointsLeague(args.league)) != current_identity:
+                if _comparison_code_identity(args.league) != current_identity:
                     raise RuntimeError("Working-tree code changed during comparison; regenerate frames and retry")
             runs[side] = _load_or_run(args, getattr(args, side), candidate=(side == "candidate"), output=output / side)
         if "working-tree" in (args.baseline, args.candidate):
-            if recipe_code_identity(ExpectedPointsLeague(args.league)) != current_identity:
+            if _comparison_code_identity(args.league) != current_identity:
                 raise RuntimeError("Working-tree code changed during comparison; completed artifacts are retained")
         baseline, candidate = runs["baseline"], runs["candidate"]
         logging.info("Both runs saved. Calculating paired intervals (%s bootstrap samples)", args.bootstrap_samples)
-        comparison = compare_backtest_runs(baseline, candidate, bootstrap_samples=args.bootstrap_samples)
+        comparison = compare_prepared_runs(
+            baseline, candidate, frames["baseline"], frames["candidate"], spec,
+            bootstrap_samples=args.bootstrap_samples,
+        )
         write_comparison_artifacts(comparison, output_dir=output)
     return output
 

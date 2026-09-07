@@ -207,6 +207,13 @@ include `SEASONS`, `THROUGH_SEASON`, `CADENCE`, `BOOTSTRAP_SAMPLES`, `OUTPUT_DIR
 `CURRENT_YEAR`/`CURRENT_WEEK` override preparation context only. Saved frames are used only when explicitly requested;
 otherwise each run prepares fresh version-specific inputs. Comparisons retain independent baseline/candidate runs,
 input bundles, requests, notebooks, status, and logs. Completed artifacts remain reusable after a later failure.
+For repeated opponent-adjustment research on frozen inputs, the backtesting guide also documents an optional
+experiment runner; it uses the same fitter and paired reports. The normal command above remains the default.
+An explicit [training-history study](docs/expected-points-backtesting.md#explicit-training-history-experiments)
+can add older CFB training rows while freezing existing features and evaluated games; it requires saved frame
+bundles and checks actual season coverage. The normal command also supports changes to earlier training windows:
+it regenerates features, reports differing histories, and requires identical evaluation inputs and shared historical
+outcomes/markets. CFB now defaults to 2018 training with 2020 excluded before loading, Elo, and efficiency features.
 Generated preparation notebooks preserve and validate the selected source's schema, including legacy release
 notebooks; the versioned source notebooks remain untouched.
 
@@ -270,12 +277,13 @@ for chart generation and never supplies pick or confidence features.
 The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered
 slate. CFB games appear once and can be filtered by either team's conference. Shared results routes derive season and
 weekly summaries from the existing graded-game responses; an unavailable CFB result set renders an empty state until
-the first games are graded. NFL methodology and live model graphics are available on separate nested routes.
+the first games are graded. NFL and CFB each have a public How It Works route; NFL live model graphics have a
+separate Insights route.
 The shared presentation uses compact eight-pixel surfaces, limited shadows, and custom electric ink blue (`#0B5FCC`) accents while retaining
 44px mobile touch targets. Lock cards use a uniform light-blue outline; favorite cards inherit that outline and show
 spread and/or total lock tags when those markets qualify.
-The NFL How It Works route renders the full public methodology document, including its detailed feature sections and
-responsive Markdown charts, while developer operations remain in the model README.
+Both How It Works routes render their public methodology Markdown through a shared renderer, including detailed
+feature explanations and responsive images, while developer operations remain in the model READMEs.
 On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the
 Favorites section rather than a duplicate hero action. Search and favorite sheets follow the visible browser viewport
 and freeze background scrolling so iOS software-keyboard changes do not move the sheet off screen.
@@ -368,6 +376,9 @@ The SAM template deploys:
 - two recurring planner schedules, one dynamic schedule group, and stack-managed failure queues and IAM roles
 - one shared Docker image source built for all three functions
 
+Local `.backtests/` artifacts are excluded from the Docker build context in `.dockerignore`, independently of Git
+ignore rules, so generated reports, historical frames, and caches do not enter the Lambda image.
+
 Repeat production deploys:
 
 ```shell
@@ -401,6 +412,20 @@ changing Markdown:
 make sam-register-releases
 make sam-finalize-release-files
 ```
+
+Release notes flow directly from each `UNRELEASED.md` into `sports_models.model_releases`: the title maps to
+`title`, `## Public Summary` to `public_summary`, and `## Changes` to `changes_md`. Write these as public descriptions
+of shipped model differences, without code references or evaluation results. Keep evaluation evidence in separate
+reports such as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Omitted optional sections become
+null `evaluation_md`/`internal_notes_md` fields. The deploy workflow supplies the model key, selected version,
+major/minor numbers, verified source Git SHA, and deployment timestamp; no manual release-row SQL is needed.
+The title does not select the version: choose `major` for each model to advance from 1.0 to 2.0.
+
+Before deployment, complete the required human update-workflow review, commit the intended changes, and merge them
+into `main`. Resolve unrelated untracked files deliberately so the checkout is completely clean, then run
+`make sam-deploy` and confirm the printed versions. After success, commit the generated `releases/vN.N.md` archives
+and emptied drafts. The next successful AWS update for each model marks its release live and attributes new picks
+to that version; previously locked picks retain their original versions.
 
 Successful finalization removes the recovery plan. A failed SAM deployment cannot be registered unless a later AWS
 check confirms that the training and coordinator Lambdas have the planned configuration and Git SHA.
@@ -465,6 +490,29 @@ curl https://your-api-id.execute-api.us-east-1.amazonaws.com/health
 ```
 
 ## Documentation Maintenance
+
+Treat model improvement as a complete loop: define the hypothesis and evaluation population, implement with
+chronology checks, compare against deployed with the standard command, record variants and uncertainty in local
+studies/reports, then update the release notes and complete public methodology before review/deployment. If a user
+waives reevaluation after a prediction change, record that gap and do not reuse earlier gains as proof of the new recipe.
+
+Model releases have three documentation surfaces. `UNRELEASED.md` is a short public account of what changes;
+`frontend/content/nfl-how-it-works.md` and `frontend/content/cfb-how-it-works.md` explain how the applicable model
+version operates, including its assumptions and limitations. They must describe the whole current model rather than emphasizing only the latest release. Review those pages
+whenever a version changes and update both when shared behavior changes. Coordinate frontend publication with the backend release, and keep
+version labels, metrics, history windows, confidence rules, and scheduling accurate.
+
+Model improvement, experiment, and optimization reports belong in Git-ignored `.backtests/expected_points/reports/`.
+Code-review findings and routine implementation/status summaries belong in chat unless a saved document is requested.
+Individual evaluation jobs
+belong in `comparisons/<league>/<timestamp>/`, while studies across variants belong in `experiments/<dated-study>/`
+and reference their comparison jobs. A local `.backtests/expected_points/README.md` indexes selected evidence.
+The directory-specific `.backtests/expected_points/AGENTS.md` explains how to read artifacts and write the
+study plans, ledgers, and reports that runners do not create automatically; both local guides are Git-ignored.
+The [backtesting guide](docs/expected-points-backtesting.md#saved-results-and-recovery) documents the complete layout
+and cleanup policy. They are local-only evidence, not public release notes or tracked
+documentation. Do not force-add them. Share an explicit export outside Git when needed.
+
 
 Documentation is part of the implementation. Any change to behavior, architecture, APIs, schemas, environment
 variables, deployment, testing, or operational workflows must update `AGENTS.md` and every applicable README in

@@ -5,15 +5,39 @@ persistence workflow. CFB-specific acquisition and feature preparation remain in
 runs use strict validation, chronological training splits, and the direct CFBD client described in the repository
 README and `AGENTS.md`.
 
-The offense and defense explosiveness features retain their existing names, but their values are now adjusted for
-opponent quality before the existing dynamic moving average is calculated. The shared transform estimates
-ridge-regularized offense and defense effects from games strictly before each target kickoff, uses FBS/FCS group
-effects, and supports either partial pooling of individual FCS teams or one pooled FCS entity. Ridge strength,
-cross-season carryover, and the FCS policy are explicit backtest levers.
-Ratings default to the opening kickoff of the game week, excluding same-week outcomes; exact per-kickoff snapshots
-remain available when evaluating that additional cost.
-Set notebook/Papermill `opponent_adjustment_config` to a mapping such as
-`{"ridge_alpha": 10.0, "season_carryover": 0.25, "fcs_policy": "pooled"}` to evaluate an alternative.
+The current candidate uses opponent-adjusted offense/defense explosiveness, overall PPA, and success rate.
+Existing explosiveness names stay stable; new efficiency columns use the same descriptive EWMA naming convention.
+The shared transform fits ridge offense/defense effects from strictly earlier games and applies half of the
+estimated opponent correction before the established moving average. FCS teams share one pooled entity by default.
+Ratings use the opening kickoff of each game week; exact per-kickoff snapshots remain an optional alternative.
+
+Score training defaults to 2018, with 2017 efficiency warmup. `history.py` owns the explicit policy:
+`training_start_year` overrides the first score-training season, `feature_history_start_year` overrides efficiency
+warmup (default: one year before training), and `excluded_history_seasons` defaults to `[2020]`. Exclusions apply
+before feed loading, Elo updates, and efficiency construction, so COVID games cannot enter any of those paths.
+The separate `efficiency_schedule` supplies warmup opponents without making warmup games score-training examples.
+Changing the history policy regenerates every feature under that policy; the earlier frozen-feature research
+experiment is retained as separate evidence, not used as a production input artifact.
+
+Notebook/Papermill `opponent_adjustment_config` accepts partial overrides of the league defaults, for example
+`{"ridge_alpha": 10.0, "season_carryover": 0.25}`. Other controls are `adjustment_strength` (zero to one),
+`fcs_policy` (`pooled` or `partial_pool`), `rating_snapshot`, and `excluded_seasons`. An explicit empty
+`excluded_seasons` list allows every loaded season in the adjustment engine; it cannot restore seasons already
+removed by `excluded_history_seasons`. Zero carryover with no current-season observations uses a
+neutral correction. The dynamic moving-average policy is unchanged.
+
+The registry also supports rushing/passing PPA and success-rate splits. Set notebook `efficiency_metrics` to an
+explicit sequence of registered names to test another group; the notebook passes that same selection to the
+adapter and `CFBExpectedPointsRecipe`. Requested missing features fail rather than silently disappearing.
+The canonical observations are offensive per-play measures; their scheduled opponents supply the defensive side.
+Registered names are `explosiveness`, `ppa`, `success_rate`, `rushing_plays_ppa`, `passing_plays_ppa`,
+`rushing_plays_success_rate`, and `passing_plays_success_rate`.
+Research results are recorded in `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored);
+the backtesting guide describes experiment settings. `UNRELEASED.md` contains only public release notes.
+Older score-training rows can be studied separately with the guide's
+[explicit training-history experiment](../../../../../docs/expected-points-backtesting.md#explicit-training-history-experiments).
+That runner freezes all existing inputs and evaluated games, excludes 2020 by default, and rejects requested
+starts without usable rows. It is a controlled research tool; ordinary source history changes use the normal comparison command.
 
 The notebook remains the interactive analysis surface. Its reproducible configuration lives in `recipe.py`, while
 `schedule`, `market_lines`, intermediate feature frames, the complete `df`, `ep_config`, `results`, and `plays` remain
@@ -61,10 +85,19 @@ by the coordinator.
 
 ## Model Release Queue
 
+Keep the public [How It Works explanation](../../../../../frontend/content/cfb-how-it-works.md) current in
+the same change as each model version's release notes. It describes the whole model (inputs, training, predictions, confidence, updates, and limitations), with ridge
+adjustment as one part; `UNRELEASED.md` describes only user-visible differences. Review the other league's page
+when shared behavior changes and coordinate frontend publication with the backend release. Keep large reports in
+Git-ignored `.backtests/expected_points/reports/`, with detailed comparisons/experiments in their existing folders.
+Those local reports are not shipped or pushed; do not force-add them.
+
 Prediction-affecting CFB changes are recorded in `UNRELEASED.md`. Keep that file empty when the deployment contains no
 CFB recipe change; do not add frontend, documentation, API-output, infrastructure, or database-only work. A populated
-draft must contain `#` title, `## Public Summary`, and `## Changes` sections, with optional `## Evaluation` and
-`## Internal Notes` sections.
+draft must contain a `#` title, `## Public Summary`, and `## Changes`. Describe shipped model differences in
+plain language; omit code references, experiment settings, and evaluations. Keep evidence in separate reports, such
+as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Optional evaluation/internal
+sections remain supported by the parser for compatibility, but are not part of new public drafts.
 
 Production deployment is performed through `make sam-deploy`. The command prompts for `major` or `minor` whenever
 this queue is non-empty, keeps the current version when it is empty, prints the NFL and CFB decisions together, and
@@ -95,3 +128,7 @@ for dates/seasons, caching, saved frames, alternate baselines, and recovery are 
 [backtesting guide](../../../../../docs/expected-points-backtesting.md#evaluate-working-tree-changes-against-deployed).
 Keep code/settings fixed during evaluation and run the same command again after another model change. Opponent-adjusted
 dynamic smoothing uses the target game's week for its span; older frames need regeneration after that correction.
+
+The optional `smoothing_span` adjustment parameter overrides the base EWMA span (default: each metric's existing
+10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
+sets the same lever. Changing it requires new candidate features and normal comparison evidence.

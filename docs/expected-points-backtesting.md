@@ -44,9 +44,16 @@ configure the root `.env`. `SUPABASE_DB_URL` is needed to resolve a deployed/ver
 needs `CFBD_API_KEY`. Historical feed downloads require network access, and the referenced Git commit must exist
 locally. Everything is read-only with respect to operational picks, results, updates, and releases.
 
-Keep candidate code/settings unchanged while a job runs. Make permanent feature and training changes in the source
+Keep candidate code/settings, including notebook source cells, unchanged while a job runs. Make permanent feature and training changes in the source
 used by the notebook/recipe so preparation and fitting reproduce them. After another model change, run the same
 command again; automatic preparation generates new frames rather than silently reusing `latest.parquet`.
+
+Training windows may differ **before the first evaluated season**. The command reports each side's training
+seasons/counts, retains those rows for fitting, and requires the same game/outcome/market population from the first
+evaluated season onward. It also checks that shared older games have identical source outcomes and markets.
+There is no silent intersection. Original run artifacts keep full-history source fingerprints; paired comparison
+views use a separately validated evaluation fingerprint. Missing or changed evaluation games still fail preflight.
+
 
 ### Default dates and cost
 
@@ -109,6 +116,26 @@ silently changing the population of an existing run. Saved inputs must still pas
 
 ## Saved results and recovery
 
+Use these locations under Git-ignored `.backtests/expected_points/`:
+
+| Location | Purpose |
+|---|---|
+| `comparisons/<league>/<timestamp>/` | One baseline-versus-candidate job, produced by the normal command. |
+| `experiments/<dated-study>/` | Multi-variant research, study configuration, supporting analyses, and conclusions. Reference normal comparison jobs instead of copying them. |
+| `reports/` | Consolidated model improvement, experiment, and optimization findings across jobs or studies. |
+| `cache/<league>/<recipe>/` | Reusable cutoff results, validated before reuse. |
+| `frames/` | Optional standalone exports; normal jobs save frames inside their job directory. |
+| `runs/<league>/<unique-name>/` | Optional single-recipe CLI runs; normal comparison jobs already contain both sides. |
+| `environments/` | Dependency environments for baselines that need them; created only when needed. |
+
+A local `README.md` index can point to selected results and explain which older candidates were superseded. Keep
+that index local and label the evidence's date/version; historical experiment conclusions must not be confused with
+the latest selection. Workflow smoke checks should use temporary directories rather than ad hoc top-level folders.
+When cleaning up, retain selected comparisons, referenced earlier runs, research evidence, and useful baseline caches.
+Remove obsolete smoke checks and superseded preliminary jobs only after checking that retained reports/studies do
+not reference them. Keep whole jobs and Parquet/JSON bundles together; never delete artifacts used by an active run.
+
+
 Each comparison owns a fresh directory. It saves the actual bounded Parquet/JSON input bundles under `frames/`,
 preparation notebooks and logs under `preparation/baseline/` and `preparation/candidate/`, `preflight.json`,
 `execution.log`, and `status.json`. Finished fits are independently loadable run artifacts under `baseline/` and
@@ -132,6 +159,79 @@ A hard-killed process may leave status `running`. Inspect the actual process/ses
 do not infer failure from silence or launch overlapping retries for the same candidate. Use a new job directory for
 every retry. Working-tree caches remain off unless explicitly enabled; a completed run artifact can be reused either
 way. No cache or artifact option authorizes operational writes.
+
+## From an improvement idea to a release
+
+Define the question, baseline, and fixed evaluation population before comparing variants. Implement in source with
+focused chronology/correctness checks, then use the standard command for the final candidate. Research scripts can
+screen explicit designs, but their narrower results must be labeled. Record failed and rejected variants as well as
+winners, inspect uncertainty and per-season behavior, and distinguish correctness from measured accuracy.
+
+After a selection, update `UNRELEASED.md` with public differences and the NFL/CFB How It Works Markdown with the
+complete current methodology. Those public pages should cover inputs, training, predictions, confidence, update
+behavior, and limitations, not over-focus on what changed in this release. Keep detailed evaluation evidence local.
+If the user explicitly waives a new comparison after a prediction-affecting edit, state that the saved metrics predate
+the edit in the existing evaluation report and index. Do not silently relabel old results or claim the fix improved accuracy.
+Merge/deploy through the reviewed, clean-main release workflow; evaluation results alone do not deploy a model.
+
+## Manually written study and report files
+
+Read `.backtests/expected_points/AGENTS.md` when present for local examples and folder-specific instructions.
+That file and the local `README.md` index are Git-ignored; this tracked guide retains the conventions for fresh clones.
+The normal command creates comparison artifacts automatically. It does not create a research plan, cross-variant
+ledger, consolidated assessment, or update the local selection index; the person or agent doing the study owns those.
+
+For a new study, create `experiments/<YYYYMMDD>-<study>/` without overwriting an existing study. A small convention is:
+
+- `PLAN.md`: research question, variants, baseline reference, source provenance, training/evaluation windows,
+  exclusions, fixed game population, profiles, and selection/confirmation criteria.
+- `runs.csv`: one row per attempted variant, including settings, command, artifact path, coverage, status, and
+  headline metrics. Include failures/rejected variants; unavailable metrics stay empty.
+- `REPORT.md`: conclusions, uncertainty, regressions, selection effects, and links to completed evidence.
+
+Normal comparisons remain in their generated job directories; record links rather than copying jobs. Advanced
+research scripts require explicit inputs and a new `--output` directory within the study, which the script creates.
+They produce requests, frames, and paired results, but the study author still writes the ledger and synthesis.
+Use the research sections below to choose the appropriate runner; do not confuse frozen-input experiments with
+source changes that regenerate all features. Reusable analysis logic belongs in tracked scripts/modules.
+
+Write a new cross-study synthesis to `reports/<date>-<league-or-release>-<subject>.md`. Existing release-wide
+report names can remain; date updates and label superseded selections explicitly. Include source/model references,
+training and evaluation populations, principal metrics and intervals, season-level weaknesses, experiment-selection
+limitations, and remaining validation. Derive tables from saved outputs, verify relative links, and update the local
+`README.md` index with the selected report and final jobs. Candidate selection is not proof of deployment.
+Do not edit generated reports/manifests to change the apparent outcome; put interpretation in these narrative files.
+
+These saved reports are for model improvement, experiments, and optimization. Give code-review findings and routine
+implementation/status summaries in chat unless the user requests a document. If a review reveals a limitation in
+earlier performance evidence, annotate the existing evaluation report and index without creating a code-review report.
+
+For manual frame output, use `save_backtest_frame(..., destination=..., provenance=...)` with a new descriptive path
+and truthful construction details. Keep the Parquet and JSON together; see the inspection section below. Never edit
+cutoff caches or dependency environments manually. Public release notes and How It Works pages stay separate from
+these internal reports, including the runner's automatically generated `release_evaluation.md`.
+
+## Efficient monitoring for agents
+
+Start each job once and retain its process/session ID, job directory, and log path. Use completion notifications
+when available; otherwise choose bounded waits based on the latest cutoff time and ETA instead of polling every few
+seconds. In an active conversation, keep waits short enough to meet required user-update intervals. Read only new
+session output or a short log tail; open full logs when diagnosing a specific failure. Work on independent tasks or
+wait between checks without repeatedly reconsidering the same plan. Report milestones, failures, and decisions
+briefly rather than narrating unchanged status.
+
+A quiet notebook preparation or model fit is not evidence of a hang. Check process/session state and logs before
+retrying, avoid overlapping retries, and reuse completed artifacts after a later failure. Do not run quick followed
+by standard by habit: candidate fits are duplicated with default caching. Use quick only when its smaller coverage
+answers an explicit screening question. Keep the default user workflow as the single standard command.
+
+Release notes describe shipped model differences. Keep generated evaluation reports under Git-ignored
+`.backtests/expected_points/reports/`, with detailed run artifacts in the existing comparisons/experiments
+folders, not in tracked documentation. These reports are local-only and are not available in a fresh clone. Do not
+force-add them; export outside Git when sharing is explicitly requested. On version changes, update the public
+NFL/CFB How It Works Markdown to describe the released methodology and `UNRELEASED.md` to describe its differences;
+neither should contain the internal evaluation report. The proposed 2.0 evidence is
+in `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored), with links/paths to the detailed local reports.
 
 ## Optional frame preparation and notebook inspection
 
@@ -258,3 +358,65 @@ Each simulated week freezes immediately before its earliest kickoff and predicts
 source frame is loaded once; cutoffs filter that in-memory frame rather than calling APIs weekly. Historical feeds can
 contain corrected or final line/roster values, so reports describe the result as a weekly approximation, not an exact
 intraday replay. Increasing cutoff frequency does not fix that limitation without point-in-time source snapshots.
+
+## Controlled opponent-adjustment research
+
+The standard user/agent command remains `make backtest-expected-points LEAGUE=<nfl|cfb>`. For repeated research
+on explicitly frozen inputs, `scripts/experiment_opponent_adjustment.py --help` exposes an advanced runner that
+uses the same walk-forward fitter, full tuning grids, paired bootstrap metrics, and report writers. Supply a
+completed deployed comparison with `--baseline`, scalar source snapshots with `--sources`, and a new `--output`.
+It never fetches credentials or writes operational state.
+
+Optional research controls are `--alpha` (ridge penalty), `--carryover` (prior-season weight), `--strength`
+(correction fraction from zero to one), `--fcs-policy`, `--metrics` (registered CFB metrics), `--history-start`,
+and `--exclude-seasons`. History controls affect efficiency features only; the saved baseline's score-training
+and evaluation population stays fixed. To isolate older score-training games with frozen features, use the controlled training-history tool below.
+To evaluate a source history-policy change with regenerated features, use the normal comparison command.
+`--prepare-only` saves a source-fingerprinted feature frame without fitting. `--prepared-frame` reuses an explicit
+frame. Alternatively, matching `--raw-frame` and `--adjusted-frame` endpoints can be linearly blended at
+`--strength`: ratings, source observations, and smoothing must otherwise be identical. Unchanged features are
+preserved exactly. Each job retains the request, source checksums, frame bundle, candidate run, and paired report.
+
+The research runner defaults to quick cadence on explicitly selected 2023–2024 seasons; set `--seasons` for
+another research window. Those are research defaults, not the standard comparison's date policy. It subsets a
+completed baseline only at the requested cutoffs and verifies every evaluated game. Screen earlier seasons,
+then confirm the chosen candidate using the ordinary standard command; do not select solely by lock win rate.
+Report all variants and disclose that bootstrap intervals do not correct for selection across experiments.
+
+CFB notebook `efficiency_metrics` controls the registered metric group, and `feature_history_start_year` controls
+efficiency warmup independently of `training_start_year`. The defaults use overall explosiveness/PPA/success
+rate, half-strength correction, pooled FCS opponents, 2018 score training, and 2017 warmup.
+`excluded_history_seasons` defaults to `[2020]` and removes that season before loading, Elo, and efficiency calculations. NFL defaults to half-strength correction on its existing EPA/success inputs. Partial adjustment mappings
+merge with league defaults. After changing any of these settings in source, the normal standard command prepares
+the appropriate inputs automatically. Missing historical opponents must not silently discard loaded warmup stats.
+
+The optional `smoothing_span` adjustment parameter overrides the base EWMA span (default: each metric's existing
+10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
+sets the same lever. Changing it requires new candidate features and normal comparison evidence.
+
+### Explicit training-history experiments
+
+To isolate additional training rows from feature changes, the advanced read-only
+`scripts/experiment_cfb_training_history.py` accepts `--reference-frame`, its completed
+`--reference-run`, and an explicitly prepared `--history-frame` containing the same rows plus older games.
+Every existing value must match exactly; only additional rows preceding the entire reference frame are allowed.
+The normal command also supports different earlier training histories, while regenerating each recipe's features.
+This controlled runner additionally freezes every existing feature value to isolate the training-sample effect.
+
+Use `--starts 2018 2015 2013` to request training starts, `--exclude-seasons 2020` to omit COVID,
+and `--output <new-directory>` for the experiment artifacts. The default is standard weekly coverage on
+2023–2025; `--seasons` and `--profile` are optional overrides. Every requested start must actually contain
+training games. Missing historical coverage fails instead of silently testing the same shorter history twice.
+The historical frame must have a valid JSON sidecar recording its construction and source provenance.
+Frame preparation must also exclude COVID from earlier feature/rating reconstruction if that is the design;
+the runner's exclusion flag alone removes training rows, not already calculated historical features.
+
+All variants preflight before fitting, use the shared chronological fitter and tuning grids, and retain original
+full-history fingerprints in their saved run artifacts. The explicitly scoped paired reports compare a verified,
+fixed evaluation population; `design.json` records both full-history identities and the evaluation identity.
+Comparison views must not be used as source artifacts or fitting caches. Candidate fits are uncached by default.
+Inspect feature coverage by season before fitting; a listed feed range does not guarantee usable sportsbook data.
+The September 2026 coverage audit found only currently excluded `consensus`, `numberfire`, and `teamrankings`
+provider labels in 2013–2017. The 2018 history has eligible sportsbook quotes. Do not silently treat earlier
+non-sportsbook provider values as executable quotes; a proxy-training study needs an explicit source policy and
+must retain the real sportsbook evaluation population. Provider labels alone do not establish historical provenance.

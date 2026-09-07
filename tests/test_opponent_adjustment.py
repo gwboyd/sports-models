@@ -156,3 +156,100 @@ def test_dynamic_smoothing_matches_existing_shifted_smoother(history_week, targe
     actual = _smooth(history, SimpleNamespace(week=target_week),
                      OpponentMetricSpec("x", "off", "def", "dynamic"), "off")
     assert actual["off_ewma_dynamic_window"] == pytest.approx(expected)
+
+
+def test_strength_endpoints_and_interpolation_are_exact():
+    import numpy as np
+    frames = [build_opponent_adjusted_team_metrics(
+        _schedule(), _observations(), [SPEC],
+        config=OpponentAdjustmentConfig(adjustment_strength=strength),
+    ) for strength in (0.0, 0.5, 1.0)]
+    column = 'off_efficiency_ewma'
+    assert np.allclose(frames[1][column], (frames[0][column] + frames[2][column]) / 2, equal_nan=True)
+    assert frames[0].loc[(frames[0].game_id == '5') & (frames[0].team == 'A'), column].iloc[0] == 10.0
+
+
+def test_zero_carryover_before_season_has_no_weighted_history():
+    from src.sports.football.transforms.opponent_adjustment import _attach_opponents, _fit_snapshot
+    history = _attach_opponents(_observations(), _schedule())
+    assert _fit_snapshot(history, 2026, OpponentAdjustmentConfig(season_carryover=0)) == ({}, {})
+
+
+def test_excluded_seasons_cannot_influence_ratings_or_smoothing():
+    result = build_opponent_adjusted_team_metrics(
+        _schedule(), _observations(), [SPEC],
+        config=OpponentAdjustmentConfig(excluded_seasons=(2025,)),
+    )
+    assert result['off_efficiency_ewma'].isna().all()
+
+
+def test_cfb_registry_builds_all_requested_metrics_and_ignores_mirrored_defense_values():
+    from src.sports.football.cfb.expected_points.features import build_opponent_adjusted_advanced_stats
+    schedule = _schedule()
+    source = _observations().drop(columns=['metric']).merge(
+        schedule[['game_id', 'season', 'week', 'start_date']], on='game_id', validate='one_to_one',
+    ).rename(columns={'value': 'offense_explosiveness'})
+    source['offense_ppa'] = source.offense_explosiveness / 10
+    source['defense_ppa'] = 999999.0
+    frame = build_opponent_adjusted_advanced_stats(source, schedule, metrics=('explosiveness', 'ppa'))
+    assert 'offense_ppa_ewma_dynamic_window' in frame
+    assert 'defense_ppa_ewma_dynamic_window' in frame
+    target = frame.loc[(frame.game_id == '5') & (frame.team == 'A')].iloc[0]
+    assert target.offense_ppa_ewma_dynamic_window == pytest.approx(target.offense_explosiveness_ewma_dynamic_window / 10)
+    assert abs(target.defense_ppa_ewma_dynamic_window) < 2
+
+
+@pytest.mark.parametrize('config', [{'adjustment_strength': -0.1}, {'adjustment_strength': 1.1}, {'fcs_policy': 'typo'}])
+def test_invalid_adjustment_levers_fail(config):
+    with pytest.raises(ValueError):
+        OpponentAdjustmentConfig(**config)
+
+
+def test_league_mapping_overrides_preserve_unmentioned_defaults():
+    from src.sports.football.transforms import resolve_opponent_adjustment_config
+    from src.sports.football.cfb.expected_points.features import DEFAULT_CFB_OPPONENT_ADJUSTMENT
+    config = resolve_opponent_adjustment_config({'ridge_alpha': 12}, defaults=DEFAULT_CFB_OPPONENT_ADJUSTMENT)
+    assert config.ridge_alpha == 12
+    assert config.adjustment_strength == .5
+    assert config.fcs_policy == 'pooled'
+    assert config.excluded_seasons == (2020,)
+
+
+def test_cfb_warmup_schedule_supplies_pregame_history_without_changing_score_schedule():
+    from src.sports.football.cfb.expected_points.features import (
+        build_cfb_efficiency_schedule, build_opponent_adjusted_advanced_stats,
+    )
+    target = pd.DataFrame(dict(game_id=['new'],season=[2022],week=[1],home_team=['A'],away_team=['B'],
+        start_date=['2022-09-01T12:00Z'],home_classification=['fbs'],away_classification=['fcs']))
+    prior = pd.DataFrame(dict(id=['old'],season=[2021],week=[12],home_team=['A'],away_team=['B'],
+        start_date=['2021-11-01T12:00Z'],home_classification=['fbs'],away_classification=['fcs']))
+    schedule = build_cfb_efficiency_schedule(target, prior, history_start_season=2021)
+    assert target.game_id.tolist() == ['new']
+    source = pd.DataFrame(dict(game_id=['old','old','new'],season=[2021,2021,2022],week=[12,12,1],
+        team=['A','B','A'],start_date=['2021-11-01T12:00Z']*2+['2022-09-01T12:00Z'],
+        offense_explosiveness=[1.,.2,999.]))
+    result = build_opponent_adjusted_advanced_stats(source, schedule,
+        metrics=('explosiveness',), config={'adjustment_strength':0})
+    row = result.loc[(result.game_id=='new') & (result.team=='A')].iloc[0]
+    assert row.offense_explosiveness_ewma_dynamic_window == 1.
+    assert row.defense_explosiveness_ewma_dynamic_window == .2
+
+
+def test_smoothing_span_override_changes_recency_without_using_target_outcome():
+    source = pd.DataFrame({'game_id':['1','3','5'],'team':['A']*3,
+                          'metric':['efficiency']*3,'value':[1.,9.,999.]})
+    result = build_opponent_adjusted_team_metrics(_schedule(),source,[SPEC],
+        config=OpponentAdjustmentConfig(adjustment_strength=0,smoothing_span=1))
+    value = result.loc[(result.game_id=='5') & (result.team=='A'),'off_efficiency_ewma'].iloc[0]
+    assert value == 9.
+    dynamic = build_opponent_adjusted_team_metrics(_schedule(),source,
+        [OpponentMetricSpec('efficiency','off_efficiency','def_efficiency','dynamic')],
+        config=OpponentAdjustmentConfig(adjustment_strength=0,smoothing_span=1))
+    actual = dynamic.loc[(dynamic.game_id=='5') & (dynamic.team=='A'),'off_efficiency_ewma_dynamic_window'].iloc[0]
+    assert actual == pytest.approx(pd.Series([1.,9.]).ewm(span=3).mean().iloc[-1])
+
+
+@pytest.mark.parametrize('span',[0,-1,1.5,True])
+def test_invalid_smoothing_span_is_rejected(span):
+    with pytest.raises(ValueError,match='smoothing_span'):
+        OpponentAdjustmentConfig(smoothing_span=span)

@@ -7,7 +7,7 @@ prevents mirrored provider rows from being counted twice.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import logging
 import time
 from typing import Literal, Mapping, Sequence
@@ -44,6 +44,9 @@ class OpponentAdjustmentConfig:
     season_carryover: float = 0.5
     fcs_policy: Literal["partial_pool", "pooled"] = "partial_pool"
     rating_snapshot: Literal["week", "kickoff"] = "week"
+    adjustment_strength: float = 1.0
+    excluded_seasons: tuple[int, ...] = ()
+    smoothing_span: int | None = None
     protocol_version: str = "1"
 
     def __post_init__(self) -> None:
@@ -53,6 +56,12 @@ class OpponentAdjustmentConfig:
             raise ValueError("season_carryover must be between zero and one")
         if self.rating_snapshot not in {"week", "kickoff"}:
             raise ValueError("rating_snapshot must be 'week' or 'kickoff'")
+        if self.fcs_policy not in {"partial_pool", "pooled"}:
+            raise ValueError("fcs_policy must be 'partial_pool' or 'pooled'")
+        if not np.isfinite(self.adjustment_strength) or not 0 <= self.adjustment_strength <= 1:
+            raise ValueError("adjustment_strength must be between zero and one")
+        if self.smoothing_span is not None and (type(self.smoothing_span) is not int or self.smoothing_span < 1):
+            raise ValueError("smoothing_span must be a positive integer or None")
 
 
 DEFAULT_OPPONENT_ADJUSTMENT = OpponentAdjustmentConfig()
@@ -77,12 +86,16 @@ def build_opponent_adjusted_team_metrics(
     calculated.
     """
     config = resolve_opponent_adjustment_config(config)
+    specs = tuple(specs)
     _validate_inputs(schedule, observations, specs, strict=strict)
     targets = _team_timeline(schedule)
     observed = _attach_opponents(observations, schedule)
+    observed = observed.loc[~observed["season"].isin(config.excluded_seasons)].copy()
     output = targets.copy()
     output["start_date"] = pd.to_datetime(output["start_date"], utc=True, errors="coerce")
     for spec in specs:
+        if config.smoothing_span is not None:
+            spec = replace(spec, span=config.smoothing_span)
         started = time.monotonic()
         LOGGER.info("Opponent adjustment: %s started (%s snapshots, %s target rows)",
                     spec.key, config.rating_snapshot, len(targets))
@@ -100,14 +113,16 @@ def build_opponent_adjusted_team_metrics(
 
 def resolve_opponent_adjustment_config(
     config: OpponentAdjustmentConfig | Mapping[str, object] | None,
+    *,
+    defaults: OpponentAdjustmentConfig = DEFAULT_OPPONENT_ADJUSTMENT,
 ) -> OpponentAdjustmentConfig:
     """Accept a notebook/Papermill mapping while keeping the core typed."""
     if config is None:
-        return DEFAULT_OPPONENT_ADJUSTMENT
+        return defaults
     if isinstance(config, OpponentAdjustmentConfig):
         return config
     if isinstance(config, Mapping):
-        return OpponentAdjustmentConfig(**config)
+        return replace(defaults, **config)
     raise TypeError("opponent adjustment config must be a mapping or OpponentAdjustmentConfig")
 
 
@@ -212,12 +227,20 @@ def _adjust_metric_at_targets(
         )
         if cutoff not in cache:
             history = observations.loc[observations["start_date"] < cutoff]
-            cache[cutoff] = _fit_snapshot(history, int(target.season), config)
+            cache[cutoff] = (
+                _fit_snapshot(history, int(target.season), config)
+                if config.adjustment_strength else ({}, {})
+            )
         offense_ratings, defense_ratings = cache[cutoff]
         team_history = team_histories.get(target.team, observations.iloc[0:0])
         team_history = team_history.loc[team_history["start_date"] < cutoff]
-        rendered = _render_target_history(
-            team_history, target, offense_ratings, defense_ratings, spec
+        # Many lower-division schedule rows have no consumed metric history.
+        # Their result is exactly missing; avoid building two empty dataframes.
+        rendered = (
+            dict.fromkeys(_metric_columns(spec), np.nan) if team_history.empty else
+            _render_target_history(
+                team_history, target, offense_ratings, defense_ratings, spec, config.adjustment_strength
+            )
         )
         for name, value in rendered.items():
             values[name].append(value)
@@ -255,6 +278,8 @@ def _fit_snapshot(
     ], axis=1)
     years_back = (target_season - pd.to_numeric(frame["season"], errors="coerce")).clip(lower=0)
     weights = np.power(config.season_carryover, years_back.to_numpy(dtype=float))
+    if not weights.any():
+        return {}, {}
     # The design has only team, group, and venue columns. Dense Cholesky avoids
     # iterative-solver startup cost across the many weekly historical fits.
     model = Ridge(alpha=config.ridge_alpha, fit_intercept=True, solver="cholesky")
@@ -286,11 +311,12 @@ def _render_target_history(
     offense_ratings: dict[str, float],
     defense_ratings: dict[str, float],
     spec: OpponentMetricSpec,
+    strength: float = 1.0,
 ) -> dict[str, float]:
     offense_rows = history.loc[history["team"] == target.team].copy()
     defense_rows = history.loc[history["opponent"] == target.team].copy()
-    offense_rows["adjusted"] = offense_rows["value"] - offense_rows["opponent"].map(defense_ratings).fillna(0.0)
-    defense_rows["adjusted"] = defense_rows["value"] - defense_rows["team"].map(offense_ratings).fillna(0.0)
+    offense_rows["adjusted"] = offense_rows["value"] - strength * offense_rows["opponent"].map(defense_ratings).fillna(0.0)
+    defense_rows["adjusted"] = defense_rows["value"] - strength * defense_rows["team"].map(offense_ratings).fillna(0.0)
     return {
         **_smooth(offense_rows, target, spec, spec.offense_output),
         **_smooth(defense_rows, target, spec, spec.defense_output),

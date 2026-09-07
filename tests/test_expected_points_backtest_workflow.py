@@ -64,6 +64,34 @@ def test_preflight_allows_feature_changes_but_rejects_changed_outcomes():
         preflight_frames(baseline, candidate, BacktestSpec(profile="quick"))
 
 
+def test_preflight_allows_different_earlier_history_without_intersecting_evaluation():
+    baseline = frame()
+    older = baseline.iloc[:1].assign(game_id='2018a', season=2018, date_time='2018-09-01-13:00')
+    candidate = pd.concat([older, baseline.assign(metric=99.)], ignore_index=True)
+    spec = BacktestSpec(profile='quick')
+    report = preflight_frames(baseline, candidate, spec)
+    assert report['training_history_differs']
+    assert report['baseline_rows'] == 3
+    assert report['candidate_rows'] == 4
+    assert report['candidate_training_seasons'] == {2018: 1, 2023: 1, 2024: 1}
+    assert len(candidate) == 4  # No trimming of the data passed to either fit.
+    changed = candidate.copy()
+    changed.loc[1, 'total_line'] = 100.
+    with pytest.raises(ValueError, match='shared historical'):
+        preflight_frames(baseline, changed, spec)
+    candidate.loc[0, 'date_time'] = '2025-10-01-13:00'
+    with pytest.raises(ValueError, match='must precede evaluation'):
+        preflight_frames(baseline, candidate, spec)
+
+
+def test_preflight_rejects_missing_evaluation_games_despite_longer_history():
+    baseline = frame()
+    candidate = pd.concat([baseline.iloc[:1].assign(game_id='old', season=2018), baseline])
+    candidate = candidate.loc[candidate.game_id.ne('2025a')]
+    with pytest.raises(ValueError, match='evaluated seasons differ'):
+        preflight_frames(baseline, candidate, BacktestSpec(profile='quick'))
+
+
 def test_explicit_season_bound_preserves_warmup_without_intersecting_games():
     baseline = frame()
     candidate = frame()
@@ -179,6 +207,39 @@ def test_artifact_preflight_rejects_wrong_cutoff_coverage():
         preflight_artifact(run, data, BacktestSpec(profile="quick"), "nfl")
 
 
+def test_prepared_comparison_preserves_original_history_identities(monkeypatch):
+    from dataclasses import dataclass
+    from src.model_patterns.expected_points import backtesting
+    from src.model_patterns.expected_points.backtest_workflow import compare_prepared_runs
+    from src.model_patterns.expected_points.types import ExpectedPointsLeague
+
+    @dataclass
+    class Run:
+        source_fingerprint: str
+        predictions: pd.DataFrame
+        league: ExpectedPointsLeague = ExpectedPointsLeague.NFL
+        profile: str = 'quick'
+        seasons: tuple = (2025,)
+
+    baseline = frame()
+    candidate = pd.concat([baseline.iloc[:1].assign(
+        game_id='2018a', season=2018, date_time='2018-09-01-13:00'), baseline], ignore_index=True)
+    left = Run(backtesting.source_bundle_fingerprint(baseline), baseline.iloc[-1:].copy())
+    right = Run(backtesting.source_bundle_fingerprint(candidate), baseline.iloc[-1:].copy())
+    original_ids = (left.source_fingerprint, right.source_fingerprint)
+    def compare(a, b, **kwargs):
+        assert a.source_fingerprint == b.source_fingerprint
+        assert kwargs['bootstrap_samples'] == 20
+        return 'verified'
+    monkeypatch.setattr(backtesting, 'compare_backtest_runs', compare)
+    assert compare_prepared_runs(left, right, baseline, candidate,
+                                 BacktestSpec(profile='quick'), bootstrap_samples=20) == 'verified'
+    assert (left.source_fingerprint, right.source_fingerprint) == original_ids
+    right.predictions = baseline.iloc[:1].copy()
+    with pytest.raises(ValueError, match='Artifact preflight failed'):
+        compare_prepared_runs(left, right, baseline, candidate, BacktestSpec(profile='quick'))
+
+
 def test_compare_rejects_stale_candidate_provenance(tmp_path, monkeypatch):
     save_backtest_frame(frame(), "nfl", destination=tmp_path / "source.parquet",
                          provenance={"code_identity": "old-code"})
@@ -240,7 +301,7 @@ def test_plain_compare_prepares_each_recipe_then_runs_standard(tmp_path, monkeyp
         calls.append(("run", reference))
         return reference
     monkeypatch.setattr(cli, "_load_or_run", run)
-    monkeypatch.setattr(cli, "compare_backtest_runs", lambda a, b, **kw: calls.append(("compare", a, b)))
+    monkeypatch.setattr(cli, "compare_prepared_runs", lambda a, b, *frames, **kw: calls.append(("compare", a, b)))
     monkeypatch.setattr(cli, "write_comparison_artifacts", lambda *a, **kw: None)
     monkeypatch.setattr(sys, "argv", ["backtest", "compare", "--league", "nfl", "--output-dir", str(tmp_path / "auto")])
     assert cli._main() == 0

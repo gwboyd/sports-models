@@ -15,7 +15,10 @@ from src.sports.football.nfl.data_validation import validate_expected_points_fra
 from src.sports.football.nfl.expected_points.utils import (
     nflverse_kickoffs_to_eastern_strings,
 )
-from src.sports.football.nfl.expected_points.features import build_nfl_opponent_adjusted_metrics
+from src.sports.football.nfl.expected_points.features import (
+    DEFAULT_NFL_OPPONENT_ADJUSTMENT,
+    build_nfl_opponent_adjusted_metrics,
+)
 from src.sports.football.transforms import OpponentAdjustmentConfig
 
 
@@ -109,7 +112,7 @@ class NFLExpectedPointsRecipe:
     version: str = "working-tree"
     protocol_version: str = "2"
     league: ExpectedPointsLeague = ExpectedPointsLeague.NFL
-    opponent_adjustment_config: OpponentAdjustmentConfig = OpponentAdjustmentConfig()
+    opponent_adjustment_config: OpponentAdjustmentConfig = DEFAULT_NFL_OPPONENT_ADJUSTMENT
 
     def prepare_frame(
         self,
@@ -152,20 +155,10 @@ class NFLExpectedPointsRecipe:
             "ewma_success_rate_rushing_defense",
             "ewma_success_rate_passing_defense",
         )
-        ewma_features = [
-            feature
-            for base in ewma_bases
-            if f"{base}_home" in frame and f"{base}_away" in frame
-            for feature in (f"{base}_home", f"{base}_away")
-        ]
-        # Keep protocol-1 frame inspection/backtest fixtures readable.  A v2
-        # prepared frame always contains the explicit names above.
-        if not ewma_features:
-            ewma_features = [
-                column for column in frame.columns if "ewma" in column and "dynamic" in column
-            ] + [
-                column for column in frame.columns if "ewma" in column and "success_rate" in column
-            ]
+        ewma_features = [f"{base}_{venue}" for base in ewma_bases for venue in ("home", "away")]
+        missing = sorted(set(ewma_features) - set(frame.columns))
+        if missing:
+            raise ValueError(f"NFL selected efficiency features are missing: {missing}")
         cat_features = ["roof", "weekday"]
         betting_features = [
             "moneyline_home", "spread_line", "spread_odds_home", "total_line", "over_odds",

@@ -114,12 +114,26 @@ NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
 CFB expected-points uses `src/sports/football/cfb/expected_points/cfbd_client.py` for direct authenticated REST
 requests; do not add a conflicting Python SDK dependency.
+NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
+missing; never calculate a fallback using all future players or seasons. Native score-model missing handling and
+confidence imputation fitted within chronological training data handle those inputs. Explicit NFL/CFB efficiency
+selections must fail when any selected column is missing; never fall back to substring-based column discovery.
 Opponent-adjusted football efficiency features are implemented in
 `src/sports/football/transforms/opponent_adjustment.py`. It fits pre-kickoff ridge offense/defense effects, then
 recomputes each team's historical performance against the opponent it faced before applying the established smoother.
 Keep downstream feature names stable. Ridge strength, season carryover, CFB's FCS pooling policy, and rating snapshot
 cadence are versioned recipe/backtest levers; any change requires regenerated candidate frames and normal baseline
-comparison evidence.
+comparison evidence. The correction strength is independently configurable from zero to one; excluded seasons
+are removed from both rating and smoothed efficiency history, without silently changing score-training rows. CFB
+efficiency metrics are explicitly registered/selected in its features and recipe modules; selected missing columns
+must fail. Research screens use fixed game populations and the existing walk-forward fitter/paired reports, with
+later-season confirmation and disclosure of experiment selection. The current candidates use half-strength
+correction. CFB selects explosiveness, overall PPA, and success rate with pooled FCS effects; its separate efficiency
+schedule retains 2017 warmup opponents while score training starts in 2018. `CFBHistoryConfig` in `history.py`
+owns the training start and historical exclusions. Notebook overrides are `training_start_year`,
+`feature_history_start_year`, and `excluded_history_seasons`; 2020 is excluded before feed loading, Elo updates,
+and efficiency calculations by default. Notebook metric selections must match the recipe; partial parameter overrides preserve
+league defaults.
 
 Current expected-points schema model, mirrored for the `nfl` and `cfb` prefixes:
 - `<league>_expected_points_picks`: latest pick per `(year_week, game_id)`
@@ -147,7 +161,7 @@ cross-conference game matches either team's conference.
 The frontend is mobile-first and game-centered for NFL and CFB. Each current-slate page orders favorites, separate
 spread/total lock cards, and the complete game list. Favorites are device-local under
 `sports-models:favorites:v1`. Shared results pages calculate season and weekly summaries from existing graded game
-responses, and the NFL section has nested public methodology and model-insight routes. Approved team logos are local
+responses. Both leagues have public methodology routes; NFL also has a model-insight route. Approved team logos are local
 assets referenced by generated frontend manifests; missing assets use monogram fallbacks. Refresh CFB metadata and
 assets with `make sync-cfb-teams YEAR=<season>` (using the root `CFBD_API_KEY`), NFL assets with
 `make sync-nfl-teams`, or both with `make sync-football-teams YEAR=<season>`. The sync never writes API credentials to
@@ -167,9 +181,20 @@ Model-update timestamps also render in the device timezone and include the appli
 Keep the NBA route functional while its global tab is temporarily hidden; NFL and CFB are the visible league tabs.
 Results summary cards lead with spread/total locks and omit a standalone predicted-games tile. In favorites and mobile
 game cards, emphasize the actionable spread/total picks and outline each locked market individually in the lock blue.
-The public NFL methodology lives in `frontend/content/nfl-how-it-works.md` and intentionally preserves the detailed
-production Info-page content. Its renderer must continue supporting headings through `h3`, lists, links, inline code,
-and responsive images; keep backend and deployment operations in the model README.
+Public methodology lives in `frontend/content/nfl-how-it-works.md` and `frontend/content/cfb-how-it-works.md`,
+served at each league's `/models/<league>/how-it-works` route and linked from its navigation. Both use the shared
+`ModelMethodology` renderer, which must support headings through `h3`, lists, links, inline code, and responsive
+images. Explain the model in plain language with useful mathematical detail, including ridge opponent adjustment,
+season-history policy, and league-specific limitations. Keep deployment/database operations in developer READMEs.
+Write How It Works as an explanation of the complete current model, not a release announcement. Cover inputs,
+training and validation, matchup predictions, confidence/Locks, history and opponent handling, update behavior, and
+limitations in proportion to their role. Keep the version as context; put the list of changes in `UNRELEASED.md`.
+On every model version change, review and update the applicable public methodology in the same change as the
+release draft. Keep its stated methodology version, features, training history, opponent policy, confidence/lock
+rules, and refresh timing consistent with the recipe being released. Remove shipped features from future-ideas
+lists. Review both leagues when shared behavior changes, and coordinate frontend publication with the backend
+release so the public page does not claim an unreleased recipe is already live. Preserve useful existing explanations
+and diagrams while correcting stale claims.
 
 Only the deployed AWS training Lambda writes expected-points records automatically; the coordinator writes scheduling
 state and plans but never picks, update history, or grading rows. Runtime origin is determined from Lambda runtime
@@ -259,11 +284,25 @@ CLI `prepare-frame` is an optional inspection tool that stops before training. `
 inputs without fitting. The guide documents date/context overrides, frame reuse, caches, artifacts, and recovery.
 Generated preparation cells must remain valid for the source notebook's schema, including older release notebooks
 without cell-ID support; validate the generated notebook before execution without changing its executable source.
-Keep candidate code/settings fixed throughout the job; prepared provenance rejects stale code. Retain Parquet/JSON
+Keep candidate code/settings fixed throughout the job, including notebook cells; preparation and fit-time
+provenance checks reject stale code. Retain Parquet/JSON
 pairs and regenerate metadata with `save_backtest_frame(..., destination=...)` after filtering. Finished baseline and
 candidate runs survive later failures and can be reused with `artifact:<path>`; comparison artifacts automatically
 locate their saved sibling frame bundles. Inspect actual process/session state and logs before retrying quiet runs,
 and avoid overlapping retries. Update the guide whenever commands, defaults, cache behavior, or metrics change.
+The improvement workflow is: define the question and evidence population; implement the candidate with focused
+correctness/leakage checks; use the standard comparison unless an explicit research design needs a different profile;
+record every attempted variant and uncertainty in local studies/reports; select based on the complete evidence;
+update public release notes and the whole-model explanation; complete the required review and clean-main deployment.
+If the user explicitly waives a fresh comparison after a prediction change, record that gap in the existing evaluation report
+and index. Do not present earlier results as measurements of the changed recipe or assume a correctness fix improves
+accuracy. Later comparisons must rebuild from the current source and preserve the deployed baseline unchanged.
+For token-efficient simulation/backtest runs, launch each job once with a retained process/session ID and log path.
+Use the runner's cutoff progress and ETA to time checks; use completion notifications or bounded waits instead of
+rapid polling. Read only new output or a short log tail, and inspect full logs only to diagnose a failure. Between
+checks, do useful independent work or wait without repeated analysis. Keep required user updates brief and focused
+on milestones, failures, or decisions. Do not start overlapping retries or quick runs merely to fill waiting time;
+standard remains the default. Preserve completed run artifacts for recovery rather than repeating successful fits.
 
 League-level validation belongs in `src/sports/football/<league>/data_validation.py`; generic dataframe contracts
 belong in `src/sports/data_validation.py`. Validate only feeds a model actually consumes. Production notebook runs use
@@ -277,10 +316,39 @@ shaping belong beside the NFL or CFB workflow. Shared NFL/CFB HTTP schemas belon
 Prediction-affecting expected-points work must be recorded in the applicable
 `src/sports/football/<league>/expected_points/UNRELEASED.md`. The file is intentionally empty when there is no
 pending model release. A non-empty draft must be released as either a major or minor version by the next production
-deployment; it cannot ship under the old version. Drafts use strict Markdown sections for public summary and
-changes, with optional evaluation and internal notes. After a successful release, the deployment command archives
-the exact draft under `releases/vN.N.md` and resets the working file. Documentation, frontend, API-output, database,
-and infrastructure-only changes do not belong in the draft.
+deployment; it cannot ship under the old version.
+
+Keep the three documentation surfaces distinct:
+
+- `UNRELEASED.md` explains what changes for users. Use a title, `## Public Summary`, and `## Changes` in plain
+  language. Omit code references, experiment controls, evaluation results, and internal implementation details.
+  The parser supports optional evaluation/internal sections for compatibility; do not add them to new drafts.
+- Public How It Works pages explain how the applicable version operates, including useful mathematical detail and
+  limitations. Update them alongside release notes as described above; they are not experiment ledgers.
+- Consolidated model improvement, experiment, and optimization reports belong in Git-ignored
+  `.backtests/expected_points/reports/`; detailed run artifacts remain in the comparisons/experiments directories.
+  They retain metrics, uncertainty, logs, and evidence relevant to those studies. Give code-review findings and routine
+  implementation/status summaries in chat unless the user requests a saved document. Keep limitations affecting prior
+  performance evidence in the existing evaluation report/index; do not create a separate code-review report.
+  Never force-add reports or copy them into tracked documentation. They are local-only and do not accompany
+  a clone; explicitly export outside Git when sharing is requested. The 2.0 report is
+  `.backtests/expected_points/reports/expected-points-2.0-evaluation.md`.
+
+Before reading or writing local evaluation artifacts, read `.backtests/expected_points/AGENTS.md` when present.
+It describes directory ownership, result inspection, and manual study/report writing. It is Git-ignored like the
+artifacts; the tracked `docs/expected-points-backtesting.md` remains the durable guide for fresh clones.
+
+Use `comparisons/<league>/<timestamp>/` for individual evaluations and `experiments/<dated-study>/` for research
+across variants; studies should reference normal comparison jobs instead of copying them. Keep a local
+`.backtests/expected_points/README.md` index for selected evidence. Put workflow smoke checks in temporary directories
+rather than new ad hoc top-level folders. Cleanup must preserve selected runs, referenced research, baseline caches,
+and complete frame/metadata bundles; check references and active runs before removing superseded artifacts.
+
+After a successful release, the deployment command archives the exact draft under `releases/vN.N.md` and resets the
+working file. Documentation, frontend, API-output, database, and infrastructure-only changes do not belong in the draft.
+
+`.dockerignore` must exclude `.backtests/` as well as `.env` and other local artifacts. Git-ignore rules alone do
+not keep reports, snapshots, caches, or environment directories out of Docker's `COPY . .` build context.
 
 Production model deployments use the interactive `make sam-deploy` workflow only. It loads both drafts, prompts for
 major/minor for every non-empty draft, keeps empty drafts at their latest version, prints both decisions, and requires
@@ -376,3 +444,16 @@ because they are not real Lambda runtimes.
 - [`src/sports/football/nfl/expected_points/README.md`](src/sports/football/nfl/expected_points/README.md)
 - [`src/sports/football/cfb/expected_points/README.md`](src/sports/football/cfb/expected_points/README.md)
 - [`frontend/README.md`](frontend/README.md)
+
+The optional `smoothing_span` adjustment parameter overrides the base EWMA span (default: each metric's existing
+10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
+sets the same lever. Changing it requires new candidate features and normal comparison evidence.
+
+Explicit CFB training-history studies use `scripts/experiment_cfb_training_history.py` with saved reference/history
+frame bundles and a completed reference run. They may add only strictly earlier training rows while preserving every
+existing value and the evaluated game population. The standard comparison also permits different histories before the first evaluated season, while regenerating
+each recipe's features. It requires identical evaluation populations and identical source outcomes/markets for
+shared earlier games, logs training-history differences, and retains original full-history identities in run artifacts.
+Each requested start must contain actual usable games; never silently relabel a shorter history. Record source
+coverage, exclusions, reconstruction policy, and both full-history fingerprints in the experiment design. See the
+canonical backtesting guide's training-history section for parameters and artifact semantics.

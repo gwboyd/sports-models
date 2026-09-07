@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
 from pathlib import Path
 
 import pandas as pd
 
 from .backtesting import (
+    BacktestComparison,
     BacktestRun,
     BacktestSpec,
     _periods,
@@ -16,6 +18,7 @@ from .backtesting import (
     source_bundle_fingerprint,
     source_bundle_frame,
 )
+from src.sports.football.kickoff import parse_eastern_kickoffs
 
 
 def historical_frame(frame: pd.DataFrame, through_season: int | None) -> pd.DataFrame:
@@ -61,23 +64,71 @@ def preflight_frames(baseline: pd.DataFrame, candidate: pd.DataFrame, spec: Back
         for market in ("spread", "total"):
             if not {f"{market}_reference_line", f"{market}_line"}.intersection(frame.columns):
                 raise ValueError(f"{label} frame missing {market} market inputs")
-    left_hash, right_hash = source_bundle_fingerprint(baseline), source_bundle_fingerprint(candidate)
-    if left_hash != right_hash:
-        raise ValueError(
-            "Frame preflight failed: game/outcome/market inputs differ. "
-            + _source_difference(baseline, candidate)
-            + ". Rebuild from matching inputs, or explicitly bound BOTH frames with --through-season. "
-            "Do not intersect game IDs or replace feature columns to force compatibility."
-        )
     seasons = select_backtest_seasons(baseline, spec)
     if seasons != select_backtest_seasons(candidate, spec):
         raise ValueError("Frame preflight failed: evaluated seasons differ")
+    first_season = min(seasons)
+    left_eval = baseline.loc[baseline.season >= first_season]
+    right_eval = candidate.loc[candidate.season >= first_season]
+    left_eval_hash = source_bundle_fingerprint(left_eval)
+    right_eval_hash = source_bundle_fingerprint(right_eval)
+    if left_eval_hash != right_eval_hash:
+        raise ValueError(
+            "Frame preflight failed: game/outcome/market inputs differ. "
+            + _source_difference(left_eval, right_eval)
+            + ". Rebuild from matching inputs, or explicitly bound BOTH frames with --through-season. "
+            "Do not intersect game IDs or replace feature columns to force compatibility."
+        )
+    left_ids, right_ids = set(baseline.game_id.astype(str)), set(candidate.game_id.astype(str))
+    # Audit all shared history too: an older correction must not silently apply
+    # to only one recipe. This is validation, never intersection of model inputs.
+    left_common = baseline.loc[baseline.game_id.astype(str).isin(right_ids)]
+    right_common = candidate.loc[candidate.game_id.astype(str).isin(left_ids)]
+    if source_bundle_fingerprint(left_common) != source_bundle_fingerprint(right_common):
+        raise ValueError("Frame preflight failed: shared historical game/outcome/market inputs differ. "
+                         + _source_difference(left_common, right_common))
+    first_kickoff = parse_eastern_kickoffs(left_eval.date_time).min()
+    for label, data, other_ids in (("baseline", baseline, right_ids), ("candidate", candidate, left_ids)):
+        unique_history = data.loc[~data.game_id.astype(str).isin(other_ids)]
+        kickoffs = parse_eastern_kickoffs(unique_history.date_time)
+        if (unique_history.season.ge(first_season).any() or kickoffs.isna().any()
+                or kickoffs.ge(first_kickoff).any()):
+            raise ValueError(f"Frame preflight failed: {label}-only training rows must precede evaluation")
+    left_hash, right_hash = source_bundle_fingerprint(baseline), source_bundle_fingerprint(candidate)
     return {
-        "status": "passed", "source_fingerprint": left_hash,
+        "status": "passed", "source_fingerprint": left_eval_hash,
+        "baseline_source_fingerprint": left_hash, "candidate_source_fingerprint": right_hash,
+        "training_history_differs": left_hash != right_hash,
+        "baseline_rows": len(baseline), "candidate_rows": len(candidate),
+        "evaluation_source_rows": len(left_eval),
+        "baseline_training_seasons": baseline.loc[baseline.season < first_season].groupby('season').size().to_dict(),
+        "candidate_training_seasons": candidate.loc[candidate.season < first_season].groupby('season').size().to_dict(),
         "rows": len(baseline), "profile": spec.profile, "seasons": list(seasons),
         "cutoffs": _periods(baseline, seasons, spec),
         "baseline_feature_columns": len(baseline.columns), "candidate_feature_columns": len(candidate.columns),
     }
+
+
+def compare_prepared_runs(
+    baseline: BacktestRun, candidate: BacktestRun,
+    baseline_frame: pd.DataFrame, candidate_frame: pd.DataFrame, spec: BacktestSpec,
+    *, bootstrap_samples: int = 2000,
+) -> BacktestComparison:
+    """Pair verified runs on fixed evaluation inputs, allowing earlier history changes.
+
+    Original saved runs keep full-history identities for cache/artifact validation.
+    Only the comparison views share the separately verified evaluation identity.
+    """
+    from .backtesting import compare_backtest_runs
+
+    audit = preflight_frames(baseline_frame, candidate_frame, spec)
+    preflight_artifact(baseline, baseline_frame, spec, baseline.league.value)
+    preflight_artifact(candidate, candidate_frame, spec, baseline.league.value)
+    return compare_backtest_runs(
+        replace(baseline, source_fingerprint=audit['source_fingerprint']),
+        replace(candidate, source_fingerprint=audit['source_fingerprint']),
+        bootstrap_samples=bootstrap_samples,
+    )
 
 
 def preflight_artifact(run: BacktestRun, frame: pd.DataFrame, spec: BacktestSpec, league: str) -> None:
