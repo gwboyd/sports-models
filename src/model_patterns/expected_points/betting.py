@@ -47,6 +47,8 @@ def calculate_wins(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def determine_plays(df: pd.DataFrame, thresholds: PlayThresholds, dont_update=None) -> pd.DataFrame:
+    if thresholds.max_combined_plays is not None:
+        return _determine_combined_plays(df, thresholds, dont_update=dont_update)
     dont_update = dont_update or []
     output = df.copy()
     spread_supported = output.get(
@@ -95,6 +97,77 @@ def determine_plays(df: pd.DataFrame, thresholds: PlayThresholds, dont_update=No
         output["total_lock"] = output["new_total_lock"]
 
     output.drop(["is_top_n_spread", "is_top_n_total"], axis=1, inplace=True)
+    return output
+
+
+def _determine_combined_plays(
+    df: pd.DataFrame,
+    thresholds: PlayThresholds,
+    *,
+    dont_update=None,
+) -> pd.DataFrame:
+    """Adapt production picks to the same weekly selector used by replay."""
+    from .lock_policy import LockPolicy, add_outcome_probabilities, select_weekly_locks
+    from src.sports.football.kickoff import parse_eastern_kickoffs
+
+    output = df.copy()
+    frozen_ids = {str(value) for value in (dont_update or [])}
+    policy = LockPolicy(
+        american_odds=thresholds.american_odds,
+        minimum_resolved_win_probability=0.5,
+        max_locks_per_week=thresholds.max_combined_plays,
+        max_spreads_per_week=thresholds.max_spreads_plays,
+        max_totals_per_week=thresholds.max_total_plays,
+        extra_lock_min_probability=thresholds.extra_lock_min_probability,
+    )
+    decisions = []
+    for market in ("spread", "total"):
+        part = pd.DataFrame(index=output.index)
+        part["row_position"] = range(len(output))
+        part["season"] = output.get("season", 0)
+        part["week"] = output.get("week", 0)
+        part["game_id"] = output.get("game_id", pd.Series(output.index, index=output.index)).astype(str)
+        part["market"] = market
+        part["kickoff"] = (
+            parse_eastern_kickoffs(output["date_time"])
+            if "date_time" in output else pd.Timestamp("1970-01-01", tz="UTC")
+        )
+        part["edge"] = (output[f"{market}_pred"] - output[f"{market}_line"]).abs()
+        probability = pd.to_numeric(output[f"{market}_win_prob"], errors="coerce") / 100.0
+        push = pd.to_numeric(
+            output.get(f"{market}_push_prob", pd.Series(0.0, index=output.index)),
+            errors="coerce",
+        ).fillna(0.0)
+        part["market_supported"] = output.get(
+            f"{market}_market_supported", pd.Series(True, index=output.index)
+        ).fillna(False).astype(bool)
+        part["locks_enabled"] = output.get(
+            f"{market}_locks_enabled", pd.Series(True, index=output.index)
+        ).fillna(False).astype(bool)
+        part["lock"] = pd.to_numeric(
+            output.get(f"{market}_lock", pd.Series(0, index=output.index)), errors="coerce"
+        ).fillna(0).astype(int)
+        part["policy_eligible"] = (
+            probability.ge(getattr(thresholds, f"min_{market}_win_prob") / 100.0)
+            & probability.le(1.0)
+            & part["edge"].ge(getattr(thresholds, f"min_{market}_diff"))
+            & output.get(f"{market}_play", pd.Series(True, index=output.index)).notna()
+            & ~part["game_id"].isin(frozen_ids)
+        )
+        part = add_outcome_probabilities(part, probability.to_numpy(), push.to_numpy(), policy=policy)
+        decisions.append(part)
+    combined = pd.concat(decisions, ignore_index=True)
+    preserved = combined.loc[combined["game_id"].isin(frozen_ids)]
+    selected = select_weekly_locks(combined, policy=policy, preserved=preserved)
+    for market in ("spread", "total"):
+        part = selected.loc[selected["market"].eq(market)].sort_values("row_position")
+        frozen = output.get("game_id", pd.Series(output.index, index=output.index)).astype(str).isin(frozen_ids)
+        new_locks = part["lock"].to_numpy()
+        output[f"new_{market}_lock"] = pd.Series(new_locks, index=output.index).where(~frozen, 0)
+        existing = output.get(f"{market}_lock", pd.Series(0, index=output.index))
+        output[f"{market}_lock"] = pd.Series(new_locks, index=output.index).where(~frozen, existing).fillna(0).astype(int)
+        output[f"{market}_expected_units"] = part["expected_units"].to_numpy()
+        output[f"{market}_lock_rank"] = pd.array(part["lock_rank"], dtype="Int64")
     return output
 
 

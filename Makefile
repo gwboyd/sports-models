@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams backtest-expected-points sam-build sam-invoke-health sam-api prepare-model-release sam-deploy sam-register-releases
+.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams backtest-expected-points replay-expected-points-locks sam-build sam-invoke-health sam-api prepare-model-release sam-deploy sam-register-releases
 
 YEAR ?= $(shell date +%Y)
 
@@ -14,6 +14,7 @@ help:
 	@echo "  make sync-nfl-teams     Refresh NFL metadata/logos from nflverse"
 	@echo "  make sync-football-teams Refresh both football team catalogs"
 	@echo "  make backtest-expected-points Compare one league; LEAGUES=nfl,cfb starts both for convenience"
+	@echo "  make replay-expected-points-locks Screen Lock methods from a frozen score-run cache"
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"
@@ -56,6 +57,12 @@ BOOTSTRAP_SAMPLES ?= 2000
 OUTPUT_DIR ?=
 NO_CACHE ?=
 CACHE_WORKING_TREE ?=
+LOCK_SOURCE ?= deployed
+LOCK_EXPECTED_VERSION ?=
+LOCK_SCREEN_CADENCE ?=
+LOCK_MIN_PROBABILITY ?= 0.55
+LOCK_MAX_PER_WEEK ?= 5
+LOCK_EXTRA_MIN_PROBABILITY ?=
 THROUGH_SEASON ?=
 PREFLIGHT_ONLY ?=
 CURRENT_YEAR ?=
@@ -124,6 +131,18 @@ backtest-expected-points:
 		$(BACKTEST_FRAME_ARGS) \
 		$(BACKTEST_OPTIONAL_ARGS)
 endif
+
+replay-expected-points-locks:
+	set -a && { [[ ! -f .env ]] || source .env; } && set +a && \
+	.venv/bin/python scripts/backtest_expected_points.py lock-replay \
+		--league $(LEAGUE) \
+		--source "$(LOCK_SOURCE)" \
+		$(if $(strip $(LOCK_EXPECTED_VERSION)),--expected-source-version "$(LOCK_EXPECTED_VERSION)",) \
+		--minimum-probability $(LOCK_MIN_PROBABILITY) --max-locks-per-week $(LOCK_MAX_PER_WEEK) \
+		$(if $(filter $(BACKTEST_TRUE_VALUES),$(strip $(LOCK_SCREEN_CADENCE))),--screen-cadence,) \
+		$(if $(strip $(LOCK_EXTRA_MIN_PROBABILITY)),--extra-lock-min-probability $(LOCK_EXTRA_MIN_PROBABILITY),) \
+		--bootstrap-samples $(BOOTSTRAP_SAMPLES) \
+		$(if $(strip $(OUTPUT_DIR)),--output-dir "$(OUTPUT_DIR)",)
 
 sam-build:
 	sam build

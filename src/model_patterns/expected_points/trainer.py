@@ -9,7 +9,7 @@ from src.sports.football.kickoff import exclude_started_games, parse_eastern_kic
 
 from .betting import calculate_wins, determine_plays, scores_to_bets, win_probability
 from .chronology import chronological_train_test_split, predefined_chronological_split
-from .confidence import fit_classifiers
+from .confidence import fit_configured_classifiers
 from .evaluation import safe_confidence_health_evaluation, score_prediction_metrics
 from .pipeline import make_score_pipeline
 from .types import ExpectedPointsConfig, ExpectedPointsRunResult
@@ -187,18 +187,7 @@ def _fit_expected_points(
         config,
     )
 
-    spread_clf, total_clf = fit_classifiers(
-        eval_results,
-        config.spread_class_features,
-        config.total_class_features,
-        config.spread_class_cat_features,
-        config.total_class_cat_features,
-        config.confidence_param_grid,
-        time_col=config.time_col,
-        validation_size=config.confidence_validation_size,
-        n_jobs=config.confidence_n_jobs,
-        scoring=config.confidence_scoring,
-    )
+    spread_clf, total_clf = fit_configured_classifiers(eval_results, config)
 
     score_model = _fit_final_score_model(score_search.best_estimator_, X, y)
 
@@ -241,16 +230,26 @@ def _predict_period(
     )
 
     plays = betting_transform(this_week)
-    plays["spread_win_prob"] = win_probability(
-        plays,
-        classifier=spread_clf,
-        features=config.spread_class_features,
-    )
-    plays["total_win_prob"] = win_probability(
-        plays,
-        classifier=total_clf,
-        features=config.total_class_features,
-    )
+    if hasattr(spread_clf, "predict_outcomes"):
+        spread_probability, spread_push = spread_clf.predict_outcomes(plays)
+        total_probability, total_push = total_clf.predict_outcomes(plays)
+        plays["spread_win_prob"] = spread_probability * 100.0
+        plays["total_win_prob"] = total_probability * 100.0
+        plays["spread_push_prob"] = spread_push
+        plays["total_push_prob"] = total_push
+        plays["spread_locks_enabled"] = spread_clf.locks_enabled
+        plays["total_locks_enabled"] = total_clf.locks_enabled
+    else:
+        plays["spread_win_prob"] = win_probability(
+            plays,
+            classifier=spread_clf,
+            features=config.spread_class_features,
+        )
+        plays["total_win_prob"] = win_probability(
+            plays,
+            classifier=total_clf,
+            features=config.total_class_features,
+        )
     plays = determine_plays(plays, thresholds=config.play_thresholds)
     return this_week, plays
 

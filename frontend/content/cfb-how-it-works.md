@@ -1,6 +1,6 @@
 # CFB Expected Points Model
 
-This page describes the **2.0 methodology**. Each saved pick keeps the model version that produced it, so historical results can include earlier versions.
+This page describes the **2.1 methodology**. Each saved pick keeps the model version that produced it, so historical results can include earlier versions.
 
 The model predicts **how many points each college football team should score in a matchup**. Those expected scores produce a projected spread and total, which are compared with sportsbook lines to select a side and an Over or Under. Separate probability models estimate how likely each displayed pick is to hit.
 
@@ -28,9 +28,9 @@ These measures describe different aspects of performance: overall value, consist
 
 A gradient-boosted model predicts each team's points from the efficiency and matchup inputs. A game contributes both a home-team and an away-team scoring example; the two examples remain together in chronological training and validation splits.
 
-The model tunes its settings on earlier games with a later validation period, then predicts a separate later holdout. Those unseen-game predictions teach the spread and total classifiers how reliable the model's picks are. The score model then refits on all eligible completed games with its selected settings before forecasting the upcoming slate.
+The model tunes its settings on earlier games with a later validation period, then predicts a separate later holdout. Those unseen-game predictions teach the spread and total probability heads how reliable the model's picks are. The score model then refits on all eligible completed games with its selected settings before forecasting the upcoming slate.
 
-The score model can handle missing feature values directly. The probability models estimate missing-value replacements within their training data. Neither process fills a past feature with an average calculated from future games.
+The score model handles missing feature values directly. The probability layer uses valid historical score errors and resolved outcomes; it does not fill a past feature with an average calculated from future games.
 
 ## Opponent adjustment with ridge regression
 
@@ -66,11 +66,15 @@ Opponent ratings and efficiency history use only games before the opening kickof
 
 ## Pick win probability and Locks
 
-Separate spread and total classifiers learn from historical predictions made for games that were outside the score model's training sample. The splits follow time order. The classifiers estimate the probability that the **displayed spread or total pick** will hit, rather than the probability that a team wins outright.
+The spread probability layer uses forecasts for games outside the score model's training sample and measures errors in the projected margin. These chronological holdout errors are kept separate from the final score-model refit. Total probabilities use resolved outcomes from that same holdout.
 
-The difference between the model and the market is one input to confidence, not a direct probability. A large apparent edge can still receive modest confidence if similar past situations were unreliable.
+Let `e` be the absolute gap between the model prediction and the displayed betting line, and `F(e)` the fraction of earlier absolute score errors smaller than that gap. The estimated resolved-bet win probability is `q = 0.5 + 0.1 × F(e)`. This assumes symmetric score errors and discounts their implied advantage by 80%, keeping estimates between 50% and 60%. Symmetry and the fixed discount are modeling assumptions, not proof of perfect calibration. Fewer than 100 resolved examples or fewer than 25 wins or losses triggers a shrunken historical-rate fallback with no Locks.
 
-A **Lock** must pass confidence, model-edge, and slate-ranking rules, along with the sportsbook corroboration requirement. It is a selection category, not a guarantee. Picks and probabilities can be wrong, including when several indicators agree.
+A Lock needs at least a 52.5% estimated resolved-win probability and positive expected profit at assumed -110 pricing. A one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
+
+The score-error method applies to spreads. Total-pick probabilities use a strongly shrunken historical hit rate, and total Locks are disabled in this version. Candidates are ranked by expected profit. The normal combined weekly limit is three, currently all spreads. Additional spreads may exceed that limit only at a stronger 55% probability floor; there is no separate hard ceiling of five. At least two corroborating real sportsbook quotes are still required. This is not a weekly minimum: thin slates can have fewer or no Locks. Preserved picks near kickoff retain their original version and Lock status and count toward weekly capacity.
+
+A **Lock** is a selective category, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
 
 ## Prediction updates and results
 
@@ -90,4 +94,4 @@ Completed games are graded on the next successful model update. [Results](/model
 
 **Pick win probability:** The estimated chance that the selected spread or total pick hits.
 
-**Lock:** A pick that passes the model's additional qualification rules.
+**Lock:** A pick that passes the model's win-probability, positive-value, sportsbook-support, and combined weekly-ranking rules. Only spread picks are eligible in this version.

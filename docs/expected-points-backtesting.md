@@ -43,7 +43,8 @@ The command automatically:
    training run in isolated Git checkouts; dependency differences use a cached environment for that version.
 3. Checks frame integrity, code provenance, historical inputs, and evaluated seasons before fitting either version.
 4. Runs **standard**: weekly walk-forward fitting across the latest three completed/evaluable seasons, with a prior
-   season retained for warmup. Each cutoff uses the complete score and confidence tuning/refit.
+   season retained for warmup. Each cutoff uses its recipe's complete score tuning/refit and probability-head fit;
+   legacy confidence classifiers also retain their own chronological tuning.
 5. Saves each run, paired performance results, prediction/lock changes, input bundles, executed preparation notebooks,
    logs, and the resolved request under a new `.backtests/expected_points/comparisons/<league>/<timestamp>/` directory.
 
@@ -82,6 +83,90 @@ To include a newly finished season before March, explicitly set `THROUGH_SEASON=
 week plus the final week. It provides preliminary results sooner, but is not a prerequisite. With working-tree
 cutoff caching off (the default), a later standard run repeats the overlapping candidate fits. Do not run both by
 habit. Released baseline cutoffs can reuse compatible caches; newly prepared feed values can invalidate them.
+
+## Lightweight Lock-method replay
+
+Lock research has a separate, deliberately cheaper runner. It takes the immutable weekly score predictions from a
+completed standard `BacktestRun` and retrains only small second-stage win-probability heads. It never runs a notebook,
+loads a feed, fits an expected-points score model, or writes operational picks. Explicit artifact sources are fully
+offline; deployed/version references only read Supabase to resolve the source release:
+
+```sh
+make replay-expected-points-locks LEAGUE=nfl LOCK_SOURCE=version:2.0
+make replay-expected-points-locks LEAGUE=cfb LOCK_SOURCE=version:2.0
+```
+
+`LOCK_SOURCE` accepts `version:N.N`, `deployed` (the default), `artifact:<run-directory>`, or a completed run directory.
+Deployed/version references first resolve the immutable release SHA from Supabase and then search matching validated
+local standard run artifacts under `comparisons/<league>/` and `runs/<league>/`, choosing the newest complete match.
+An explicit artifact is the strongest fully offline reproducibility anchor.
+`LOCK_EXPECTED_VERSION` independently fails closed if the loaded recipe version is not the requested one.
+This distinction is intentional: a score prediction Parquet is a valid input to this Locks-only experiment, but it
+is never a feature input or substitute for frame preparation in a whole-recipe comparison.
+
+The standard protocol uses the source's earlier seasons as chronological warmup, its penultimate season for
+development, writes `selection.json`, and only then scores the final season. At least three source seasons are
+required; for the 2.0 cache these are 2023/2024/2025. Each target slate trains
+only on games whose kickoffs plus the result-availability lag precede that slate's cutoff. Pushes are excluded from
+resolved-win classifiers but retained for score-error distributions, probability accounting, and profit. Candidate features come from explicit NFL
+and CFB allowlists; final scores, outcomes, prior Locks/probabilities, true results, and postgame ratings cannot enter
+an estimator matrix.
+
+The primary betting metric is flat-stake net units with one unit risked at -110: a win earns `100/110`, a loss costs
+one, and a push earns zero while still counting in turnover. The strict screen defaults to at least 55% resolved-win
+probability and positive expected units. Its default cap is five Locks across spread and total together per league
+week; zero-Lock weeks are valid. These are configurable research controls, not a forced quota. Promotion also requires probability, calibration, decision-volume, and fixed-seed
+season/week bootstrap profit gates. If no method clears them, the artifact records the most honest probability head
+and disables Locks rather than forcing action.
+
+The development gate requires at least 25 Locks, at least a 0.1% relative Brier improvement over the chronological
+shrunken base rate, non-worse log loss, no more than five percentage points of overconfidence, and a positive 95%
+bootstrap lower bound for net units. Conservative under-confidence is reported but does not fail that safety gate.
+Confirmation requires at least 15 Locks, positive confirmation profit, Brier and log loss no worse than its base-rate
+control, and a positive combined development-plus-confirmation profit lower bound. `promotion.json` records every
+check. Passing every check is the automated promotion standard. A deliberately more permissive release policy must
+be called out as such in the study report, remain conservative in its displayed probabilities and weekly volume, and
+still complete the normal standard comparison; it must never be reported as having passed automated promotion.
+Confirmation results always show the bets selected by the frozen development rule, even if confirmation fails;
+failed confirmation never retroactively erases losing bets from the report.
+
+For explicitly retrospective research into a useful weekly cadence, run:
+
+```sh
+.venv/bin/python scripts/backtest_expected_points.py lock-replay \
+  --league nfl --source version:2.0 --screen-cadence --minimum-probability .525
+# Equivalent Make command (loads root .env for release-reference resolution):
+make replay-expected-points-locks LEAGUE=nfl LOCK_SOURCE=version:2.0 \
+  LOCK_SCREEN_CADENCE=1 LOCK_MIN_PROBABILITY=.525
+```
+
+This fits each head once per historical cutoff, then reuses its probabilities for a small registered policy grid:
+normally two or three combined Locks, optional stronger-probability overflow, single-market or mixed allocations.
+Overflow floors below the requested minimum probability are omitted from the grid; no-overflow alternatives remain.
+It saves every forecast, policy decision, per-season metric, and zero/two-plus/three-plus/over-five week count.
+The default cadence target is two-plus Locks in 80% of ordinary weeks (NFL 1–18; CFB 1–14); special/postseason weeks
+remain in the overall results. The goal is usually 2–3 per league across markets, never 2–3 per market. A probability
+floor still applies and can leave a week empty. `--extra-lock-min-probability` allows stronger bets beyond the
+ordinary cap; without it the cap is hard. Historical -110 pricing is an assumption, not verified executable juice.
+
+`--screen-cadence` exposes both development and confirmation seasons and does **not** select/promote a production
+model automatically. Its selection-adjustment limitation is explicit in `screen.json`. Source and code identities,
+all head parameters, policy settings, and the complete ledger are retained. Use the full standard comparison to
+check the production training-history path: replay uses earlier cached weekly forecasts, whereas production fits
+the head from its chronological score holdout. Shared factories do not make those histories identical.
+
+New standard runs also retain `lock_training.parquet`: each cutoff's exact chronological score-holdout examples,
+with checksums and structured-column metadata in the run manifest (and applicable cutoff caches). An incomplete
+legacy cache does not claim this capability. To test heads on those identical production calibration inputs, use
+`--training-history score-holdout --variants symmetric_residual_0.2`; missing/corrupt histories fail closed.
+The default `weekly` mode remains available for older sources such as v2.0. Recorded-probability calibration heads
+require recorded probabilities in their training inputs and fail rather than fabricate them in score-holdout mode.
+
+Outputs live in a fresh `experiments/<study>/<league>/` directory and include source/design manifests, a compact safe
+source ledger, every development variant's decisions and metrics, the immutable selection, confirmation decisions,
+execution status/logs, and a report. The historical input remains a weekly approximation using the then-available
+backtest feed values, not an exact intraday line or public-money snapshot. This fast tournament screens methods; after
+production integration, the normal standard NFL and CFB comparisons remain mandatory end-to-end release evidence.
 
 ## Optional controls
 
@@ -182,16 +267,22 @@ focused chronology/correctness checks, then use the standard command for the fin
 screen explicit designs, but their narrower results must be labeled. Record failed and rejected variants as well as
 winners, inspect uncertainty and per-season behavior, and distinguish correctness from measured accuracy.
 
-After a selection, update `UNRELEASED.md` with public differences and the NFL/CFB How It Works Markdown with the
-complete current methodology. Those public pages should cover inputs, training, predictions, confidence, update
+After a selection, author release notes in `UNRELEASED.md`: a title, plain-language `## Public Summary`, and
+`## Changes` with 2–3 concise bullets explaining meaningful technical changes (estimator, chronology, shrinkage,
+thresholds, or bet accounting). An optional fourth bullet may compare with a named baseline using verified results
+for the actual recipe; state the period/population, pricing assumptions where relevant, and material uncertainty or
+selection limitations. Omit it if a brief responsible summary is not possible. Keep full evidence local; omit source
+paths, commands, infrastructure details, experiment ledgers, and separate evaluation/internal headings.
+Update the NFL/CFB How It Works Markdown with the complete current methodology. Those public pages should cover inputs, training, predictions, confidence, update
 behavior, and limitations, not over-focus on what changed in this release. Keep detailed evaluation evidence local.
 If the user explicitly waives a new comparison after a prediction-affecting edit, state that the saved metrics predate
 the edit in the existing evaluation report and index. Do not silently relabel old results or claim the fix improved accuracy.
 Before the original commit/merge, run `make prepare-model-release` to choose versions and save the exact release notes,
 empty drafts, and `model-versions.json`. Commit these with the model changes and How It Works updates, then merge once.
 Deploy with `make sam-deploy` on reviewed, clean main; it reads the prepared versions and does not modify tracked files.
-If prediction changes continue after preparation, copy the unpublished notes back to UNRELEASED.md and update the
-consolidated draft, whole-model explanation, and relevant evidence. Any nonblank draft blocks deployment. Rerun prep
+For any revision to unpublished prepared notes, including wording-only edits, copy the complete notes back to
+UNRELEASED.md and edit the consolidated draft there. Never hand-edit `releases/vN.N.md` or the version manifest.
+Review the whole-model explanation and update it and relevant evidence when behavior changes. Any nonblank draft blocks deployment. Rerun prep
 to amend the same unregistered version; changes after registration require a new version. Source/dependency signals
 help catch missed updates and require explicit prediction-neutral classification when keeping a registered version;
 they do not replace recording changes in the draft as they happen. Supabase determines when
@@ -236,6 +327,11 @@ cutoff caches or dependency environments manually. Public release notes and How 
 these internal reports, including the runner's automatically generated `release_evaluation.md`.
 
 ## Efficient monitoring for agents
+
+If parallel local jobs oversubscribe CPUs, bound execution resources without changing tuning fidelity, for example
+`env LOKY_MAX_CPU_COUNT=2 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 make backtest-expected-points LEAGUE=nfl`.
+These are process-local worker/thread limits, not smaller tuning grids. Retain completed frame bundles and verify
+that prior processes have ended before retrying; explicitly enable `CACHE_WORKING_TREE=1` when resumability is useful.
 
 Start each job once and retain its process/session ID, job directory, and log path. Use completion notifications
 when available; otherwise choose bounded waits based on the latest cutoff time and ETA instead of polling every few

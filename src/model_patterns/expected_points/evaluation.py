@@ -18,7 +18,7 @@ from sklearn.metrics import (
 
 from .betting import determine_plays
 from .chronology import chronological_train_test_split
-from .confidence import fit_classifiers
+from .confidence import fit_configured_classifiers
 from .types import ExpectedPointsConfig, PlayThresholds
 
 LOGGER = logging.getLogger(__name__)
@@ -297,29 +297,28 @@ def confidence_health_evaluation(
         time_col=config.time_col,
         test_size=config.confidence_validation_size,
     )
-    spread_clf, total_clf = fit_classifiers(
-        development,
-        config.spread_class_features,
-        config.total_class_features,
-        config.spread_class_cat_features,
-        config.total_class_cat_features,
-        config.confidence_param_grid,
-        time_col=config.time_col,
-        validation_size=config.confidence_validation_size,
-        n_jobs=config.confidence_n_jobs,
-        scoring=config.confidence_scoring,
-    )
+    spread_clf, total_clf = fit_configured_classifiers(development, config)
     evaluated = validation.copy()
-    evaluated["spread_win_prob"] = _positive_probability(
-        spread_clf,
-        evaluated,
-        config.spread_class_features,
-    )
-    evaluated["total_win_prob"] = _positive_probability(
-        total_clf,
-        evaluated,
-        config.total_class_features,
-    )
+    if hasattr(spread_clf, "predict_outcomes"):
+        spread_probability, spread_push = spread_clf.predict_outcomes(evaluated)
+        total_probability, total_push = total_clf.predict_outcomes(evaluated)
+        evaluated["spread_win_prob"] = spread_probability * 100.0
+        evaluated["total_win_prob"] = total_probability * 100.0
+        evaluated["spread_push_prob"] = spread_push
+        evaluated["total_push_prob"] = total_push
+        evaluated["spread_locks_enabled"] = spread_clf.locks_enabled
+        evaluated["total_locks_enabled"] = total_clf.locks_enabled
+    else:
+        evaluated["spread_win_prob"] = _positive_probability(
+            spread_clf,
+            evaluated,
+            config.spread_class_features,
+        )
+        evaluated["total_win_prob"] = _positive_probability(
+            total_clf,
+            evaluated,
+            config.total_class_features,
+        )
     evaluated = determine_plays_by_period(evaluated, thresholds=config.play_thresholds)
     metrics = {f"health_{key}": value for key, value in prediction_metrics(evaluated).items()}
     metrics["health_available"] = 1.0

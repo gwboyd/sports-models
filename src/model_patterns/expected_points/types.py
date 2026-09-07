@@ -16,12 +16,24 @@ class ExpectedPointsLeague(str, Enum):
 
 @dataclass
 class PlayThresholds:
-    max_spreads_plays: int = 5
-    max_total_plays: int = 5
+    max_spreads_plays: int | None = 5
+    max_total_plays: int | None = 5
     min_spread_diff: float = 0.5
     min_total_diff: float = 0.5
     min_spread_win_prob: float = 55.0
     min_total_win_prob: float = 55.0
+    max_combined_plays: int | None = None
+    extra_lock_min_probability: float | None = None
+    american_odds: int = -110
+
+
+@dataclass(frozen=True)
+class LockHeadConfig:
+    family: str
+    feature_group: str = "core"
+    calibrator: str = "identity"
+    parameters: Mapping[str, float | int | str] = field(default_factory=dict)
+    locks_enabled: bool = False
 
 
 @dataclass
@@ -73,6 +85,9 @@ class ExpectedPointsConfig:
     play_thresholds: PlayThresholds = field(default_factory=PlayThresholds)
     home_prediction_features: list[str] | None = None
     away_prediction_features: list[str] | None = None
+    league: ExpectedPointsLeague | None = None
+    spread_lock_head: LockHeadConfig | None = None
+    total_lock_head: LockHeadConfig | None = None
 
 
 @dataclass

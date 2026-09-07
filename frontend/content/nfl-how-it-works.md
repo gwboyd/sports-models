@@ -1,12 +1,12 @@
 # NFL Expected Points Model
 
-This page describes the **2.0 methodology**. Each saved pick keeps the model version that produced it, so historical results can include earlier versions.
+This page describes the **2.1 methodology**. Each saved pick keeps the model version that produced it, so historical results can include earlier versions.
 
 The model predicts **how many points each NFL team should score in a matchup**. Those expected scores produce a projected final score, spread, and total. The model then compares its forecast with the available market lines to select a side and total for every game.
 
 The score model uses play-by-play and game-level data beginning in 2010. Expected Points Added (EPA) per play and Success Rate have been the most useful predictors, alongside starting-quarterback performance, rest, venue, matchup context, and available market information.
 
-After the picks are made, separate spread and total classifiers study the model's historical predictions against the market. They identify the situations in which the score model has been most and least reliable and estimate the probability that each selected pick will hit. Those probabilities, together with additional qualification rules, determine the week's **Locks**.
+After the picks are made, separate spread and total probability models use unseen-game score errors to estimate betting confidence. Estimates are strongly pulled toward an even chance. Locks are selected using those probabilities and expected profit, with roughly two or three combined opportunities as the usual aim rather than a forced quota.
 
 ## How the score model learns
 
@@ -14,7 +14,7 @@ A gradient-boosted model learns the relationship between matchup inputs and the 
 
 Training follows time order. The model selects its settings using earlier games and a later validation period, then makes predictions for a separate later holdout. Those unseen-game predictions supply the training examples for the spread and total probability models. After selecting the score-model settings, it refits on all eligible completed games before predicting the upcoming slate.
 
-Starting-quarterback performance uses a moving average of that player's earlier starts, ordered by kickoff. When there is no earlier start, the quarterback-history input remains missing rather than borrowing information from later games. The score model handles missing values directly; probability models learn their missing-value replacements within their training data.
+Starting-quarterback performance uses a moving average of that player's earlier starts, ordered by kickoff. When there is no earlier start, the quarterback-history input remains missing rather than borrowing information from later games. The score model handles missing values directly.
 
 ## From expected scores to picks
 
@@ -84,15 +84,15 @@ The chart below shows why smoothing is useful: raw game-level performance is vol
 
 ## Pick win probability and Locks
 
-Separate classifiers observe the kinds of spread and total predictions the score model has historically handled well—and the situations in which it has struggled against the market.
+The probability layer uses forecasts for games outside the score model's training sample. For spreads it measures errors in the projected margin; for totals it measures errors in the projected combined score. These chronological holdout errors are kept separate from the final score-model refit.
 
-The classifiers train on predictions for games the score model did not train on. This prevents the confidence model from grading artificially easy, already-seen forecasts. There is a tradeoff between the amount of training data available to the expected-points model and the out-of-sample predictions available to the probability classifiers.
+Let `e` be the absolute gap between the model prediction and the displayed betting line, and `F(e)` the fraction of earlier absolute score errors smaller than that gap. The estimated resolved-bet win probability is `q = 0.5 + 0.1 × F(e)`. This assumes symmetric score errors and discounts their implied advantage by 80%, keeping estimates between 50% and 60%. Symmetry and the fixed discount are modeling assumptions, not proof of perfect calibration. Fewer than 100 resolved examples or fewer than 25 wins or losses triggers a shrunken historical-rate fallback with no Locks.
 
-**Why can the probability be modest when the model and market are far apart?** Pick probability is not calculated from the size of that difference alone. The classifier may recognize similar historical situations in which a large apparent edge did not hold up.
+A Lock needs at least a 52.5% estimated resolved-win probability and positive expected profit at assumed -110 pricing. A one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
 
-A **Lock** is a pick that clears the required probability, model-edge, and slate-ranking rules. It is the model's highest-conviction category, not a guarantee.
+Candidates are ranked by expected profit. The normal combined limit is three per NFL week, with up to two spreads and one total. Additional candidates may exceed these normal limits only at a stronger 55% probability floor; there is no separate hard ceiling of five. This is not a weekly minimum: thin slates can have fewer or no Locks. Preserved picks near kickoff retain their original version and Lock status and count toward weekly capacity.
 
-Win probability always refers to the displayed spread or total pick hitting. It is not the probability that a team wins the game outright.
+A **Lock** is a selective category, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
 
 ## Power rankings
 
@@ -117,4 +117,4 @@ Each team's simulated win percentage is the average of its win probabilities acr
 
 **Pick win probability:** The model's estimated chance that the displayed spread or total pick is correct.
 
-**Lock:** A pick that passes the model's additional confidence, edge, and slate-ranking requirements.
+**Lock:** A spread or total pick that passes the win-probability, positive-value, market-support, and combined weekly-selection requirements.

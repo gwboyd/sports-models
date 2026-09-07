@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -66,16 +66,41 @@ def inspect_game(
     confidence_source = prediction if len(prediction) == 1 else raw
     spread = confidence_source.reindex(columns=config.spread_class_features).copy()
     total = confidence_source.reindex(columns=config.total_class_features).copy()
+    if config.spread_lock_head is not None and config.total_lock_head is not None:
+        from .lock_replay import build_lock_market_frame
+        from .lock_features import lock_feature_set
+
+        inspected = []
+        for name, head in (("spread", config.spread_lock_head), ("total", config.total_lock_head)):
+            if prediction.empty:
+                inspected.append(pd.DataFrame([{"head": head.family, "status": "Prediction required to inspect Lock inputs"}]))
+                continue
+            # Tracking/persistence retains projections and execution lines but
+            # drops transient difference columns. Reconstruct the exact input
+            # on an inspection-only copy, leaving the caller's picks unchanged.
+            lock_input = prediction.copy()
+            lock_input[f"{name}_diff"] = (
+                lock_input[f"{name}_pred"] - lock_input[f"{name}_line"]
+            ).abs()
+            features = build_lock_market_frame(lock_input, config.league, name, outcomes_known=False)
+            columns = ("edge",) if head.family == "symmetric_residual" else (
+                () if head.family == "base_rate" else lock_feature_set(config.league, head.feature_group, market=name).all
+            )
+            inputs = features.reindex(columns=columns).copy()
+            inputs["head"] = head.family
+            inputs["parameters"] = [dict(head.parameters)] * len(inputs)
+            inputs["locks_configured"] = head.locks_enabled
+            # A configured market may still be disabled by insufficient
+            # training history. Missing runtime metadata is unknown, not ready.
+            inputs["locks_enabled"] = (
+                prediction[f"{name}_locks_enabled"].to_numpy()
+                if f"{name}_locks_enabled" in prediction else pd.NA
+            )
+            inspected.append(inputs)
+        spread, total = inspected
     schedule_row = _matching_game_row(schedule, game_id, raw)
     market_row = _matching_game_row(market, game_id, raw)
-    thresholds = pd.DataFrame([{
-        "max_spreads_plays": config.play_thresholds.max_spreads_plays,
-        "max_total_plays": config.play_thresholds.max_total_plays,
-        "min_spread_diff": config.play_thresholds.min_spread_diff,
-        "min_total_diff": config.play_thresholds.min_total_diff,
-        "min_spread_win_prob": config.play_thresholds.min_spread_win_prob,
-        "min_total_win_prob": config.play_thresholds.min_total_win_prob,
-    }])
+    thresholds = pd.DataFrame([asdict(config.play_thresholds)])
     return GameInspection(
         schedule_row, market_row, raw, score_features, spread, total, prediction, thresholds
     )

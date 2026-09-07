@@ -9,8 +9,9 @@ Metrics derived from play by play data is used starting from 2010 to now. EPA (e
 
 `build_pregame_quarterback_metrics` constructs quarterback history in kickoff order and keeps the existing
 `ewma_qbr`/passer-rating feature names. Debut and unknown starters remain missing; never fill from a full-dataset
-average of first starts. Score LightGBM handles missing inputs natively, and confidence imputation is fitted inside
-each chronological training split. The September 2026 production audit removed the old future-dependent fallback;
+average of first starts. Score LightGBM handles missing inputs natively. Legacy confidence classifiers fit imputation
+inside each chronological training split; version 2.1 probability heads use score errors instead of quarterback
+inputs. The September 2026 production audit removed the old future-dependent fallback;
 the saved NFL 2.0 comparison predates that fix. A fresh performance comparison was explicitly waived by the user,
 so do not attribute those measured gains to the final quarterback-history recipe.
 
@@ -25,12 +26,14 @@ In a notebook or Papermill run, set `opponent_adjustment_config` to partial over
 `{"ridge_alpha": 10.0, "season_carryover": 0.25}`; CFB additionally accepts
 `{"fcs_policy": "pooled"}`.
 
-The current NFL candidate uses half-strength correction (`adjustment_strength=0.5`), selected on 2023–2024
+The NFL recipe uses half-strength correction (`adjustment_strength=0.5`), selected on 2023–2024
 screening weeks and evaluated on the standard 2023–2025 comparison recorded in
 `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored).
 `adjustment_strength` scales the opponent correction from zero (unadjusted history) to one (full correction); the moving-average calculation is unchanged. `excluded_seasons` removes listed seasons from both rating estimation and team efficiency history. A zero carryover with no current-season observations uses a neutral correction instead of attempting a zero-weight fit. These controls do not remove score-training games.
 
-After picks are made, there is another model (classifier) that looks back on the historical picks the model has made against Vegas, analyzes patterns with which the mdoel has been succesful, and gives a percentage chance it belives the model has of being correct in it's pick. That score (along with a couple other heuristics) is how we decide what "plays" to make each week.
+After picks are made, separate spread and total probability heads estimate the chance of a resolved bet winning
+from out-of-time score errors. Version 2.1 strongly discounts the implied advantage toward an even chance and ranks
+eligible Locks by expected profit. The probability floor and combined weekly policy are described below.
 
 ## Picks Update Cadence
 
@@ -80,8 +83,8 @@ Games at or after kickoff never enter the live prediction frame.
 
 Completed games are sorted by kickoff. The latest 20% form an outer score-model holdout, so every confidence-training
 prediction comes from games later than the score model's training data. Score-model GridSearch uses one chronological
-validation split inside the earlier 80%, and each confidence classifier uses one chronological validation split
-inside the outer holdout. The chosen score parameters are then refit once on all completed games for production;
+validation split inside the earlier 80%. Version 2.1 probability heads fit separate absolute margin/total error
+distributions on the outer holdout, discounted 80% toward an even chance; they do not run a classifier GridSearch. The chosen score parameters are then refit once on all completed games for production;
 GridSearch is not repeated. This keeps update-time cost modest while removing random-split leakage, but it is not a
 full out-of-fold season backtest.
 
@@ -159,19 +162,21 @@ when shared behavior changes and coordinate frontend publication with the backen
 Git-ignored `.backtests/expected_points/reports/`, with detailed comparisons/experiments in their existing folders.
 Those local reports are not shipped or pushed; do not force-add them.
 
-Prediction-affecting NFL changes are recorded in `UNRELEASED.md`. Keep that file empty when the deployment contains no
-NFL recipe change; do not add frontend, documentation, API-output, infrastructure, or database-only work. A populated
-draft must contain a `#` title, `## Public Summary`, and `## Changes`. Describe shipped model differences in
-plain language; omit code references, experiment settings, and evaluations. Keep evidence in separate reports, such
-as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Optional evaluation/internal
-sections remain supported by the parser for compatibility, but are not part of new public drafts.
+Author NFL release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
+release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
+a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
+verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
+limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
+experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
 notes to `releases/vN.N.md`, clearing the drafts, and updating root `model-versions.json`. Commit these files and the
 updated whole-model How It Works pages with the implementation, then merge once. Preparation writes no Supabase rows
-and does not deploy. If more prediction changes follow preparation, copy the unpublished release notes back into
-UNRELEASED.md, update the complete draft and How It Works, and rerun prep. After confirmation it amends that same
+and does not deploy. For any revision to unpublished prepared notes, including wording-only edits, copy the complete
+notes back into UNRELEASED.md and edit there; do not hand-edit the archive or manifest. Review How It Works and update
+it if behavior changes, then rerun prep. After confirmation it amends that same
 unregistered version and clears the draft. Any nonblank draft blocks deployment. After registration, new prediction
 changes require a new major/minor version. Do not manually clear drafts to bypass these checks.
 
@@ -224,12 +229,13 @@ Below is an example of the various calculations for the Dallas Cowboys. It shoul
 
 ## Determining what Picks to Play
 
-As I mentioned, there is a 2nd model that observes what types of games the model is good at picking, and what types of games with which it has struggled to beat Vegas. There is a separate model for spreads and totals.
-
-The training dataset for these classifiers is the later, chronological test set of the 80/20 split. We cannot use predictions of games the score model has been trained on, since the model would have seen them before. The classifier therefore learns only from genuine out-of-time score predictions, while its own parameter search also keeps validation games after its training games.
-
-**A common question I get asked is "Why is the model not confident in the pick even though the predicted spread is so far off the Vegas spread?"** The answer lies in that the "confidence score" comes from this objective 3rd party model, and in a case of high diofference of spreads/totals and low confience, is saying it has seen similar scenarios before where the model has lost and it is therefore not that confident in the pick.
-
+Version 2.1 separates score prediction from bet selection. Spread and total probabilities are `q=.5+.1*F(e)`, where
+`e` is the absolute execution-line edge and `F` is the market-specific absolute score-error CDF on the chronological
+score holdout. This assumes symmetric errors and discounts the inferred advantage 80%; it is not perfect calibration.
+Locks require q>=.525 and positive expected units at assumed -110, including estimated pushes. The normal combined
+weekly limit is three, with up to two spreads and one total; q>=.55 permits additional bets beyond those positive
+caps. A zero market cap remains disabled. Started saved Locks consume capacity and retain their original version.
+Volume is a target, not a forced minimum. See the public methodology for the complete explanation and limitations.
 
 ## Misc
 
@@ -239,7 +245,7 @@ The power rankings seen above in the chart are created by taking all of the metr
 
 The game simulations mimick each team's form for the current week (the next week if a team is on a bye), so it would be as if they all played eachother "today."
 The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
-logic and does not feed the expected-points picks or confidence classifiers.
+logic and does not feed the expected-points picks or betting probability heads.
 
 ### Ideas for the future
 
@@ -273,3 +279,14 @@ sets the same lever. Changing it requires new candidate features and normal comp
 The shared standard comparison permits different training histories before the first evaluated season. It logs
 those differences, keeps every side's training rows, and requires matching evaluation inputs and shared historical
 outcomes/markets. Full-history identities remain attached to saved runs and caches. NFL training defaults are unchanged.
+
+## Lightweight Lock replay
+
+Use `make replay-expected-points-locks LEAGUE=nfl` to anchor to the deployed release's latest matching local
+standard score run; `LOCK_SOURCE=version:2.0` or `artifact:<run>` pins another source. No expected-score refit is
+needed. `LOCK_SCREEN_CADENCE=1 LOCK_MIN_PROBABILITY=.525` compares combined weekly volume/profit policies and
+labels all evaluated seasons as exposed research. New standard runs retain checksummed per-cutoff
+`lock_training.parquet` data; CLI `--training-history score-holdout --variants symmetric_residual_0.2` replays
+those exact calibration inputs. Older caches support weekly-history research, not identical production calibration
+history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
+documents controls, provenance, uncertainty and mandatory production-path comparisons.
