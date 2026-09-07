@@ -49,3 +49,12 @@ export async function fetchOptionalApi<T>(path: string, revalidateSeconds = 300)
     throw error;
   }
 }
+
+export async function fetchSupplementalApi<T>(path: string, revalidateSeconds = 300): Promise<T | null> {
+  try {
+    return await fetchOptionalApi<T>(path, revalidateSeconds);
+  } catch (error) {
+    console.error("Supplemental model data unavailable; rendering without it", { path, error });
+    return null;
+  }
+}

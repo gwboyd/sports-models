@@ -5,20 +5,26 @@ import { Input } from "@/app/components/Input";
 import { TeamIdentity } from "@/app/components/TeamIdentity";
 import { displayProbability, formatKickoff, formatUpdatedAt } from "@/app/lib/formatting";
 import { CFB_TEAM_MANIFEST, getSlateTeams, getTeamIdentity, NFL_TEAM_MANIFEST, normalizedSearch, teamSearchText } from "@/app/lib/team-data";
-import type { ExpectedPointsPick, FootballLeague } from "@/app/types/types";
+import type { ExpectedPointsPick, FootballLeague, GameResult } from "@/app/types/types";
 import { OverlayPanel } from "./OverlayPanel";
 import {
   filterGamesByConference,
+  finalScoreLabel,
+  gameResultKey,
   gameDomId,
   getConferences,
   getLocks,
   groupGamesByDate,
+  marketFinalResultLabel,
+  marketOutcome,
   predictedScoreLabel,
   searchGames,
   spreadModelLabel,
   spreadPickLabel,
   totalPickLabel,
+  type FootballMarket,
   type LockPick,
+  type MarketOutcome,
 } from "./view-model";
 import { useFavoriteTeams } from "./use-favorites";
 
@@ -56,7 +62,41 @@ function Matchup({ game, league, compact = false }: { game: ExpectedPointsPick; 
   );
 }
 
-function MarketDetails({ game, market, descriptiveLabels = false, showPick = true, showStatus = true }: { game: ExpectedPointsPick; market: "spread" | "total"; descriptiveLabels?: boolean; showPick?: boolean; showStatus?: boolean }) {
+function GameStatus({ game, result, league, timeZone, align = "right" }: { game: ExpectedPointsPick; result?: GameResult; league: FootballLeague; timeZone?: string; align?: "left" | "right" }) {
+  const alignment = align === "right" ? "text-right" : "text-left";
+  if (!result) return <span className={`shrink-0 text-xs font-medium text-[var(--muted)] ${alignment}`}>{formatKickoff(game.date_time, timeZone)}</span>;
+  return (
+    <span data-game-status="final" className={`shrink-0 text-xs font-medium text-[var(--muted)] ${alignment}`}>
+      <span className="block text-[10px] font-bold uppercase tracking-wider">Final</span>
+      <span data-final-score className="numbers-tabular mt-0.5 block whitespace-nowrap font-semibold text-[var(--ink)]">{finalScoreLabel(game, result, league)}</span>
+    </span>
+  );
+}
+
+function outcomeClasses(outcome: MarketOutcome | undefined, locked: boolean, fallback: string): string {
+  if (outcome === "win") return `border-[var(--success)] ${locked ? "bg-green-50" : "bg-white"}`;
+  if (outcome === "loss") return `border-[var(--danger)] ${locked ? "bg-red-50" : "bg-white"}`;
+  if (outcome === "push") return `border-slate-400 ${locked ? "bg-slate-100" : "bg-white"}`;
+  return locked ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : fallback;
+}
+
+function CompactLockBadge() {
+  return <span className="rounded bg-[var(--lock-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lock)]">Lock</span>;
+}
+
+function MarketResultLine({ game, result, market, league }: { game: ExpectedPointsPick; result?: GameResult; market: FootballMarket; league: FootballLeague }) {
+  if (!result) return null;
+  const outcome = marketOutcome(result, market);
+  const classes = outcome === "win"
+    ? "text-[var(--success)]"
+    : outcome === "loss"
+      ? "text-[var(--danger)]"
+      : "text-slate-700";
+  const spokenOutcome = outcome === "win" ? "Pick won." : outcome === "loss" ? "Pick lost." : "Pick pushed.";
+  return <span data-market-result={market} className={`numbers-tabular block text-[11px] font-semibold leading-4 ${classes}`}><span className="sr-only">{spokenOutcome} </span>{marketFinalResultLabel(game, result, market, league)}</span>;
+}
+
+function MarketDetails({ game, result, market, league, descriptiveLabels = false, showPick = true, showStatus = true }: { game: ExpectedPointsPick; result?: GameResult; market: FootballMarket; league: FootballLeague; descriptiveLabels?: boolean; showPick?: boolean; showStatus?: boolean }) {
   const probability = market === "spread" ? game.spread_win_prob : game.total_win_prob;
   const locked = market === "spread" ? Boolean(game.spread_lock) : Boolean(game.total_lock);
   const modelLabel = descriptiveLabels ? `Model ${market} prediction` : "Model";
@@ -66,12 +106,12 @@ function MarketDetails({ game, market, descriptiveLabels = false, showPick = tru
       {showPick ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Pick</span><strong>{market === "spread" ? spreadPickLabel(game) : totalPickLabel(game)}</strong></div> : null}
       <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{modelLabel}</span><strong>{market === "spread" ? spreadModelLabel(game) : game.total_pred.toFixed(1)}</strong></div>
       <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{probabilityLabel}</span><strong className="numbers-tabular">{displayProbability(probability)}</strong></div>
-      {showStatus ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">Status</span><strong className={locked ? "text-[var(--warning)]" : "text-slate-600"}>{locked ? "Lock" : "Standard pick"}</strong></div> : null}
+      {showStatus ? <div className="flex justify-between gap-3"><span className="text-[var(--muted)]">{result ? "Result" : "Status"}</span>{result ? <strong className="numbers-tabular">{marketFinalResultLabel(game, result, market, league)}</strong> : <strong className={locked ? "text-[var(--warning)]" : "text-slate-600"}>{locked ? "Lock" : "Standard pick"}</strong>}</div> : null}
     </div>
   );
 }
 
-function LockBadge({ market }: { market: "spread" | "total" }) {
+function LockBadge({ market }: { market: FootballMarket }) {
   return (
     <span className="rounded-md bg-[var(--lock-soft)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--lock)]">
       {market === "spread" ? "Spread lock" : "Total lock"}
@@ -79,16 +119,18 @@ function LockBadge({ market }: { market: "spread" | "total" }) {
   );
 }
 
-function FavoriteGameCard({ game, league, timeZone }: { game: ExpectedPointsPick; league: FootballLeague; timeZone?: string }) {
+function FavoriteGameCard({ game, result, league, timeZone }: { game: ExpectedPointsPick; result?: GameResult; league: FootballLeague; timeZone?: string }) {
   const spreadLocked = Boolean(game.spread_lock);
   const totalLocked = Boolean(game.total_lock);
   const locked = spreadLocked || totalLocked;
+  const spreadOutcome = marketOutcome(result, "spread");
+  const totalOutcome = marketOutcome(result, "total");
 
   return (
     <article className={`rounded-lg border bg-white p-3.5 ${locked ? "border-[var(--lock-border)]" : "border-[var(--border)]"}`}>
       <div className="flex items-start justify-between gap-3">
         <Matchup game={game} league={league} />
-        <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</span>
+        <GameStatus game={game} result={result} league={league} timeZone={timeZone} />
       </div>
       {locked ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -97,102 +139,108 @@ function FavoriteGameCard({ game, league, timeZone }: { game: ExpectedPointsPick
         </div>
       ) : null}
       <div className="mt-2.5 grid grid-cols-2 gap-2">
-        <div data-favorite-market="spread" className={`rounded-md border px-3 py-2.5 ${spreadLocked ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-200 bg-slate-50"}`}>
+        <div data-favorite-market="spread" data-outcome={spreadOutcome} className={`rounded-md border px-3 py-2.5 ${outcomeClasses(spreadOutcome, spreadLocked, "border-slate-200 bg-slate-50")}`}>
           <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>
           <strong className="mt-1 block text-lg tracking-tight text-[var(--ink)]">{spreadPickLabel(game)}</strong>
+          <MarketResultLine game={game} result={result} market="spread" league={league} />
         </div>
-        <div data-favorite-market="total" className={`rounded-md border px-3 py-2.5 ${totalLocked ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-200 bg-slate-50"}`}>
+        <div data-favorite-market="total" data-outcome={totalOutcome} className={`rounded-md border px-3 py-2.5 ${outcomeClasses(totalOutcome, totalLocked, "border-slate-200 bg-slate-50")}`}>
           <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span>
           <strong className="mt-1 block text-lg tracking-tight text-[var(--ink)]">{totalPickLabel(game)}</strong>
+          <MarketResultLine game={game} result={result} market="total" league={league} />
         </div>
       </div>
-      <p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
-      <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
-        <MarketDetails game={game} market="spread" descriptiveLabels showPick={false} showStatus={false} />
-        <MarketDetails game={game} market="total" descriptiveLabels showPick={false} showStatus={false} />
-      </div>
+      {!result ? <><p className="mt-2.5 border-y border-slate-100 py-2 text-sm text-[var(--muted)]">Model score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p><div className="mt-2.5 grid gap-3 sm:grid-cols-2"><MarketDetails game={game} market="spread" league={league} descriptiveLabels showPick={false} showStatus={false} /><MarketDetails game={game} market="total" league={league} descriptiveLabels showPick={false} showStatus={false} /></div></> : null}
     </article>
   );
 }
 
-function LockCard({ lock, league, timeZone }: { lock: LockPick; league: FootballLeague; timeZone?: string }) {
+function LockCard({ lock, result, league, timeZone }: { lock: LockPick; result?: GameResult; league: FootballLeague; timeZone?: string }) {
   const isSpread = lock.market === "spread";
+  const outcome = marketOutcome(result, lock.market);
   return (
-    <article className="w-[76vw] max-w-[300px] shrink-0 snap-start rounded-lg border border-[var(--lock-border)] bg-white p-3 md:w-auto md:max-w-none">
+    <article data-lock-market={lock.market} data-outcome={outcome} className={`w-[76vw] max-w-[300px] shrink-0 snap-start rounded-lg border p-3 md:w-auto md:max-w-none ${outcomeClasses(outcome, true, "border-[var(--lock-border)] bg-white")}`}>
       <div className="flex items-center justify-between gap-3">
         <LockBadge market={lock.market} />
-        <span className="numbers-tabular text-sm font-semibold text-[var(--lock)]">{displayProbability(lock.probability)}</span>
+        {!result ? <span className="numbers-tabular text-sm font-semibold text-[var(--lock)]">{displayProbability(lock.probability)}</span> : null}
       </div>
       <div className="mt-3"><Matchup game={lock.game} league={league} compact /></div>
       <p className="mt-3 text-xl font-bold tracking-tight text-[var(--ink)]">{isSpread ? spreadPickLabel(lock.game) : totalPickLabel(lock.game)}</p>
+      {result ? <div className="mt-1"><MarketResultLine game={lock.game} result={result} market={lock.market} league={league} /></div> : null}
       <div className="mt-2 space-y-0.5 text-xs leading-5 text-[var(--muted)]">
-        <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p>
-        <p>{formatKickoff(lock.game.date_time, timeZone)}</p>
+        {!result ? <p>Model · <span className="font-medium text-[var(--ink)]">{isSpread ? spreadModelLabel(lock.game) : lock.game.total_pred.toFixed(1)}</span></p> : null}
+        <GameStatus game={lock.game} result={result} league={league} timeZone={timeZone} align="left" />
       </div>
     </article>
   );
 }
 
-function GameMobileCard({ game, league, highlighted, timeZone }: { game: ExpectedPointsPick; league: FootballLeague; highlighted: boolean; timeZone?: string }) {
+function GameMobileCard({ game, result, league, highlighted, timeZone }: { game: ExpectedPointsPick; result?: GameResult; league: FootballLeague; highlighted: boolean; timeZone?: string }) {
+  const spreadOutcome = marketOutcome(result, "spread");
+  const totalOutcome = marketOutcome(result, "total");
   return (
     <article data-game-id={gameDomId(game.game_id)} className={`scroll-mt-36 rounded-lg border bg-white transition-all ${highlighted ? "border-[var(--accent)] ring-2 ring-[var(--accent-soft)]" : "border-[var(--border)]"}`}>
       <details className="group">
         <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-start justify-between gap-3">
             <Matchup game={game} league={league} compact />
-            <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</span>
+            <GameStatus game={game} result={result} league={league} timeZone={timeZone} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div data-mobile-market="spread" className={`rounded-md border px-2.5 py-2 ${game.spread_lock ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-100 bg-slate-50"}`}><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong></div>
-            <div data-mobile-market="total" className={`rounded-md border px-2.5 py-2 ${game.total_lock ? "border-[var(--lock-border)] bg-[var(--lock-soft)]" : "border-slate-100 bg-slate-50"}`}><span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong></div>
+            <div data-mobile-market="spread" data-outcome={spreadOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(spreadOutcome, Boolean(game.spread_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Spread pick</span>{game.spread_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{spreadPickLabel(game)}</strong><MarketResultLine game={game} result={result} market="spread" league={league} /></div>
+            <div data-mobile-market="total" data-outcome={totalOutcome} className={`rounded-md border px-2.5 py-2 ${outcomeClasses(totalOutcome, Boolean(game.total_lock), "border-slate-100 bg-slate-50")}`}><span className="flex items-center justify-between gap-1"><span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Total pick</span>{game.total_lock ? <CompactLockBadge /> : null}</span><strong className="mt-0.5 block text-sm">{totalPickLabel(game)}</strong><MarketResultLine game={game} result={result} market="total" league={league} /></div>
           </div>
           <span className="mt-3 block text-center text-xs font-semibold text-[var(--accent)] group-open:hidden">View model details</span>
           <span className="mt-3 hidden text-center text-xs font-semibold text-[var(--accent)] group-open:block">Hide model details</span>
         </summary>
         <div className="border-t border-[var(--border)] px-3 pb-3 pt-2.5">
           <p className="mb-4 text-sm text-[var(--muted)]">Predicted score · <span className="font-medium text-[var(--ink)]">{predictedScoreLabel(game)}</span></p>
-          <div className="grid gap-4 sm:grid-cols-2"><MarketDetails game={game} market="spread" /><MarketDetails game={game} market="total" /></div>
+          <div className="grid gap-4 sm:grid-cols-2"><MarketDetails game={game} result={result} market="spread" league={league} /><MarketDetails game={game} result={result} market="total" league={league} /></div>
         </div>
       </details>
     </article>
   );
 }
 
-function DesktopMarketCell({ game, market }: { game: ExpectedPointsPick; market: "spread" | "total" }) {
+function DesktopMarketCell({ game, result, market, league }: { game: ExpectedPointsPick; result?: GameResult; market: FootballMarket; league: FootballLeague }) {
   const label = market === "spread" ? spreadPickLabel(game) : totalPickLabel(game);
   const locked = market === "spread" ? Boolean(game.spread_lock) : Boolean(game.total_lock);
+  const outcome = marketOutcome(result, market);
   return (
-    <div tabIndex={0} className="group relative inline-flex min-h-11 items-center gap-2 rounded-md px-2 focus:bg-[var(--accent-soft)]">
-      <span className="font-semibold text-[var(--ink)]">{label}</span>
+    <div data-desktop-market={market} data-outcome={outcome} tabIndex={0} className={`group relative inline-flex min-h-11 items-center gap-2 rounded-md border px-2 focus:bg-[var(--accent-soft)] ${outcomeClasses(outcome, locked, "border-transparent bg-transparent")}`}>
+      <span><span className="block font-semibold text-[var(--ink)]">{label}</span><MarketResultLine game={game} result={result} market={market} league={league} /></span>
       {locked ? <span className="rounded-md bg-[var(--lock-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--lock)]">Lock</span> : null}
       <div className="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] z-30 hidden w-64 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-3.5 text-left shadow-lg group-hover:block group-focus:block">
-        <MarketDetails game={game} market={market} />
+        <MarketDetails game={game} result={result} market={market} league={league} />
       </div>
     </div>
   );
 }
 
-function GameDesktopTable({ games, league, highlightedId, timeZone }: { games: ExpectedPointsPick[]; league: FootballLeague; highlightedId: string | null; timeZone?: string }) {
+function GameDesktopTable({ games, resultsByGame, league, highlightedId, timeZone }: { games: ExpectedPointsPick[]; resultsByGame: Map<string, GameResult>; league: FootballLeague; highlightedId: string | null; timeZone?: string }) {
   return (
     <div className="hidden overflow-visible rounded-lg border border-[var(--border)] bg-white md:block">
       <table className="w-full table-fixed text-left">
-        <thead><tr className="border-b border-[var(--border)] bg-slate-50 text-xs uppercase tracking-wider text-[var(--muted)]"><th className="w-[38%] px-4 py-3">Matchup</th><th className="w-[20%] px-4 py-3">Kickoff</th><th className="w-[21%] px-4 py-3">Spread pick</th><th className="w-[21%] px-4 py-3">Total pick</th></tr></thead>
+        <thead><tr className="border-b border-[var(--border)] bg-slate-50 text-xs uppercase tracking-wider text-[var(--muted)]"><th className="w-[38%] px-4 py-3">Matchup</th><th className="w-[20%] px-4 py-3">Status</th><th className="w-[21%] px-4 py-3">Spread pick</th><th className="w-[21%] px-4 py-3">Total pick</th></tr></thead>
         <tbody>
-          {games.map((game) => (
-            <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-[var(--accent-soft)]" : "hover:bg-slate-50/70"}`}>
-              <td className="px-4 py-3"><Matchup game={game} league={league} compact /></td>
-              <td className="px-4 py-3 text-sm text-[var(--muted)]">{formatKickoff(game.date_time, timeZone)}</td>
-              <td className="px-2 py-2"><DesktopMarketCell game={game} market="spread" /></td>
-              <td className="px-2 py-2"><DesktopMarketCell game={game} market="total" /></td>
-            </tr>
-          ))}
+          {games.map((game) => {
+            const result = resultsByGame.get(gameResultKey(game));
+            return (
+              <tr data-game-id={gameDomId(game.game_id)} key={game.game_id} className={`scroll-mt-36 border-b border-slate-100 last:border-0 ${highlightedId === game.game_id ? "bg-[var(--accent-soft)]" : "hover:bg-slate-50/70"}`}>
+                <td className="px-4 py-3"><Matchup game={game} league={league} compact /></td>
+                <td className="px-4 py-3"><GameStatus game={game} result={result} league={league} timeZone={timeZone} align="left" /></td>
+                <td className="px-2 py-2"><DesktopMarketCell game={game} result={result} market="spread" league={league} /></td>
+                <td className="px-2 py-2"><DesktopMarketCell game={game} result={result} market="total" league={league} /></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-export function FootballDashboard({ league, games }: { league: FootballLeague; games: ExpectedPointsPick[] }) {
+export function FootballDashboard({ league, games, results = [] }: { league: FootballLeague; games: ExpectedPointsPick[]; results?: GameResult[] }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -202,6 +250,7 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
   const displayTimeZone = useDeviceTimeZone();
   const teamResultsRef = useRef<HTMLDivElement>(null);
   const { favoriteIds, ready, update } = useFavoriteTeams(league);
+  const resultsByGame = useMemo(() => new Map(results.map((result) => [gameResultKey(result), result])), [results]);
 
   const slateTeams = useMemo(() => getSlateTeams(games, league), [games, league]);
   const managerTeams = useMemo(() => {
@@ -266,14 +315,14 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
               <span><strong className="block text-[var(--ink)]">No favorite teams selected</strong><span className="mt-1 block text-sm text-[var(--muted)]">Select teams to keep their weekly matchups here.</span></span><span className="shrink-0 text-sm font-semibold text-[var(--accent)]">Select teams</span>
             </button>
           ) : favoriteGames.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">None of your favorite teams has a game in the current slate.</p> : (
-            <div className="grid gap-3 lg:grid-cols-2">{favoriteGames.map((game) => <FavoriteGameCard key={game.game_id} game={game} league={league} timeZone={displayTimeZone} />)}</div>
+            <div className="grid gap-3 lg:grid-cols-2">{favoriteGames.map((game) => <FavoriteGameCard key={game.game_id} game={game} result={resultsByGame.get(gameResultKey(game))} league={league} timeZone={displayTimeZone} />)}</div>
           )}
         </section>
 
         <section className="space-y-3" aria-labelledby="locks-title">
           <SectionHeading title="Locks" description="Model-qualified spread and total picks, ordered by win probability." />
           {locks.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">No locks are available for this slate.</p> : (
-            <div className="hide-scrollbar -mr-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 md:mr-0 md:grid md:grid-cols-2 md:overflow-visible md:pr-0 xl:grid-cols-4">{locks.map((lock) => <LockCard key={lock.id} lock={lock} league={league} timeZone={displayTimeZone} />)}</div>
+            <div className="hide-scrollbar -mr-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 md:mr-0 md:grid md:grid-cols-2 md:overflow-visible md:pr-0 xl:grid-cols-4">{locks.map((lock) => <LockCard key={lock.id} lock={lock} result={resultsByGame.get(gameResultKey(lock.game))} league={league} timeZone={displayTimeZone} />)}</div>
           )}
         </section>
 
@@ -292,8 +341,8 @@ export function FootballDashboard({ league, games }: { league: FootballLeague; g
           {dateGroups.length === 0 ? <p className="rounded-lg border border-[var(--border)] bg-white p-3.5 text-sm text-[var(--muted)]">No games match this conference.</p> : dateGroups.map((group) => (
             <div key={group.date} className="space-y-3">
               <h3 className="text-sm font-semibold text-[var(--muted)]">{group.date}</h3>
-              <div className="space-y-3 md:hidden">{group.games.map((game) => <GameMobileCard key={game.game_id} game={game} league={league} highlighted={highlightedId === game.game_id} timeZone={displayTimeZone} />)}</div>
-              <GameDesktopTable games={group.games} league={league} highlightedId={highlightedId} timeZone={displayTimeZone} />
+              <div className="space-y-3 md:hidden">{group.games.map((game) => <GameMobileCard key={game.game_id} game={game} result={resultsByGame.get(gameResultKey(game))} league={league} highlighted={highlightedId === game.game_id} timeZone={displayTimeZone} />)}</div>
+              <GameDesktopTable games={group.games} resultsByGame={resultsByGame} league={league} highlightedId={highlightedId} timeZone={displayTimeZone} />
             </div>
           ))}
         </section>

@@ -25,10 +25,10 @@ const pick = {
 
 const results = {
   data: {
-    predicted_games: 1, spread_wins: 1, spread_losses: 0, spread_pushes: 0, spread_win_pct: 100,
+    predicted_games: 2, spread_wins: 2, spread_losses: 0, spread_pushes: 0, spread_win_pct: 100,
     spread_lock_predictions: 1, spread_lock_wins: 1, spread_lock_losses: 0, spread_lock_pushes: 0, spread_lock_win_pct: 100,
-    total_wins: 1, total_losses: 0, total_pushes: 0, total_win_pct: 100,
-    total_lock_predictions: 1, total_lock_wins: 1, total_lock_losses: 0, total_lock_pushes: 0, total_lock_win_pct: 100,
+    total_wins: 0, total_losses: 2, total_pushes: 0, total_win_pct: 0,
+    total_lock_predictions: 1, total_lock_wins: 0, total_lock_losses: 1, total_lock_pushes: 0, total_lock_win_pct: 0,
   },
   games: [{
     season: 2024, week: "1", home_team: "Home", away_team: "Away", home_score: 24, away_score: 20,
@@ -39,6 +39,28 @@ const results = {
     date_time: "2024-09-08-13:00",
   }],
 };
+
+const regularPick = {
+  ...pick,
+  home_team: "Host",
+  away_team: "Visitor",
+  spread_lock: 0,
+  total_lock: 0,
+  game_id: "regular-game",
+  date_time: "2024-09-08-16:00",
+};
+
+const regularResult = {
+  ...results.games[0],
+  home_team: regularPick.home_team,
+  away_team: regularPick.away_team,
+  spread_lock: 0,
+  total_lock: 0,
+  game_id: regularPick.game_id,
+  date_time: regularPick.date_time,
+};
+
+results.games.push(regularResult);
 
 const cfbPick = {
   ...pick,
@@ -55,7 +77,7 @@ const nbaPicks = [{
 }];
 
 const payloads = {
-  "/nfl-picks": [pick],
+  "/nfl-picks": [pick, regularPick],
   "/nfl-pick-results": results,
   "/cfb-picks": [cfbPick],
   "/nba-first-basket-picks": nbaPicks,

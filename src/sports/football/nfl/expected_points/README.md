@@ -7,6 +7,29 @@ The model predicts **expected points scored** for each NFL team in a game, getti
 
 Metrics derived from play by play data is used starting from 2010 to now. EPA (expected points added) Per Play and Success Rate are the features the model has found the most useful to predict outcomes, but other features like starting-quarterback NFL passer rating (retained under the historical `qbr` feature name), days of rest, and the Vegas odds themselves are used.
 
+`build_pregame_quarterback_metrics` constructs quarterback history in kickoff order and keeps the existing
+`ewma_qbr`/passer-rating feature names. Debut and unknown starters remain missing; never fill from a full-dataset
+average of first starts. Score LightGBM handles missing inputs natively, and confidence imputation is fitted inside
+each chronological training split. The September 2026 production audit removed the old future-dependent fallback;
+the saved NFL 2.0 comparison predates that fix. A fresh performance comparison was explicitly waived by the user,
+so do not attribute those measured gains to the final quarterback-history recipe.
+
+The existing EPA and success-rate feature names now contain opponent-adjusted values. Before each game's kickoff,
+the shared football transform fits ridge-regularized offense and defense effects only from earlier games, reassesses
+each prior team performance against the defense or offense it faced, and then applies the existing moving-average
+calculation. The adjustment therefore adds no future-game information and leaves downstream score and confidence
+schemas unchanged. Its ridge penalty and cross-season carryover are recipe parameters for backtesting. Ratings use
+the first kickoff of each game week by default, which excludes all same-week outcomes; the more expensive exact
+kickoff mode remains available for evaluation.
+In a notebook or Papermill run, set `opponent_adjustment_config` to partial overrides of the league defaults, such as
+`{"ridge_alpha": 10.0, "season_carryover": 0.25}`; CFB additionally accepts
+`{"fcs_policy": "pooled"}`.
+
+The current NFL candidate uses half-strength correction (`adjustment_strength=0.5`), selected on 2023–2024
+screening weeks and evaluated on the standard 2023–2025 comparison recorded in
+`.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored).
+`adjustment_strength` scales the opponent correction from zero (unadjusted history) to one (full correction); the moving-average calculation is unchanged. `excluded_seasons` removes listed seasons from both rating estimation and team efficiency history. A zero carryover with no current-season observations uses a neutral correction instead of attempting a zero-weight fit. These controls do not remove score-training games.
+
 After picks are made, there is another model (classifier) that looks back on the historical picks the model has made against Vegas, analyzes patterns with which the mdoel has been succesful, and gives a percentage chance it belives the model has of being correct in it's pick. That score (along with a couple other heuristics) is how we decide what "plays" to make each week.
 
 ## Picks Update Cadence
@@ -71,8 +94,8 @@ complete model row, exact home/away score representations, confidence inputs, an
 Set `write_backtest_frame=True` and run through the dedicated frame-save cell to write `df` without running the normal
 model train. Training, game inspection, and the optional historical comparison are separate notebook stages. Set
 `run_historical_backtest=True` only for an interactive `quick`, `standard`, or `full` comparison; Papermill/API runs
-reject it. The saved frame also supports
-`make backtest-expected-points LEAGUE=nfl PROFILE=standard BASELINE=deployed`. Compatible local cutoff results under
+reject it. The standard CLI command automatically prepares its own frames:
+`make backtest-expected-points LEAGUE=nfl`. Compatible local cutoff results under
 `.backtests/expected_points/` are appendable and reusable; recipe/configuration changes or corrected prior inputs
 invalidate affected fits. Working-tree fits are fresh by default; set notebook parameter
 `backtest_cache_working_tree=True` or Make variable `CACHE_WORKING_TREE=1` only when resumable candidate caching is
@@ -82,9 +105,9 @@ baseline references, expense controls, artifacts, cache behavior, and metric int
 
 `NFLExpectedPointsRecipe` owns final schedule/score/feature-frame joins, column normalization, kickoff conversion,
 line orientation, validation, feature selection, tuning grids, and lock thresholds. The notebook calls that assembly
-while retaining `scores`, `schedule_scores`, and `df` for inspection. When refs need different prepared feature
-columns, provide `BASELINE_FRAME` and `CANDIDATE_FRAME`; every cutoff is still refit and both frames must describe the
-same game/outcome/market universe.
+while retaining `scores`, `schedule_scores`, and `df` for inspection. Different feature columns are supported automatically. Optional
+`BASELINE_FRAME`/`CANDIDATE_FRAME` overrides reuse explicit saved inputs; both frames must still describe the same
+game/outcome/market universe.
 
 ## Operational Update Workflow
 
@@ -129,10 +152,19 @@ and the required database additions and deployment checks under [Scheduled Pick 
 
 ## Model Release Queue
 
+Keep the public [How It Works explanation](../../../../../frontend/content/nfl-how-it-works.md) current in
+the same change as each model version's release notes. It describes the whole model (inputs, training, predictions, confidence, updates, and limitations), with ridge
+adjustment as one part; `UNRELEASED.md` describes only user-visible differences. Review the other league's page
+when shared behavior changes and coordinate frontend publication with the backend release. Keep large reports in
+Git-ignored `.backtests/expected_points/reports/`, with detailed comparisons/experiments in their existing folders.
+Those local reports are not shipped or pushed; do not force-add them.
+
 Prediction-affecting NFL changes are recorded in `UNRELEASED.md`. Keep that file empty when the deployment contains no
 NFL recipe change; do not add frontend, documentation, API-output, infrastructure, or database-only work. A populated
-draft must contain `#` title, `## Public Summary`, and `## Changes` sections, with optional `## Evaluation` and
-`## Internal Notes` sections.
+draft must contain a `#` title, `## Public Summary`, and `## Changes`. Describe shipped model differences in
+plain language; omit code references, experiment settings, and evaluations. Keep evidence in separate reports, such
+as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Optional evaluation/internal
+sections remain supported by the parser for compatibility, but are not part of new public drafts.
 
 Production deployment is performed through `make sam-deploy`. The command prompts for `major` or `minor` whenever
 this queue is non-empty, keeps the current version when it is empty, prints the NFL and CFB decisions together, and
@@ -196,10 +228,32 @@ logic and does not feed the expected-points picks or confidence classifiers.
 ### Ideas for the future
 
 - Add in more player specific data besides just quarterbacks to better account for injuries/trades
-- Adjust efficiency metrics for difficulty of opponent
 - Include explosiveness data 
 - Add some 3rd down specifc metrics data
 - Include some position group specific data to better catch matchup advantages
 - Revamp how metrics are handled for rookies (only player specific metric right now is QBR)
 - Get to a place where I can remove any information that relies on Vegas odds.. it helps but sorta feels like cheating
 - If I do keep Vegas lines, find a way to get opening odds or where the public is so I better arbitrage the "vibes vs metrics" dynamic
+
+### Evaluating local changes against deployed
+
+**For any prediction-affecting change, just run `make backtest-expected-points LEAGUE=nfl` from the repository
+root.** Adding, removing, renaming, or recalculating features uses the same command as changing training, estimators,
+confidence inputs, or lock rules. It automatically prepares baseline and candidate features using each version's
+code, validates their common historical evaluation universe, and runs the standard three-season weekly comparison.
+It saves reports, prediction/lock changes, input bundles, notebooks, and logs in a new timestamped job directory.
+
+No notebook run, `prepare-frame`, preflight, or quick run is required beforehand. `PROFILE=quick` is an optional
+smaller run and repeats overlapping candidate fits if followed by standard with default caching. Optional controls
+for dates/seasons, caching, saved frames, alternate baselines, and recovery are described in the
+[backtesting guide](../../../../../docs/expected-points-backtesting.md#evaluate-working-tree-changes-against-deployed).
+Keep code/settings fixed during evaluation and run the same command again after another model change. Opponent-adjusted
+dynamic smoothing uses the target game's week for its span; older frames need regeneration after that correction.
+
+The optional `smoothing_span` adjustment parameter overrides the base EWMA span (default: each metric's existing
+10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
+sets the same lever. Changing it requires new candidate features and normal comparison evidence.
+
+The shared standard comparison permits different training histories before the first evaluated season. It logs
+those differences, keeps every side's training rows, and requires matching evaluation inputs and shared historical
+outcomes/markets. Full-history identities remain attached to saved runs and caches. NFL training defaults are unchanged.

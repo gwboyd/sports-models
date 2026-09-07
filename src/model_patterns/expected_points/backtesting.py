@@ -190,8 +190,8 @@ def recipe_fingerprint(recipe: ExpectedPointsRecipe, frame: pd.DataFrame, season
     })
 
 
-def source_bundle_fingerprint(frame: pd.DataFrame) -> str:
-    """Hash the shared evaluation universe, independent of recipe feature columns."""
+def source_bundle_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """Select the shared game/outcome/market inputs, excluding recipe features."""
     preferred = [
         "game_id", "season", "week", "date_time", "home_team", "away_team",
         "home_score", "away_score",
@@ -207,7 +207,12 @@ def source_bundle_fingerprint(frame: pd.DataFrame) -> str:
             columns.append(reference)
         elif fallback in frame:
             columns.append(fallback)
-    return frame_fingerprint(frame[columns])
+    return frame[columns].copy()
+
+
+def source_bundle_fingerprint(frame: pd.DataFrame) -> str:
+    """Hash the shared evaluation universe, independent of recipe feature columns."""
+    return frame_fingerprint(source_bundle_frame(frame))
 
 
 def _complete_seasons(frame: pd.DataFrame) -> list[int]:

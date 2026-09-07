@@ -15,6 +15,11 @@ from src.sports.football.nfl.data_validation import validate_expected_points_fra
 from src.sports.football.nfl.expected_points.utils import (
     nflverse_kickoffs_to_eastern_strings,
 )
+from src.sports.football.nfl.expected_points.features import (
+    DEFAULT_NFL_OPPONENT_ADJUSTMENT,
+    build_nfl_opponent_adjusted_metrics,
+)
+from src.sports.football.transforms import OpponentAdjustmentConfig
 
 
 @dataclass(frozen=True)
@@ -31,9 +36,19 @@ def assemble_nfl_model_frame(
     epa: pd.DataFrame,
     success: pd.DataFrame,
     starting_qbs: pd.DataFrame,
+    opponent_adjustment_config: OpponentAdjustmentConfig | Mapping[str, object] | None = None,
     strict: bool = True,
 ) -> NFLModelFrameStages:
     """Assemble the versioned NFL model frame while retaining notebook stages."""
+    # Existing callers may still provide the pre-v2, raw intermediate frames.
+    # Regenerate them when that happens; the v2 notebook supplies the adjusted
+    # frames directly so the comparatively expensive ratings are fit only once.
+    required_epa = {"game_id", "team", "ewma_dynamic_window_rushing_offense"}
+    required_success = {"game_id", "team", "ewma_success_rate_rushing_offense"}
+    if not required_epa.issubset(epa.columns) or not required_success.issubset(success.columns):
+        epa, success = build_nfl_opponent_adjusted_metrics(
+            pbp, schedule, config=opponent_adjustment_config, strict=strict,
+        )
     scores = (
         pbp[["game_id", "season", "week", "home_team", "away_team", "home_score", "away_score"]]
         .drop_duplicates()
@@ -48,20 +63,20 @@ def assemble_nfl_model_frame(
         schedule_scores
         .merge(
             epa.rename(columns={"team": "home_team"}),
-            on=["home_team", "season", "week"], how="left", validate="one_to_one",
+            on=["home_team", "game_id", "season", "week"], how="left", validate="one_to_one",
         )
         .merge(
             epa.rename(columns={"team": "away_team"}),
-            on=["away_team", "season", "week"], how="left",
+            on=["away_team", "game_id", "season", "week"], how="left",
             suffixes=("_home", "_away"), validate="one_to_one",
         )
         .merge(
             success.rename(columns={"team": "home_team"}),
-            on=["home_team", "season", "week"], how="left", validate="one_to_one",
+            on=["home_team", "game_id", "season", "week"], how="left", validate="one_to_one",
         )
         .merge(
             success.rename(columns={"team": "away_team"}),
-            on=["away_team", "season", "week"], how="left",
+            on=["away_team", "game_id", "season", "week"], how="left",
             suffixes=("_home", "_away"), validate="one_to_one",
         )
         .merge(
@@ -95,8 +110,9 @@ def assemble_nfl_model_frame(
 class NFLExpectedPointsRecipe:
     name: str = "nfl_expected_points"
     version: str = "working-tree"
-    protocol_version: str = "1"
+    protocol_version: str = "2"
     league: ExpectedPointsLeague = ExpectedPointsLeague.NFL
+    opponent_adjustment_config: OpponentAdjustmentConfig = DEFAULT_NFL_OPPONENT_ADJUSTMENT
 
     def prepare_frame(
         self,
@@ -114,6 +130,7 @@ class NFLExpectedPointsRecipe:
             epa=sources["epa"],
             success=sources["success"],
             starting_qbs=sources["starting_qbs"],
+            opponent_adjustment_config=self.opponent_adjustment_config,
             strict=strict,
         ).model_frame
 
@@ -125,11 +142,23 @@ class NFLExpectedPointsRecipe:
         week: int,
         prediction_now: pd.Timestamp | None = None,
     ) -> ExpectedPointsConfig:
-        ewma_features = [
-            column for column in frame.columns if "ewma" in column and "dynamic" in column
-        ] + [
-            column for column in frame.columns if "ewma" in column and "success_rate" in column
-        ]
+        # These names intentionally match the pre-v2 recipe.  Their values are
+        # now opponent-adjusted, but downstream score/confidence schemas remain
+        # stable and raw diagnostic columns cannot slip into a model input.
+        ewma_bases = (
+            "ewma_dynamic_window_rushing_offense",
+            "ewma_dynamic_window_passing_offense",
+            "ewma_dynamic_window_rushing_defense",
+            "ewma_dynamic_window_passing_defense",
+            "ewma_success_rate_rushing_offense",
+            "ewma_success_rate_passing_offense",
+            "ewma_success_rate_rushing_defense",
+            "ewma_success_rate_passing_defense",
+        )
+        ewma_features = [f"{base}_{venue}" for base in ewma_bases for venue in ("home", "away")]
+        missing = sorted(set(ewma_features) - set(frame.columns))
+        if missing:
+            raise ValueError(f"NFL selected efficiency features are missing: {missing}")
         cat_features = ["roof", "weekday"]
         betting_features = [
             "moneyline_home", "spread_line", "spread_odds_home", "total_line", "over_odds",
