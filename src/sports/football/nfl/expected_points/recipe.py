@@ -115,6 +115,9 @@ class NFLExpectedPointsRecipe:
     protocol_version: str = "2"
     league: ExpectedPointsLeague = ExpectedPointsLeague.NFL
     opponent_adjustment_config: OpponentAdjustmentConfig = DEFAULT_NFL_OPPONENT_ADJUSTMENT
+    minimum_weekly_locks: int = 3
+    maximum_weekly_locks: int = 3
+    extra_lock_min_probability: float | None = None
 
     def prepare_frame(
         self,
@@ -204,14 +207,16 @@ class NFLExpectedPointsRecipe:
                 locks_enabled=True,
             ),
             play_thresholds=PlayThresholds(
-                max_spreads_plays=2,
-                max_total_plays=1,
+                max_spreads_plays=None,
+                max_total_plays=None,
                 min_spread_diff=0.0,
                 min_total_diff=0.0,
                 min_total_win_prob=52.5,
                 min_spread_win_prob=52.5,
-                max_combined_plays=3,
-                extra_lock_min_probability=None,
+                min_combined_plays=self.minimum_weekly_locks,
+                max_combined_plays=self.minimum_weekly_locks,
+                extra_lock_min_probability=self.extra_lock_min_probability,
+                hard_max_combined_plays=self.maximum_weekly_locks,
             ),
         )
 

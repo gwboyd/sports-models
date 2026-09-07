@@ -39,7 +39,7 @@ screening weeks and evaluated on the standard 2023–2025 comparison recorded in
 
 After picks are made, separate spread and total probability heads estimate the chance of a resolved bet winning
 from out-of-time score errors. Version 2.2 uses the symmetric error distribution and ranks eligible Locks by
-expected profit under firm weekly caps. The probability floor and combined weekly policy are described below.
+estimated win probability under a top-three weekly policy. The selection minimum and value limitations are described below.
 
 ## Picks Update Cadence
 
@@ -237,9 +237,12 @@ Below is an example of the various calculations for the Dallas Cowboys. It shoul
 Version 2.2 separates score prediction from bet selection. Both markets use `q=.5+.1*sign(e)*F(abs(e))`, where
 `e` is the execution advantage in the selected pick's direction and `F` is the market-specific absolute-error CDF
 from the weekly chronological score holdout. Symmetric errors are an assumption, not proof of calibration.
-Locks require q>=.525 and positive expected units at assumed -110, including estimated pushes. The hard combined
-weekly limit is three, with up to two spreads and one total. Started saved Locks consume capacity and retain their
-original version. See the public methodology for the complete explanation and limitations.
+The shared selector ranks both markets by resolved win probability, then expected units, edge and stable game
+keys. NFL selects its top three supported picks, even below estimated break-even at -110; extras are disabled.
+Probabilities and expected units are unchanged. Model readiness, quote support and nonnegative execution edge
+remain mandatory, so insufficient supported opportunities can leave fewer than three picks. Neither market has
+a separate allocation cap. Started saved Locks consume
+capacity even when absent from refreshed predictions and retain their original version. See the public methodology for the complete explanation and limitations.
 
 ## Misc
 
@@ -284,6 +287,17 @@ The shared standard comparison permits different training histories before the f
 those differences, keeps every side's training rows, and requires matching evaluation inputs and shared historical
 outcomes/markets. Full-history identities remain attached to saved runs and caches. NFL training defaults are unchanged.
 
+### Adjustable weekly selection
+
+`NFLExpectedPointsRecipe` owns independent `minimum_weekly_locks=3`,
+`maximum_weekly_locks=3` and `extra_lock_min_probability=None` settings. The minimum is also the
+normal selection count; the maximum caps extras. To enable NFL extras, set a probability threshold and raise its
+maximum. Changing the count or thresholds is a prediction-affecting recipe change requiring a standard comparison
+and release preparation. The notebook and production path both consume `build_config()`.
+Shared `PlayThresholds.min_combined_plays` maps to `LockPolicy.min_locks_per_week`; zero retains the legacy
+probability/EV floors and expected-units ranking. A positive minimum uses probability-first ranking and waives
+only the probability/EV floors until that minimum is filled. Started selections consume both minimum and capacity.
+
 ## Lightweight Lock replay
 
 Use `make replay-expected-points-locks LEAGUE=nfl` to anchor to the deployed release's latest matching local
@@ -295,4 +309,4 @@ those exact calibration inputs. Older caches support weekly-history research, no
 history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
 documents controls, provenance, uncertainty and mandatory production-path comparisons.
 
-The NFL confidence head retains the 2.1 trust 0.2 discount (80% shrinkage toward 50%). A market-anchored score model can therefore produce few or no qualifying Locks; do not raise trust or lower thresholds merely to populate the slate.
+The NFL confidence head retains the 2.1 trust 0.2 discount (80% shrinkage toward 50%). The top-three rule can select negative-EV picks; it does not change this conservative probability estimate or establish profitability.

@@ -182,8 +182,23 @@ final production score refit uses all eligible completed games. Home/away Elo in
 Both spread and total probabilities use `q=.5+.5*sign(e)*F(abs(e))`, with pick-aligned execution edge `e` and the
 market-specific absolute-error CDF from those chronological weekly forecasts. Symmetry is a modeling assumption,
 not proof of calibration. Negative execution advantage cannot become a Lock even when the quote is corroborated.
-Locks require q>=.525, positive expected units at assumed -110, and two corroborating sportsbook quotes. The hard
-combined limit is three, including at most one total. Started Locks retain their version/status and consume capacity.
+The shared selector ranks both markets by resolved win probability, then expected units, edge and stable game
+keys. CFB selects three supported picks when available, then adds other picks at q>=.57 up to ten. The first
+three can have negative expected units at -110; probabilities remain unchanged. Two corroborating sportsbook
+quotes, model readiness and nonnegative execution edge remain mandatory, so the minimum can be underfilled.
+Neither market has a separate allocation cap. Started Locks retain
+their version/status and consume capacity even when absent from refreshed predictions.
+
+### Adjustable weekly selection
+
+`CFBExpectedPointsRecipe` owns independent `minimum_weekly_locks=3`,
+`maximum_weekly_locks=10` and `extra_lock_min_probability=.57` settings. The minimum is also the
+normal selection count; the maximum caps extras. To enable NFL extras, set a probability threshold and raise its
+maximum. Changing the count or thresholds is a prediction-affecting recipe change requiring a standard comparison
+and release preparation. The notebook and production path both consume `build_config()`.
+Shared `PlayThresholds.min_combined_plays` maps to `LockPolicy.min_locks_per_week`; zero retains the legacy
+probability/EV floors and expected-units ranking. A positive minimum uses probability-first ranking and waives
+only the probability/EV floors until that minimum is filled. Started selections consume both minimum and capacity.
 
 ## Lightweight Lock replay
 

@@ -149,6 +149,20 @@ remain in the overall results. The goal is usually 2–3 per league across marke
 floor still applies and can leave a week empty. `--extra-lock-min-probability` allows stronger bets beyond the
 ordinary cap; without it the cap is hard. Historical -110 pricing is an assumption, not verified executable juice.
 
+The 2.2 production policy selects three supported combined spread/total picks per league when available, ranked
+by win probability, then expected units, edge and stable game keys. NFL stops at three; CFB admits extras at
+q>=.57 up to ten. The minimum bypasses probability/EV floors without changing forecasts; support, readiness and
+nonnegative execution edge still apply. The generic CLI cadence grid remains exploratory research with its own
+defaults, not an automatic reproduction of these settings. For an exact programmatic selection replay, use
+`LockPolicy(minimum_resolved_win_probability=.525, min_locks_per_week=3, max_locks_per_week=3,
+extra_lock_min_probability=.57, hard_max_locks_per_week=10)` for CFB. For NFL set the extra threshold to `None`
+and hard maximum to `3`. Reuse the recorded production head probabilities, push estimates, readiness and quote
+support. Started preserved selections consume minimum and capacity even when absent from refreshed decision rows.
+Each league recipe independently exposes `minimum_weekly_locks`, `maximum_weekly_locks` and
+`extra_lock_min_probability`. Changing them requires the standard comparison and a prepared model release.
+`PlayThresholds.min_combined_plays` and `LockPolicy.min_locks_per_week` default to zero, retaining the legacy
+expected-units ranking and probability/EV eligibility when an explicit minimum is absent.
+
 `--screen-cadence` exposes both development and confirmation seasons and does **not** select/promote a production
 model automatically. Its selection-adjustment limitation is explicit in `screen.json`. Source and code identities,
 all head parameters, policy settings, and the complete ledger are retained. Use the full standard comparison to

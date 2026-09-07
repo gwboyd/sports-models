@@ -6,7 +6,7 @@ The model predicts **how many points each NFL team should score in a matchup**. 
 
 The score model uses play-by-play and game-level data beginning in 2010. Market-implied points provide its starting forecast. Expected Points Added (EPA), success rate, rest, and matchup context help it learn adjustments from earlier games.
 
-After the picks are made, separate spread and total probability models use unseen-game score errors to estimate betting confidence. Locks are selected using those probabilities and expected profit, with at most three combined opportunities per week and no forced quota.
+After the picks are made, separate spread and total probability models use unseen-game score errors to estimate betting confidence. Locks highlight the top three supported spread and total opportunities combined each week, ranked by estimated win probability. That selection rule can include picks below estimated break-even.
 
 ## How the score model learns
 
@@ -84,11 +84,11 @@ The probability layer uses chronological forecasts for games that were outside t
 
 Let `e` be the model's advantage in the selected pick's direction at the displayed execution line, and `F(|e|)` the fraction of earlier absolute prediction errors smaller than that advantage. The estimated resolved-bet win probability is `q = 0.5 + 0.1 × sign(e) × F(|e|)`. A positive advantage increases confidence; an adverse execution quote lowers it below 50% and cannot qualify as a Lock. NFL retains an 80% shrinkage toward 50% rather than treating the full error-distribution estimate as certain. This assumes a symmetric error distribution that remains relevant to the next matchup. It is an approximation, not proof of perfect calibration. Fewer than 100 resolved examples or fewer than 25 wins or losses triggers a shrunken historical-rate fallback with no Locks.
 
-A Lock needs at least a 52.5% estimated resolved-win probability and positive expected profit at assumed -110 pricing. A one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
+The first three supported selections do not need to clear a probability or positive-profit floor. Their estimated probabilities are unchanged, so a Lock can have negative estimated value. At assumed -110 pricing, a one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
 
-Candidates are ranked by expected profit. The hard combined limit is three per NFL week, with up to two spreads and one total. Higher confidence does not override these limits. Small model advantages can produce long stretches with few or no NFL Locks; the limit is not a quota. Preserved picks near kickoff retain their original version and Lock status and count toward weekly capacity.
+Spread and total candidates are ranked together by estimated resolved-win probability, with expected profit, edge and stable game keys breaking ties. NFL selects the top three supported opportunities each week and does not add extras. Neither market has a separate allocation. Fewer than three can be selected when the slate has fewer supported opportunities or the probability models lack sufficient training history; a one-game championship slate has at most two markets. Confidence is never raised to fill the minimum. Preserved picks near kickoff retain their original version and Lock status and count toward capacity, including when they are absent from refreshed predictions.
 
-A **Lock** is a selective category, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
+A **Lock** identifies a ranked weekly selection, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
 
 ## Power rankings
 
@@ -117,4 +117,4 @@ Walk-forward comparisons recreate weekly decisions using currently available his
 
 **Pick win probability:** The model's estimated chance that the displayed spread or total pick is correct.
 
-**Lock:** A spread or total pick that passes the win-probability, positive-value, market-support, and combined weekly-selection requirements.
+**Lock:** One of the top three supported spread or total picks in the combined weekly probability ranking. The label does not establish positive expected value or guarantee a win.

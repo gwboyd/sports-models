@@ -35,7 +35,6 @@ CORE_CATEGORICAL = ("market", "direction")
 
 NFL_CONTEXT_NUMERIC = (
     "picked_rest_advantage",
-    "picked_qbr_advantage",
     "division_game",
     "implied_points_home",
     "implied_points_away",
@@ -56,7 +55,7 @@ NFL_CONTEXT_NUMERIC = (
     "ewma_success_rate_passing_defense_home",
     "ewma_success_rate_passing_defense_away",
 )
-NFL_CONTEXT_CATEGORICAL = ("roof", "weekday")
+NFL_CONTEXT_CATEGORICAL = ("weekday",)
 NFL_MARKET_NUMERIC = (
     "moneyline_home",
     "moneyline_away",

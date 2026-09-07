@@ -72,11 +72,11 @@ The probability layer uses chronological forecasts for games that were outside t
 
 Let `e` be the model's advantage in the selected pick's direction at the displayed execution line, and `F(|e|)` the fraction of earlier absolute prediction errors smaller than that advantage. The estimated resolved-bet win probability is `q = 0.5 + 0.5 × sign(e) × F(|e|)`. A positive advantage increases confidence; an adverse execution quote lowers it below 50% and cannot qualify as a Lock. This assumes a symmetric error distribution that remains relevant to the next matchup. It is an approximation, not proof of perfect calibration. Fewer than 100 resolved examples or fewer than 25 wins or losses triggers a shrunken historical-rate fallback with no Locks.
 
-A Lock needs at least a 52.5% estimated resolved-win probability and positive expected profit at assumed -110 pricing. A one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
+The first three supported selections do not need to clear a probability or positive-profit floor. Their estimated probabilities are unchanged, so a Lock can have negative estimated value. At assumed -110 pricing, a one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
 
-The score-error method applies to both spreads and totals. Candidates are ranked together by expected profit, with a hard limit of three combined Locks per college football week and at most one total. Higher confidence does not override these limits. At least two corroborating real sportsbook quotes are required. Thin slates can have fewer or no Locks; the limit is not a quota. Preserved picks near kickoff retain their original version and Lock status and count toward weekly capacity.
+The score-error method applies to both spreads and totals. Candidates are ranked together by estimated resolved-win probability, with expected profit, edge and stable game keys breaking ties. College football selects the top three supported opportunities each week, then adds other picks at or above 57% estimated win probability, up to ten total Locks. Neither market has a separate allocation. At least two corroborating real sportsbook quotes are required. Fewer than three can be selected when there are too few supported opportunities or insufficient confidence-training history. A one-game championship slate has at most two markets. Confidence is never raised to fill the minimum. Preserved picks near kickoff retain their original version and Lock status and count toward capacity, including when they are absent from refreshed predictions.
 
-A **Lock** is a selective category, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
+A **Lock** identifies a ranked weekly selection, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
 
 ## Prediction updates and results
 
@@ -100,4 +100,4 @@ Walk-forward comparisons recreate weekly decisions using currently available his
 
 **Pick win probability:** The estimated chance that the selected spread or total pick hits.
 
-**Lock:** A pick that passes the model's win-probability, positive-value, sportsbook-support, and combined weekly-ranking rules.
+**Lock:** A supported pick selected by the combined weekly probability ranking: the first three, plus additional picks at or above 57%, capped at ten. The label does not establish positive expected value or guarantee a win.

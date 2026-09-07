@@ -247,10 +247,15 @@ out-of-time errors: CFB has `q=.5+.5*sign(edge)*F(abs(edge))`; NFL retains
 `q=.5+.1*sign(edge)*F(abs(edge))`. F is the empirical absolute-error CDF.
 Execution edge is signed in the selected pick's direction, including when a CFB quote cluster opposes consensus.
 Legacy confidence classifiers retain their chronological tuning path. Never replace chronology with random splits.
-Locks require q>=.525 and positive EV at assumed -110. The hard combined weekly limit is three: NFL up to two
-spreads and one total, CFB up to one total. Higher probability never overrides the configured caps.
-The combined limits are not quotas or per-market targets. Conservative NFL confidence can produce long stretches
-with few or no Locks; do not increase confidence just to populate the slate. Preserve started Locks
+Both leagues use the shared combined selector with an explicit minimum of three supported selections, ranked by
+resolved win probability, then expected units, edge and stable game keys. NFL stops at three with extras disabled;
+CFB permits extras at q>=.57 up to ten. The minimum bypasses probability/positive-EV floors only; never alter
+probabilities, bypass readiness or quote support, admit an adverse execution edge, or invent unavailable markets.
+Neither market has a separate allocation cap. The minimum, hard maximum and extra threshold are independently
+configurable per league recipe as `minimum_weekly_locks`, `maximum_weekly_locks` and
+`extra_lock_min_probability`. Shared `PlayThresholds.min_combined_plays` / `LockPolicy.min_locks_per_week`
+default to zero, retaining legacy probability/EV eligibility and expected-units ranking when no minimum is set.
+Preserve started Locks
 and count them toward capacity even when their games are absent from the new prediction slate. Shared replay and
 production use the same head factory and selector. New historical runs save checksummed per-cutoff score-holdout
 frames for exact-head replay; older caches remain usable with explicitly disclosed weekly-history approximation.

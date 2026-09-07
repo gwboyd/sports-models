@@ -17,6 +17,8 @@ class LockPolicy:
     max_spreads_per_week: int | None = None
     max_totals_per_week: int | None = None
     extra_lock_min_probability: float | None = None
+    hard_max_locks_per_week: int | None = None
+    min_locks_per_week: int = 0
 
     def __post_init__(self) -> None:
         if self.american_odds == 0:
@@ -31,9 +33,13 @@ class LockPolicy:
             raise ValueError("Extra Lock probability must be at least the ordinary probability floor")
         if self.max_locks_per_week < 0 or any(
             cap is not None and cap < 0
-            for cap in (self.max_spreads_per_week, self.max_totals_per_week)
+            for cap in (self.max_spreads_per_week, self.max_totals_per_week, self.hard_max_locks_per_week)
         ):
             raise ValueError("Weekly Lock cap cannot be negative")
+        if not isinstance(self.min_locks_per_week, int) or not 0 <= self.min_locks_per_week <= self.max_locks_per_week:
+            raise ValueError("Weekly Lock minimum must be an integer between zero and the normal cap")
+        if self.hard_max_locks_per_week is not None and self.min_locks_per_week > self.hard_max_locks_per_week:
+            raise ValueError("Weekly Lock minimum cannot exceed the hard cap")
 
 
 def win_profit(american_odds: int) -> float:
@@ -108,8 +114,9 @@ def select_weekly_locks(
 ) -> pd.DataFrame:
     """Rank each league week; optionally admit stronger bets beyond its normal cap.
 
-    The cap is not a quota: ordinary bets still need positive EV and the probability
-    floor. Extra bets must independently clear the stronger probability floor.
+    An explicit minimum ranks by probability and can admit negative-EV bets without
+    changing their forecasts. It never bypasses market support or model readiness.
+    With no minimum, retain the probability/EV floors and expected-profit ranking.
     """
     output = decisions.copy()
     required = {
@@ -124,14 +131,22 @@ def select_weekly_locks(
     output["lock_reason"] = "below_probability_or_ev"
     output.loc[~output["market_supported"].fillna(False), "lock_reason"] = "market_unsupported"
     output.loc[~output["locks_enabled"].fillna(False), "lock_reason"] = "model_not_ready"
-    eligible = (
+    supported = (
         output["market_supported"].fillna(False)
         & output["locks_enabled"].fillna(False)
-        & output["resolved_win_probability"].between(policy.minimum_resolved_win_probability, 1.0)
+        & output["resolved_win_probability"].between(0.0, 1.0)
+        & np.isfinite(output["expected_units"])
+        & np.isfinite(output["edge"])
         & output["edge"].ge(policy.minimum_edge)
-        & output["expected_units"].gt(0.0)
         & output.get("policy_eligible", pd.Series(True, index=output.index)).fillna(False)
     )
+    qualified = (
+        supported
+        & output["resolved_win_probability"].ge(policy.minimum_resolved_win_probability)
+        & output["expected_units"].gt(0.0)
+        & output.get("probability_eligible", pd.Series(True, index=output.index)).fillna(False)
+    )
+    eligible = supported if policy.min_locks_per_week else qualified
     output.loc[eligible, "lock_reason"] = "eligible"
     preserved_keys: set[tuple[int, object, str, str]] = set()
     if preserved is not None and not preserved.empty:
@@ -148,9 +163,23 @@ def select_weekly_locks(
         group = output.loc[indices]
         frozen = group.loc[group["_preserved"]]
         output.loc[frozen.index, ["lock", "lock_reason"]] = [1, "preserved"]
-        capacity = policy.max_locks_per_week - len(frozen)
+        # Reserved selections can be absent from a refreshed decision slate.
+        # Count every supplied same-week key, without inventing output rows.
+        reserved = [key for key in preserved_keys if key[:2] == (int(_season), _week)]
+        reserved_count = len(reserved)
+        capacity = policy.max_locks_per_week - reserved_count
+        hard_capacity = (
+            policy.hard_max_locks_per_week - reserved_count
+            if policy.hard_max_locks_per_week is not None else None
+        )
+        if hard_capacity is not None and hard_capacity <= 0:
+            # Existing started selections cannot be withdrawn. A legacy
+            # overflow leaves no capacity for any new selections.
+            reason = "legacy_cap_overflow" if hard_capacity < 0 else "weekly_cap"
+            output.loc[group.index.intersection(output.index[eligible & ~output["_preserved"]]), "lock_reason"] = reason
+            continue
         if capacity <= 0 and policy.extra_lock_min_probability is None:
-            reason = "legacy_cap_overflow" if len(frozen) > policy.max_locks_per_week else "weekly_cap"
+            reason = "legacy_cap_overflow" if reserved_count > policy.max_locks_per_week else "weekly_cap"
             output.loc[group.index.intersection(output.index[eligible & ~output["_preserved"]]), "lock_reason"] = reason
             continue
         candidates = group.loc[eligible.loc[group.index] & ~group["_preserved"]].copy()
@@ -160,15 +189,25 @@ def select_weekly_locks(
         # those ties, without changing probabilities or eligibility floors.
         for column, decimals in (("expected_units", 12), ("resolved_win_probability", 12), ("edge", 9)):
             candidates[f"_rank_{column}"] = candidates[column].round(decimals)
+        probability_order = ["_rank_resolved_win_probability", "_rank_expected_units"]
         candidates = candidates.sort_values(
-            ["_rank_expected_units", "_rank_resolved_win_probability", "_rank_edge", "kickoff", "game_id", "_market_order"],
+            (probability_order if policy.min_locks_per_week else probability_order[::-1])
+            + ["_rank_edge", "kickoff", "game_id", "_market_order"],
             ascending=[False, False, False, True, True, True],
             kind="stable",
         )
         selected = []
-        market_counts = frozen["market"].value_counts().to_dict()
+        market_counts = {
+            market: sum(key[3] == market for key in reserved)
+            for market in ("spread", "total")
+        }
         market_caps = {"spread": policy.max_spreads_per_week, "total": policy.max_totals_per_week}
         for index, candidate in candidates.iterrows():
+            if hard_capacity is not None and len(selected) >= hard_capacity:
+                break
+            fills_minimum = reserved_count + len(selected) < policy.min_locks_per_week
+            if not fills_minimum and not qualified.loc[index]:
+                continue
             market = candidate["market"]
             cap = market_caps.get(market)
             if len(selected) >= capacity and (
@@ -187,6 +226,7 @@ def select_weekly_locks(
         output.loc[candidates.index, "lock_rank"] = np.arange(1, len(candidates) + 1)
         output.loc[ranked, ["lock", "lock_reason"]] = [1, "selected"]
         output.loc[candidates.index.difference(ranked), "lock_reason"] = "weekly_cap"
+        output.loc[ranked.intersection(output.index[~qualified]), "lock_reason"] = "selected_to_minimum"
     return output.drop(columns="_preserved")
 
 

@@ -115,8 +115,12 @@ schema-to-code rollout. Run it when no model update is active to avoid waiting o
 The 2.2 candidate uses market-residual ridge score models and shared residual-distribution probability heads.
 NFL retains its conservative trust0.2 discount; CFB uses the full symmetric error distribution. NFL excludes
 game-observed quarterback ratings and roof status, and CFB freezes Elo before each week’s first kickoff.
-Locks have a hard combined weekly cap of three, with at most one total and, for NFL, at most two spreads.
-The aim is selective opportunities, not a forced quota.
+Both leagues rank supported spread/total picks together by estimated win probability and select three when
+available. NFL stops at three; CFB adds other picks with probability at least 57%, capped at ten. The first three
+can have negative expected value at assumed -110; their probabilities are never increased to meet the minimum.
+Fewer picks are possible when quote support, model readiness or the available slate prevents three selections.
+Each league recipe exposes `minimum_weekly_locks`, `maximum_weekly_locks` and `extra_lock_min_probability`.
+These are versioned recipe settings; changes require the normal comparison and release workflow.
 Use `make replay-expected-points-locks LEAGUE=nfl` (or `cfb`) for frozen-score research, with the deployed release as
 the default anchor. `LOCK_SOURCE=version:2.0` pins the earlier cache. The
 [Lock replay guide](docs/expected-points-backtesting.md#lightweight-lock-method-replay) explains cadence screens,

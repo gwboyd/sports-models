@@ -110,6 +110,40 @@ def test_preserved_locks_count_against_normal_capacity_but_allow_strong_extras()
     assert result.loc[0:2, "lock_reason"].eq("preserved").all()
 
 
+def test_hard_ceiling_limits_strong_extras_without_changing_probabilities():
+    frame = _policy_frame((.60,) * 24)
+    before = frame.copy(deep=True)
+    policy = LockPolicy(
+        minimum_resolved_win_probability=.525, max_locks_per_week=3,
+        extra_lock_min_probability=.55, hard_max_locks_per_week=10,
+    )
+    selected = select_weekly_locks(frame, policy=policy)
+    assert selected.lock.sum() == 10
+    pd.testing.assert_series_equal(selected.resolved_win_probability, frame.resolved_win_probability)
+    pd.testing.assert_frame_equal(frame, before)
+    assert select_weekly_locks(_policy_frame((.53,) * 24), policy=policy).lock.sum() == 3
+    assert select_weekly_locks(_policy_frame((.51,) * 24), policy=policy).lock.sum() == 0
+
+
+@pytest.mark.parametrize("preserved_count,expected", [(9, 10), (10, 10), (12, 12)])
+def test_preserved_selections_consume_hard_capacity(preserved_count, expected):
+    frame = _policy_frame((.60,) * 24)
+    preserved = frame.iloc[:preserved_count].assign(lock=1)
+    selected = select_weekly_locks(frame, policy=LockPolicy(
+        minimum_resolved_win_probability=.525, max_locks_per_week=3,
+        extra_lock_min_probability=.55, hard_max_locks_per_week=10,
+    ), preserved=preserved)
+    assert selected.lock.sum() == expected
+    assert selected.iloc[:preserved_count].lock.eq(1).all()
+
+
+def test_nfl_context_excludes_game_observed_quarterbacks_and_roof():
+    for group in ("context", "market"):
+        selected = lock_feature_set(ExpectedPointsLeague.NFL, group)
+        assert "roof" not in selected.all
+        assert not any("qbr" in column for column in selected.all)
+
+
 def test_extra_probability_overrides_positive_market_caps_but_not_disabled_markets():
     result = select_weekly_locks(_policy_frame((.60,) * 8), policy=LockPolicy(
         max_locks_per_week=3, max_spreads_per_week=2, max_totals_per_week=1,

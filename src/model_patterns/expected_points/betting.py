@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from .types import PlayThresholds
@@ -133,6 +134,8 @@ def _determine_combined_plays(
         max_spreads_per_week=thresholds.max_spreads_plays,
         max_totals_per_week=thresholds.max_total_plays,
         extra_lock_min_probability=thresholds.extra_lock_min_probability,
+        hard_max_locks_per_week=thresholds.hard_max_combined_plays,
+        min_locks_per_week=thresholds.min_combined_plays,
     )
     decisions = []
     for market in ("spread", "total"):
@@ -161,10 +164,10 @@ def _determine_combined_plays(
         part["lock"] = pd.to_numeric(
             output.get(f"{market}_lock", pd.Series(0, index=output.index)), errors="coerce"
         ).fillna(0).astype(int)
+        part["probability_eligible"] = probability.ge(getattr(thresholds, f"min_{market}_win_prob") / 100.0)
         part["policy_eligible"] = (
-            probability.ge(getattr(thresholds, f"min_{market}_win_prob") / 100.0)
-            & probability.le(1.0)
-            & part["edge"].ge(getattr(thresholds, f"min_{market}_diff"))
+            part["edge"].ge(getattr(thresholds, f"min_{market}_diff"))
+            & np.isfinite(pd.to_numeric(output[f"{market}_line"], errors="coerce"))
             & output.get(f"{market}_play", pd.Series(True, index=output.index)).notna()
             & ~part["game_id"].isin(frozen_ids)
         )
