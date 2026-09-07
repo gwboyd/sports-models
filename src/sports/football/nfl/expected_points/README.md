@@ -175,10 +175,10 @@ Those local reports are not shipped or pushed; do not force-add them.
 Author NFL release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
 release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
 a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
-(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
-verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
-limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
-experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Keep evaluation results and experiment controls
+in Git-ignored `.backtests/expected_points/reports/`, including the evidence population and its limitations.
+Omit source paths, commands, infrastructure details, and separate evaluation/internal headings from public notes.
+See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
@@ -259,7 +259,9 @@ A separate LightGBM win classifier uses team-efficiency metrics, without odds, r
 to simulate every team against every other team at home and away. A team's ranking averages its win probabilities
 across those 62 hypothetical games. These simulations use current-week form, or next-week form for a team on a bye.
 The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
-logic and does not feed the expected-points picks or betting probability heads.
+logic and does not feed the expected-points picks or betting probability heads. The notebook retains the current
+rankings, offense/defense charts, and a team-smoothing inspection example; dated scratch plots and unused
+play-by-play chart aggregates are omitted.
 
 ### Ideas for the future
 

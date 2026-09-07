@@ -562,12 +562,10 @@ provided; there is no post-deployment archive step.
 Release notes flow from `UNRELEASED.md` through the prepared `releases/vN.N.md` into
 `sports_models.model_releases`: the title maps to `title`, `## Public Summary` to `public_summary`, and `## Changes`
 to `changes_md`. Use a plain-language summary and 2–3 concise change bullets explaining meaningful implementation
-details, such as estimator family, chronological training, shrinkage, or selection thresholds. Optionally add one
-evaluation-versus-baseline bullet under `## Changes`, naming the baseline, period/population, assumptions, and material
-uncertainty or selection limitations. Use verified results for the actual recipe; omit the bullet if those caveats
-cannot fit responsibly. Avoid file paths, commands, infrastructure details, and experiment ledgers. Omitted optional
-headings become null `evaluation_md`/`internal_notes_md`; do not add separate evaluation/internal headings to new drafts.
-Keep complete evaluation evidence in Git-ignored
+details, such as estimator family, chronological training, shrinkage, or selection thresholds. Keep evaluation
+results, experiment controls, source paths, commands, and infrastructure details out of public release notes.
+Omitted optional headings become null `evaluation_md`/`internal_notes_md`; do not add separate evaluation/internal
+headings to new drafts. Keep complete evaluation evidence and its limitations in Git-ignored
 `.backtests/expected_points/reports/`. The manifest selects versions; the Markdown title does not. Deployment supplies
 the model key, major/minor numbers, verified source SHA, and deployment timestamp; no manual release-row SQL is needed.
 

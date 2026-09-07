@@ -307,7 +307,9 @@ Zero-decision win rates are undefined/null rather than zero percent. Single-run 
 absolute block-bootstrap intervals, confidence AUC/calibration diagnostics, model-versus-market MAE benchmarks, and
 per-cutoff elapsed/cache timing. The CLI must log cutoff progress and ETA so long runs are observable.
 
-NFL and CFB notebooks remain first-class inspection surfaces. They expose schedules, intermediate feature frames,
+NFL and CFB notebooks remain first-class inspection surfaces. Keep their inspection cells focused on
+the current workflow and reusable examples; remove dated matchup scratch cells, duplicate previews, and retired no-op
+cells rather than retaining dead analysis scaffolding. They expose schedules, intermediate feature frames,
 the complete model `df`, configuration, health results, current predictions, and picks. Notebook helpers trace exact
 score/confidence inputs and earlier team rows for a game. Full comparisons are guarded by
 `run_historical_backtest=False` and must never run in Papermill/API mode. Backtests use currently available historical
@@ -387,11 +389,9 @@ Keep the three documentation surfaces distinct:
 - `UNRELEASED.md` is the authoring surface for public release notes. Use a title, `## Public Summary`, and
   `## Changes`. Keep the summary plain-language, then use 2–3 concise change bullets with useful technical detail
   (for example estimator family, chronological training, probability shrinkage, selection thresholds, or bet accounting).
-  Optionally add one evaluation-versus-baseline bullet under `## Changes`, naming the baseline, period/population,
-  relevant assumptions, and material uncertainty or selection limitations. Use verified evidence for the actual recipe;
-  omit the bullet if it cannot be summarized responsibly. Keep full results in local reports. Avoid source-file paths,
-  commands, infrastructure details, and experiment ledgers. Separate evaluation/internal headings remain parser-compatible
-  but are not part of new drafts.
+  Keep evaluation results, experiment controls, source-file paths, commands, and infrastructure details out of public
+  release notes. Keep complete evidence and its limitations in local reports. Separate evaluation/internal headings
+  remain parser-compatible but are not part of new drafts.
 - Public How It Works pages explain how the applicable version operates, including useful mathematical detail and
   limitations. Update them alongside release notes as described above; they are not experiment ledgers.
 - Consolidated model improvement, experiment, and optimization reports belong in Git-ignored

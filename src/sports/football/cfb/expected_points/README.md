@@ -3,7 +3,9 @@
 The CFB expected-points notebook uses the shared expected-points training, tracking, grading, and Supabase
 persistence workflow. CFB-specific acquisition and feature preparation remain in this directory. Production notebook
 runs use strict validation, chronological training splits, and the direct CFBD client described in the repository
-README and `AGENTS.md`.
+README and `AGENTS.md`. Use the notebook
+inspection helpers for individual games; the shared model frame is displayed once, without hardcoded historical
+matchup scratch cells.
 
 Score and confidence validation boundaries require more than eight hours between training and validation kickoffs,
 matching historical replay's result-availability assumption. Every game remains in one partition. Historical cutoff
@@ -120,10 +122,10 @@ Those local reports are not shipped or pushed; do not force-add them.
 Author CFB release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
 release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
 a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
-(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
-verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
-limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
-experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Keep evaluation results and experiment controls
+in Git-ignored `.backtests/expected_points/reports/`, including the evidence population and its limitations.
+Omit source paths, commands, infrastructure details, and separate evaluation/internal headings from public notes.
+See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
