@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams backtest-expected-points sam-build sam-invoke-health sam-api sam-deploy sam-register-releases sam-finalize-release-files
+.PHONY: help backend frontend frontend-local frontend-sam sync-cfb-teams sync-nfl-teams sync-football-teams backtest-expected-points sam-build sam-invoke-health sam-api prepare-model-release sam-deploy sam-register-releases
 
 YEAR ?= $(shell date +%Y)
 
@@ -17,9 +17,9 @@ help:
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"
-	@echo "  make sam-deploy         Interactively version and deploy the stack to us-east-1"
+	@echo "  make prepare-model-release Choose versions and prepare release notes before commit/merge"
+	@echo "  make sam-deploy         Confirm and deploy committed versions from clean main"
 	@echo "  make sam-register-releases Retry release registration after a successful SAM deploy"
-	@echo "  make sam-finalize-release-files Archive/reset drafts from the last deployment plan"
 
 backend:
 	source .venv/bin/activate && uvicorn main:app --host 127.0.0.1 --port 3000 --reload
@@ -143,6 +143,10 @@ sam-api:
 			SupabaseDbUrl="$$SUPABASE_DB_URL" \
 			SupabaseSchema="$$SUPABASE_SCHEMA"
 
+prepare-model-release:
+	set -a && source .env && set +a && \
+	.venv/bin/python scripts/deploy_models.py --prepare
+
 sam-deploy:
 	set -a && source .env && set +a && \
 	.venv/bin/python scripts/deploy_models.py
@@ -150,7 +154,3 @@ sam-deploy:
 sam-register-releases:
 	set -a && source .env && set +a && \
 	.venv/bin/python scripts/deploy_models.py --register-only
-
-sam-finalize-release-files:
-	set -a && source .env && set +a && \
-	.venv/bin/python scripts/deploy_models.py --finalize-only

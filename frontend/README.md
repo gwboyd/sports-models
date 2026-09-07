@@ -147,7 +147,8 @@ responsive Markdown images. The NFL explanation retains the detailed former prod
 
 Write these pages as complete explanations of the current models, not release-centered narratives. Cover the
 inputs, training, predictions, confidence, update behavior, and limitations alongside opponent adjustment.
-For every model version change, review the relevant public Markdown alongside its `UNRELEASED.md`: update the
+For every model version change, review the relevant public Markdown alongside its `UNRELEASED.md` (or already
+prepared `releases/vN.N.md`): update the
 methodology version, shipped features, training window, opponent adjustments, limitations, confidence/lock rules,
 and refresh timing. Remove completed future ideas. Review both pages for shared changes and coordinate frontend
 publication with the backend model release. Mathematical explanations such as ridge regression belong here;
@@ -155,6 +156,11 @@ code paths, deployment steps, and backtest results do not. Release notes describ
 pages describe the whole model. Operational instructions remain in developer READMEs. Large internal reports live
 only in Git-ignored `.backtests/expected_points/reports/` at the repository root, alongside the existing detailed
 comparison and experiment directories; they are not included in the site or pushed to Git.
+Before the model change's original merge, run root `make prepare-model-release` and commit the resulting notes,
+empty drafts, `model-versions.json`, and these methodology pages together. Git records a prepared release; Supabase
+records deployment/live status. If model changes continue after preparation, reopen the consolidated draft from the
+unpublished notes, update these methodology pages, and rerun preparation to amend that unpublished release. Nonblank
+drafts block deployment. Backend deployment does not create another documentation commit.
 Model Insights is limited to the live power-ranking and offensive/defensive EPA views. Feature importance and the
 dynamic moving-average explanation remain in How It Works.
 

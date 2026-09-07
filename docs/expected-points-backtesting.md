@@ -172,7 +172,16 @@ complete current methodology. Those public pages should cover inputs, training, 
 behavior, and limitations, not over-focus on what changed in this release. Keep detailed evaluation evidence local.
 If the user explicitly waives a new comparison after a prediction-affecting edit, state that the saved metrics predate
 the edit in the existing evaluation report and index. Do not silently relabel old results or claim the fix improved accuracy.
-Merge/deploy through the reviewed, clean-main release workflow; evaluation results alone do not deploy a model.
+Before the original commit/merge, run `make prepare-model-release` to choose versions and save the exact release notes,
+empty drafts, and `model-versions.json`. Commit these with the model changes and How It Works updates, then merge once.
+Deploy with `make sam-deploy` on reviewed, clean main; it reads the prepared versions and does not modify tracked files.
+If prediction changes continue after preparation, copy the unpublished notes back to UNRELEASED.md and update the
+consolidated draft, whole-model explanation, and relevant evidence. Any nonblank draft blocks deployment. Rerun prep
+to amend the same unregistered version; changes after registration require a new version. Source/dependency signals
+help catch missed updates and require explicit prediction-neutral classification when keeping a registered version;
+they do not replace recording changes in the draft as they happen. Supabase determines when
+a release actually deployed and became live; preparation and evaluation results alone do not deploy a model. The root
+README documents retry and registration recovery.
 
 ## Manually written study and report files
 
