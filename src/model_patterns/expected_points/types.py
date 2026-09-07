@@ -24,7 +24,6 @@ class PlayThresholds:
     min_total_win_prob: float = 55.0
     max_combined_plays: int | None = None
     extra_lock_min_probability: float | None = None
-    require_positive_ev: bool = False
     american_odds: int = -110
 
 

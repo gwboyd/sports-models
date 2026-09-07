@@ -43,7 +43,8 @@ The command automatically:
    training run in isolated Git checkouts; dependency differences use a cached environment for that version.
 3. Checks frame integrity, code provenance, historical inputs, and evaluated seasons before fitting either version.
 4. Runs **standard**: weekly walk-forward fitting across the latest three completed/evaluable seasons, with a prior
-   season retained for warmup. Each cutoff uses the complete score and confidence tuning/refit.
+   season retained for warmup. Each cutoff uses its recipe's complete score tuning/refit and probability-head fit;
+   legacy confidence classifiers also retain their own chronological tuning.
 5. Saves each run, paired performance results, prediction/lock changes, input bundles, executed preparation notebooks,
    logs, and the resolved request under a new `.backtests/expected_points/comparisons/<league>/<timestamp>/` directory.
 
@@ -87,7 +88,8 @@ habit. Released baseline cutoffs can reuse compatible caches; newly prepared fee
 
 Lock research has a separate, deliberately cheaper runner. It takes the immutable weekly score predictions from a
 completed standard `BacktestRun` and retrains only small second-stage win-probability heads. It never runs a notebook,
-loads a feed, fits an expected-points score model, contacts Supabase, or writes operational picks:
+loads a feed, fits an expected-points score model, or writes operational picks. Explicit artifact sources are fully
+offline; deployed/version references only read Supabase to resolve the source release:
 
 ```sh
 make replay-expected-points-locks LEAGUE=nfl LOCK_SOURCE=version:2.0
@@ -96,7 +98,8 @@ make replay-expected-points-locks LEAGUE=cfb LOCK_SOURCE=version:2.0
 
 `LOCK_SOURCE` accepts `version:N.N`, `deployed` (the default), `artifact:<run-directory>`, or a completed run directory.
 Deployed/version references first resolve the immutable release SHA from Supabase and then search matching validated
-local standard run artifacts; an explicit artifact is the strongest fully offline reproducibility anchor.
+local standard run artifacts under `comparisons/<league>/` and `runs/<league>/`, choosing the newest complete match.
+An explicit artifact is the strongest fully offline reproducibility anchor.
 `LOCK_EXPECTED_VERSION` independently fails closed if the loaded recipe version is not the requested one.
 This distinction is intentional: a score prediction Parquet is a valid input to this Locks-only experiment, but it
 is never a feature input or substitute for frame preparation in a whole-recipe comparison.
@@ -139,6 +142,7 @@ make replay-expected-points-locks LEAGUE=nfl LOCK_SOURCE=version:2.0 \
 
 This fits each head once per historical cutoff, then reuses its probabilities for a small registered policy grid:
 normally two or three combined Locks, optional stronger-probability overflow, single-market or mixed allocations.
+Overflow floors below the requested minimum probability are omitted from the grid; no-overflow alternatives remain.
 It saves every forecast, policy decision, per-season metric, and zero/two-plus/three-plus/over-five week count.
 The default cadence target is two-plus Locks in 80% of ordinary weeks (NFL 1–18; CFB 1–14); special/postseason weeks
 remain in the overall results. The goal is usually 2–3 per league across markets, never 2–3 per market. A probability
@@ -263,16 +267,22 @@ focused chronology/correctness checks, then use the standard command for the fin
 screen explicit designs, but their narrower results must be labeled. Record failed and rejected variants as well as
 winners, inspect uncertainty and per-season behavior, and distinguish correctness from measured accuracy.
 
-After a selection, update `UNRELEASED.md` with public differences and the NFL/CFB How It Works Markdown with the
-complete current methodology. Those public pages should cover inputs, training, predictions, confidence, update
+After a selection, author release notes in `UNRELEASED.md`: a title, plain-language `## Public Summary`, and
+`## Changes` with 2–3 concise bullets explaining meaningful technical changes (estimator, chronology, shrinkage,
+thresholds, or bet accounting). An optional fourth bullet may compare with a named baseline using verified results
+for the actual recipe; state the period/population, pricing assumptions where relevant, and material uncertainty or
+selection limitations. Omit it if a brief responsible summary is not possible. Keep full evidence local; omit source
+paths, commands, infrastructure details, experiment ledgers, and separate evaluation/internal headings.
+Update the NFL/CFB How It Works Markdown with the complete current methodology. Those public pages should cover inputs, training, predictions, confidence, update
 behavior, and limitations, not over-focus on what changed in this release. Keep detailed evaluation evidence local.
 If the user explicitly waives a new comparison after a prediction-affecting edit, state that the saved metrics predate
 the edit in the existing evaluation report and index. Do not silently relabel old results or claim the fix improved accuracy.
 Before the original commit/merge, run `make prepare-model-release` to choose versions and save the exact release notes,
 empty drafts, and `model-versions.json`. Commit these with the model changes and How It Works updates, then merge once.
 Deploy with `make sam-deploy` on reviewed, clean main; it reads the prepared versions and does not modify tracked files.
-If prediction changes continue after preparation, copy the unpublished notes back to UNRELEASED.md and update the
-consolidated draft, whole-model explanation, and relevant evidence. Any nonblank draft blocks deployment. Rerun prep
+For any revision to unpublished prepared notes, including wording-only edits, copy the complete notes back to
+UNRELEASED.md and edit the consolidated draft there. Never hand-edit `releases/vN.N.md` or the version manifest.
+Review the whole-model explanation and update it and relevant evidence when behavior changes. Any nonblank draft blocks deployment. Rerun prep
 to amend the same unregistered version; changes after registration require a new version. Source/dependency signals
 help catch missed updates and require explicit prediction-neutral classification when keeping a registered version;
 they do not replace recording changes in the draft as they happen. Supabase determines when

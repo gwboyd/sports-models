@@ -201,7 +201,6 @@ class NFLExpectedPointsRecipe:
                 min_spread_win_prob=52.5,
                 max_combined_plays=3,
                 extra_lock_min_probability=0.55,
-                require_positive_ev=True,
             ),
         )
 

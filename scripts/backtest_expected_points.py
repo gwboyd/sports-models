@@ -59,16 +59,23 @@ def _discover_lock_source(reference: str, league: str, expected_version: str | N
     else:
         raise ValueError("Lock replay source must be deployed, version:N.N, artifact:<run>, or a run path")
     candidates: list[tuple[str, Path]] = []
-    comparison_root = ROOT / ".backtests/expected_points/comparisons" / league
-    for manifest_path in comparison_root.glob("*/**/manifest.json"):
+    artifact_roots = (
+        ROOT / ".backtests/expected_points" / collection / league
+        for collection in ("comparisons", "runs")
+    )
+    manifests = (path for root in artifact_roots for path in root.glob("**/manifest.json"))
+    for manifest_path in manifests:
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         if (manifest.get("artifact_type") == "expected_points_backtest_run"
+                and manifest.get("league") == league
                 and manifest.get("recipe_version") == resolved_version
                 and manifest.get("profile") == "standard"
-                and (resolved_sha is None or manifest.get("git_identity") == resolved_sha)):
+                and (resolved_sha is None or manifest.get("git_identity") == resolved_sha)
+                and all((manifest_path.parent / name).is_file()
+                        for name in ("predictions.parquet", "summary.json"))):
             candidates.append((str(manifest.get("created_at", "")), manifest_path.parent))
     if not candidates:
         raise FileNotFoundError(

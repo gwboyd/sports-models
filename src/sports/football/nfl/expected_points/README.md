@@ -9,8 +9,9 @@ Metrics derived from play by play data is used starting from 2010 to now. EPA (e
 
 `build_pregame_quarterback_metrics` constructs quarterback history in kickoff order and keeps the existing
 `ewma_qbr`/passer-rating feature names. Debut and unknown starters remain missing; never fill from a full-dataset
-average of first starts. Score LightGBM handles missing inputs natively, and confidence imputation is fitted inside
-each chronological training split. The September 2026 production audit removed the old future-dependent fallback;
+average of first starts. Score LightGBM handles missing inputs natively. Legacy confidence classifiers fit imputation
+inside each chronological training split; version 2.1 probability heads use score errors instead of quarterback
+inputs. The September 2026 production audit removed the old future-dependent fallback;
 the saved NFL 2.0 comparison predates that fix. A fresh performance comparison was explicitly waived by the user,
 so do not attribute those measured gains to the final quarterback-history recipe.
 
@@ -25,12 +26,14 @@ In a notebook or Papermill run, set `opponent_adjustment_config` to partial over
 `{"ridge_alpha": 10.0, "season_carryover": 0.25}`; CFB additionally accepts
 `{"fcs_policy": "pooled"}`.
 
-The current NFL candidate uses half-strength correction (`adjustment_strength=0.5`), selected on 2023–2024
+The NFL recipe uses half-strength correction (`adjustment_strength=0.5`), selected on 2023–2024
 screening weeks and evaluated on the standard 2023–2025 comparison recorded in
 `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored).
 `adjustment_strength` scales the opponent correction from zero (unadjusted history) to one (full correction); the moving-average calculation is unchanged. `excluded_seasons` removes listed seasons from both rating estimation and team efficiency history. A zero carryover with no current-season observations uses a neutral correction instead of attempting a zero-weight fit. These controls do not remove score-training games.
 
-After picks are made, there is another model (classifier) that looks back on the historical picks the model has made against Vegas, analyzes patterns with which the mdoel has been succesful, and gives a percentage chance it belives the model has of being correct in it's pick. That score (along with a couple other heuristics) is how we decide what "plays" to make each week.
+After picks are made, separate spread and total probability heads estimate the chance of a resolved bet winning
+from out-of-time score errors. Version 2.1 strongly discounts the implied advantage toward an even chance and ranks
+eligible Locks by expected profit. The probability floor and combined weekly policy are described below.
 
 ## Picks Update Cadence
 
@@ -159,19 +162,21 @@ when shared behavior changes and coordinate frontend publication with the backen
 Git-ignored `.backtests/expected_points/reports/`, with detailed comparisons/experiments in their existing folders.
 Those local reports are not shipped or pushed; do not force-add them.
 
-Prediction-affecting NFL changes are recorded in `UNRELEASED.md`. Keep that file empty when the deployment contains no
-NFL recipe change; do not add frontend, documentation, API-output, infrastructure, or database-only work. A populated
-draft must contain a `#` title, `## Public Summary`, and `## Changes`. Describe shipped model differences in
-plain language; omit code references, experiment settings, and evaluations. Keep evidence in separate reports, such
-as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Optional evaluation/internal
-sections remain supported by the parser for compatibility, but are not part of new public drafts.
+Author NFL release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
+release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
+a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
+verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
+limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
+experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
 notes to `releases/vN.N.md`, clearing the drafts, and updating root `model-versions.json`. Commit these files and the
 updated whole-model How It Works pages with the implementation, then merge once. Preparation writes no Supabase rows
-and does not deploy. If more prediction changes follow preparation, copy the unpublished release notes back into
-UNRELEASED.md, update the complete draft and How It Works, and rerun prep. After confirmation it amends that same
+and does not deploy. For any revision to unpublished prepared notes, including wording-only edits, copy the complete
+notes back into UNRELEASED.md and edit there; do not hand-edit the archive or manifest. Review How It Works and update
+it if behavior changes, then rerun prep. After confirmation it amends that same
 unregistered version and clears the draft. Any nonblank draft blocks deployment. After registration, new prediction
 changes require a new major/minor version. Do not manually clear drafts to bypass these checks.
 
@@ -240,7 +245,7 @@ The power rankings seen above in the chart are created by taking all of the metr
 
 The game simulations mimick each team's form for the current week (the next week if a team is on a bye), so it would be as if they all played eachother "today."
 The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
-logic and does not feed the expected-points picks or confidence classifiers.
+logic and does not feed the expected-points picks or betting probability heads.
 
 ### Ideas for the future
 

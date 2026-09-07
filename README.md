@@ -239,12 +239,13 @@ lines, quote counts/ranges, support status, and selection reasons are retained i
 separate market-snapshot table is used. Games at or after kickoff are removed before prediction, even when no earlier
 pick exists.
 
-Both football models tune the score estimator with one predefined chronological validation split inside an outer
-chronological holdout. The outer holdout is strictly later than the score-model training games and supplies genuine
-out-of-time predictions to the confidence classifiers. After parameter selection and evaluation, the production
-score model is refit on all completed games without running a second GridSearch; each confidence classifier likewise
-uses one chronological validation split and then refits on its full outer-holdout dataset. This is intentionally a
-low-cost temporal evaluation design rather than full out-of-fold backtesting.
+Both football models tune the score estimator with one predefined chronological validation split inside the earlier
+score-training period. A separate outer holdout is strictly later than those training games and supplies genuine
+out-of-time score errors and resolved betting outcomes to the probability heads. Version 2.1 fits the residual-based
+heads and CFB total base rate on that holdout without classifier GridSearch. After parameter selection and evaluation,
+the production score model is refit once on all completed games without repeating GridSearch. Legacy confidence
+classifiers retain a chronological validation split and full-holdout refit. This is intentionally a low-cost temporal
+evaluation design rather than full out-of-fold backtesting.
 
 Every normal expected-points train also reports a chronology-safe health slice. Team-score, margin, and total
 MAE/RMSE/bias come from the outer score holdout. Confidence, calibration, and lock metrics come from a later untouched
@@ -318,7 +319,8 @@ DataFrames; structured trace fields retain their original list/dict values after
 The runner is read-only with respect to Supabase. It uses currently available historical feed values and explicitly
 labels its output as a weekly pre-first-kickoff approximation rather than exact intraday line or roster replay.
 
-CFB confidence classifiers always receive the selected execution-line edge and select hyperparameters with log loss.
+The retained CFB classifier feature experiments use the selected execution-line edge and tune with log loss; these
+legacy classifiers are not the version 2.1 production probability heads.
 Raw home moneyline is not an eligibility gate; paired provider moneylines are converted to an optional median no-vig
 home probability with an explicit missing indicator. Opening-line, movement, market-depth, and no-vig feature groups
 must pass a genuine out-of-time gate before production use: pooled Brier score improves by at least one percent, log
@@ -462,15 +464,17 @@ This reads the latest registered NFL and CFB versions from Supabase, prompts for
 in the tracked root `model-versions.json`. Preparation does not build, deploy, or write to Supabase. Commit those files
 with the model changes and updated public How It Works pages, then merge once. Both leagues share the training image;
 prepare both populated drafts together. For documentation, API, infrastructure, or other prediction-neutral changes,
-leave the versions unchanged and skip preparation when both drafts are empty.
+leave the versions unchanged and skip preparation when both drafts are empty. Revising the wording of an existing
+unpublished release is an exception: use the amendment workflow below without creating a new version.
 
 `model-versions.json` describes the prepared source, **not whether a release is deployed or live**. Supabase owns the
 actual deployment timestamp and canonical source SHA; `first_pick_at` marks the first successful AWS update. New
 release Markdown contains no deployment metadata. Existing archives through 2.0 retain their historical metadata.
 
-If prediction-affecting work continues after preparation, **reopen `UNRELEASED.md`**: copy the unpublished
-`releases/vN.N.md` into the draft and update it to describe the complete proposed release. Update How It Works and
-any affected local experiment evidence as usual, then run `make prepare-model-release` again. It shows the note diff
+For any revision to prepared but unpublished notes, including wording-only edits, **reopen `UNRELEASED.md`**: copy the
+complete `releases/vN.N.md` into the draft and edit it there. Do not hand-edit the prepared archive or version manifest.
+Review How It Works and update it and the local evidence when behavior changes, then run `make prepare-model-release`
+again. It shows the note diff
 and, after confirmation, amends that same unregistered version and clears the draft. It does not silently create
 another version. An empty draft retains an already-prepared release. Once a version is registered in Supabase, new
 prediction changes require a fresh major/minor bump; registered notes are immutable. Never manually clear a draft
@@ -543,8 +547,13 @@ provided; there is no post-deployment archive step.
 
 Release notes flow from `UNRELEASED.md` through the prepared `releases/vN.N.md` into
 `sports_models.model_releases`: the title maps to `title`, `## Public Summary` to `public_summary`, and `## Changes`
-to `changes_md`. Describe user-facing differences without code references or evaluation results. Omitted optional
-sections become null `evaluation_md`/`internal_notes_md`. Keep evaluation evidence in Git-ignored
+to `changes_md`. Use a plain-language summary and 2–3 concise change bullets explaining meaningful implementation
+details, such as estimator family, chronological training, shrinkage, or selection thresholds. Optionally add one
+evaluation-versus-baseline bullet under `## Changes`, naming the baseline, period/population, assumptions, and material
+uncertainty or selection limitations. Use verified results for the actual recipe; omit the bullet if those caveats
+cannot fit responsibly. Avoid file paths, commands, infrastructure details, and experiment ledgers. Omitted optional
+headings become null `evaluation_md`/`internal_notes_md`; do not add separate evaluation/internal headings to new drafts.
+Keep complete evaluation evidence in Git-ignored
 `.backtests/expected_points/reports/`. The manifest selects versions; the Markdown title does not. Deployment supplies
 the model key, major/minor numbers, verified source SHA, and deployment timestamp; no manual release-row SQL is needed.
 
@@ -601,8 +610,9 @@ events are available at `events/schedule-coordinator.json`, `events/scheduled-nf
 `events/scheduled-cfb-update.json`. SAM-local scheduled invocations remain read-only under the normal non-AWS write
 policy; only deployed Lambda runtimes write automatically.
 
-For each model, an empty `UNRELEASED.md` means no version change. A non-empty file must use the documented Markdown
-sections and is released as either the next minor or next major version. Version rows may be deployed before they
+For each model, an empty `UNRELEASED.md` means no unprepared changes; a new version can already be prepared in
+`model-versions.json` and `releases/vN.N.md`. A non-empty draft uses the documented Markdown sections and either prepares
+the next minor/major release or amends the same unpublished prepared version. Version rows may be deployed before they
 make picks; `first_pick_at` is set by the first successful AWS update and is the live-state marker. Existing records
 are attributed to the `1.0` bootstrap baseline.
 

@@ -75,14 +75,27 @@ def inspect_game(
             if prediction.empty:
                 inspected.append(pd.DataFrame([{"head": head.family, "status": "Prediction required to inspect Lock inputs"}]))
                 continue
-            features = build_lock_market_frame(prediction, config.league, name, outcomes_known=False)
+            # Tracking/persistence retains projections and execution lines but
+            # drops transient difference columns. Reconstruct the exact input
+            # on an inspection-only copy, leaving the caller's picks unchanged.
+            lock_input = prediction.copy()
+            lock_input[f"{name}_diff"] = (
+                lock_input[f"{name}_pred"] - lock_input[f"{name}_line"]
+            ).abs()
+            features = build_lock_market_frame(lock_input, config.league, name, outcomes_known=False)
             columns = ("edge",) if head.family == "symmetric_residual" else (
                 () if head.family == "base_rate" else lock_feature_set(config.league, head.feature_group, market=name).all
             )
             inputs = features.reindex(columns=columns).copy()
             inputs["head"] = head.family
             inputs["parameters"] = [dict(head.parameters)] * len(inputs)
-            inputs["locks_enabled"] = head.locks_enabled
+            inputs["locks_configured"] = head.locks_enabled
+            # A configured market may still be disabled by insufficient
+            # training history. Missing runtime metadata is unknown, not ready.
+            inputs["locks_enabled"] = (
+                prediction[f"{name}_locks_enabled"].to_numpy()
+                if f"{name}_locks_enabled" in prediction else pd.NA
+            )
             inspected.append(inputs)
         spread, total = inspected
     schedule_row = _matching_game_row(schedule, game_id, raw)

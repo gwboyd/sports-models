@@ -119,7 +119,8 @@ CFB expected-points uses `src/sports/football/cfb/expected_points/cfbd_client.py
 requests; do not add a conflicting Python SDK dependency.
 NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
 missing; never calculate a fallback using all future players or seasons. Native score-model missing handling and
-confidence imputation fitted within chronological training data handle those inputs. Explicit NFL/CFB efficiency
+legacy confidence imputation fitted within chronological training data handle those inputs. Version 2.1 probability
+heads use valid historical score errors/outcomes directly and do not impute quarterback features. Explicit NFL/CFB efficiency
 selections must fail when any selected column is missing; never fall back to substring-based column discovery.
 Opponent-adjusted football efficiency features are implemented in
 `src/sports/football/transforms/opponent_adjustment.py`. It fits pre-kickoff ridge offense/defense effects, then
@@ -130,7 +131,7 @@ comparison evidence. The correction strength is independently configurable from 
 are removed from both rating and smoothed efficiency history, without silently changing score-training rows. CFB
 efficiency metrics are explicitly registered/selected in its features and recipe modules; selected missing columns
 must fail. Research screens use fixed game populations and the existing walk-forward fitter/paired reports, with
-later-season confirmation and disclosure of experiment selection. The current candidates use half-strength
+later-season confirmation and disclosure of experiment selection. The current recipes use half-strength
 correction. CFB selects explosiveness, overall PPA, and success rate with pooled FCS effects; its separate efficiency
 schedule retains 2017 warmup opponents while score training starts in 2018. `CFBHistoryConfig` in `history.py`
 owns the training start and historical exclusions. Notebook overrides are `training_start_year`,
@@ -343,11 +344,28 @@ unprepared model changes. Before commit/merge, prepare a non-empty draft as a ma
 under the old version. After preparation, pending release notes live in `releases/vN.N.md` and the intended version
 lives in root `model-versions.json`, even though `UNRELEASED.md` is empty.
 
+Model-enhancement documentation checklist:
+
+- **During work:** keep each affected league's `UNRELEASED.md`, public `frontend/content/<league>-how-it-works.md`,
+  and local evaluation report/index current as decisions change. Record rejected approaches and evidence limitations
+  in the local report, not public methodology. Review both leagues for shared changes; update developer guides when workflows change.
+- **Before merge:** reconcile the final recipe with release notes, the complete How It Works explanation, and evidence.
+  Check versions, features, training history, Lock rules, and limitations. Run `make prepare-model-release`, then commit
+  generated release notes, `model-versions.json`, empty drafts, and applicable public pages with the implementation.
+- **Before deploy:** recheck those documents against the exact clean-main source being deployed; no later change may
+  escape documentation or preparation. Coordinate How It Works publication with the backend release. Revise unpublished
+  notes through `UNRELEASED.md` and preparation, never by editing prepared archives directly.
+
 Keep the three documentation surfaces distinct:
 
-- `UNRELEASED.md` explains what changes for users. Use a title, `## Public Summary`, and `## Changes` in plain
-  language. Omit code references, experiment controls, evaluation results, and internal implementation details.
-  The parser supports optional evaluation/internal sections for compatibility; do not add them to new drafts.
+- `UNRELEASED.md` is the authoring surface for public release notes. Use a title, `## Public Summary`, and
+  `## Changes`. Keep the summary plain-language, then use 2–3 concise change bullets with useful technical detail
+  (for example estimator family, chronological training, probability shrinkage, selection thresholds, or bet accounting).
+  Optionally add one evaluation-versus-baseline bullet under `## Changes`, naming the baseline, period/population,
+  relevant assumptions, and material uncertainty or selection limitations. Use verified evidence for the actual recipe;
+  omit the bullet if it cannot be summarized responsibly. Keep full results in local reports. Avoid source-file paths,
+  commands, infrastructure details, and experiment ledgers. Separate evaluation/internal headings remain parser-compatible
+  but are not part of new drafts.
 - Public How It Works pages explain how the applicable version operates, including useful mathematical detail and
   limitations. Update them alongside release notes as described above; they are not experiment ledgers.
 - Consolidated model improvement, experiment, and optimization reports belong in Git-ignored
@@ -381,8 +399,9 @@ The release workflow is **prepare on the feature branch, commit/merge once, then
 `make prepare-model-release` reads Supabase versions, prompts for major/minor for every non-empty draft, and confirms
 before writing local release files and `model-versions.json`. It never deploys or writes Supabase. Both populated
 league drafts must be prepared together because they share one training image. Empty drafts retain their prepared
-versions. If prediction changes continue after preparation, copy the unpublished release notes back to UNRELEASED.md,
-update that consolidated draft and the whole-model explanation, then rerun preparation. It shows the diff and amends
+versions. For any revision to unpublished prepared release notes, including wording-only edits, copy the complete
+notes back to UNRELEASED.md and edit that consolidated draft; do not hand-edit `releases/vN.N.md` or the manifest.
+Review the whole-model explanation and update it if behavior changed, then rerun preparation. It shows the diff and amends
 the same unregistered version after confirmation. Never clear a draft manually to bypass deployment or drop prior
 changes while consolidating notes. Any nonblank UNRELEASED.md content blocks deployment, including after preparation.
 Once registered, new prediction changes require a fresh major/minor bump. Registered notes are immutable.

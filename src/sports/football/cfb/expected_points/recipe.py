@@ -165,7 +165,6 @@ class CFBExpectedPointsRecipe:
                 min_total_diff=0.0,
                 max_combined_plays=3,
                 extra_lock_min_probability=0.55,
-                require_positive_ev=True,
             ),
         )
 

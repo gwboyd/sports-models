@@ -404,7 +404,6 @@ def test_wide_production_policy_uses_one_combined_cap():
             min_spread_diff=0.0,
             min_total_diff=0.0,
             max_combined_plays=5,
-            require_positive_ev=True,
         ),
     )
     assert output["spread_lock"].sum() + output["total_lock"].sum() == 5
@@ -430,7 +429,6 @@ def test_wide_production_policy_enforces_each_market_cap_within_combined_cap():
             min_spread_diff=0.0,
             min_total_diff=0.0,
             max_combined_plays=5,
-            require_positive_ev=True,
         ),
     )
     assert output["spread_lock"].sum() == 1

@@ -5,7 +5,7 @@ persistence workflow. CFB-specific acquisition and feature preparation remain in
 runs use strict validation, chronological training splits, and the direct CFBD client described in the repository
 README and `AGENTS.md`.
 
-The current candidate uses opponent-adjusted offense/defense explosiveness, overall PPA, and success rate.
+The CFB recipe uses opponent-adjusted offense/defense explosiveness, overall PPA, and success rate.
 Existing explosiveness names stay stable; new efficiency columns use the same descriptive EWMA naming convention.
 The shared transform fits ridge offense/defense effects from strictly earlier games and applies half of the
 estimated opponent correction before the established moving average. FCS teams share one pooled entity by default.
@@ -107,19 +107,21 @@ when shared behavior changes and coordinate frontend publication with the backen
 Git-ignored `.backtests/expected_points/reports/`, with detailed comparisons/experiments in their existing folders.
 Those local reports are not shipped or pushed; do not force-add them.
 
-Prediction-affecting CFB changes are recorded in `UNRELEASED.md`. Keep that file empty when the deployment contains no
-CFB recipe change; do not add frontend, documentation, API-output, infrastructure, or database-only work. A populated
-draft must contain a `#` title, `## Public Summary`, and `## Changes`. Describe shipped model differences in
-plain language; omit code references, experiment settings, and evaluations. Keep evidence in separate reports, such
-as `.backtests/expected_points/reports/expected-points-2.0-evaluation.md` (local, Git-ignored). Optional evaluation/internal
-sections remain supported by the parser for compatibility, but are not part of new public drafts.
+Author CFB release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
+release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
+a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
+verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
+limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
+experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
 notes to `releases/vN.N.md`, clearing the drafts, and updating root `model-versions.json`. Commit these files and the
 updated whole-model How It Works pages with the implementation, then merge once. Preparation writes no Supabase rows
-and does not deploy. If more prediction changes follow preparation, copy the unpublished release notes back into
-UNRELEASED.md, update the complete draft and How It Works, and rerun prep. After confirmation it amends that same
+and does not deploy. For any revision to unpublished prepared notes, including wording-only edits, copy the complete
+notes back into UNRELEASED.md and edit there; do not hand-edit the archive or manifest. Review How It Works and update
+it if behavior changes, then rerun prep. After confirmation it amends that same
 unregistered version and clears the draft. Any nonblank draft blocks deployment. After registration, new prediction
 changes require a new major/minor version. Do not manually clear drafts to bypass these checks.
 

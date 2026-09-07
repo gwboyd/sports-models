@@ -43,7 +43,6 @@ class LockVariantSpec:
         "symmetric_residual",
         "spline_logit",
         "lightgbm",
-        "blend",
     ]
     feature_group: str = "core"
     calibrator: Literal["identity", "platt", "beta"] = "identity"
@@ -197,20 +196,6 @@ class CalibratedHead:
 
     def predict(self, frame: pd.DataFrame) -> np.ndarray:
         return self.calibrator.transform(self.head.predict(frame))
-
-
-@dataclass
-class BlendHead:
-    left: ProbabilityHead
-    right: ProbabilityHead
-    weight: float
-
-    def predict(self, frame: pd.DataFrame) -> np.ndarray:
-        return np.clip(
-            self.weight * self.left.predict(frame) + (1.0 - self.weight) * self.right.predict(frame),
-            PROBABILITY_EPSILON,
-            1.0 - PROBABILITY_EPSILON,
-        )
 
 
 def shrunken_base_rate(labels: Sequence[int | float], *, strength: float = 50.0) -> float:

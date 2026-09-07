@@ -1,4 +1,9 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
+import pandas as pd
 
 from lightgbm import LGBMClassifier
 from sklearn.compose import ColumnTransformer
@@ -8,6 +13,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 from .chronology import predefined_chronological_split, sort_chronologically
+from .types import ExpectedPointsConfig, ExpectedPointsLeague
+
+if TYPE_CHECKING:
+    from .lock_models import ProbabilityHead
 
 
 class ConfiguredLockClassifier:
@@ -15,14 +24,22 @@ class ConfiguredLockClassifier:
 
     classes_ = np.array([0, 1])
 
-    def __init__(self, head, history, *, league, market, locks_enabled):
+    def __init__(
+        self,
+        head: ProbabilityHead,
+        history: pd.DataFrame,
+        *,
+        league: ExpectedPointsLeague,
+        market: str,
+        locks_enabled: bool,
+    ) -> None:
         self.head = head
         self.history = history
         self.league = league
         self.market = market
         self.locks_enabled = bool(locks_enabled)
 
-    def predict_outcomes(self, frame):
+    def predict_outcomes(self, frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         from .lock_policy import estimate_push_probability
         from .lock_replay import build_lock_market_frame
 
@@ -31,7 +48,7 @@ class ConfiguredLockClassifier:
         )
         return self.head.predict(features), estimate_push_probability(self.history, features)
 
-    def predict_proba(self, frame):
+    def predict_proba(self, frame: pd.DataFrame) -> np.ndarray:
         probability, _push = self.predict_outcomes(frame)
         return np.column_stack([1.0 - probability, probability])
 
@@ -138,9 +155,15 @@ def fit_classifiers(
     return spread_clf, total_clf
 
 
-def fit_configured_classifiers(results, config):
+def fit_configured_classifiers(
+    results: pd.DataFrame,
+    config: ExpectedPointsConfig,
+) -> tuple[ConfiguredLockClassifier, ConfiguredLockClassifier] | tuple[GridSearchCV, GridSearchCV]:
     """Fit either the released lock heads or the legacy confidence classifiers."""
-    if config.spread_lock_head is None or config.total_lock_head is None:
+    configured = (config.spread_lock_head is not None, config.total_lock_head is not None)
+    if any(configured) and not all(configured):
+        raise ValueError("Configure both spread and total Lock heads, or neither for legacy confidence")
+    if not any(configured):
         return fit_classifiers(
             results,
             config.spread_class_features,
@@ -157,7 +180,7 @@ def fit_configured_classifiers(results, config):
         raise ValueError("Configured Lock heads require an explicit league")
 
     from .lock_features import lock_feature_set
-    from .lock_models import LockVariantSpec, fit_probability_head
+    from .lock_models import LockVariantSpec
     from .lock_replay import build_lock_market_frame, _fit_for_period, LockReplaySpec
 
     fitted = []
@@ -168,9 +191,6 @@ def fit_configured_classifiers(results, config):
         history = build_lock_market_frame(
             results, config.league, market, outcomes_known=True,
         )
-        resolved = history.loc[history["outcome"].isin(["win", "loss"])]
-        counts = resolved["win"].value_counts()
-        ready = len(resolved) >= 100 and len(counts) == 2 and counts.min() >= 25
         variant = LockVariantSpec(
             name=f"production_{market}",
             family=head_config.family,

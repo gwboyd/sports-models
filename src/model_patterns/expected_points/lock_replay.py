@@ -28,7 +28,6 @@ from .lock_models import (
     LockVariantSpec,
     fit_calibrator,
     fit_probability_head,
-    shrunken_base_rate,
 )
 from .lock_policy import (
     LockPolicy,
@@ -132,8 +131,11 @@ def _safe_numeric(frame: pd.DataFrame, name: str) -> pd.Series:
 
 def _safe_object(frame: pd.DataFrame, name: str) -> pd.Series:
     if name not in frame:
-        return pd.Series(pd.NA, index=frame.index, dtype="object")
-    return frame[name].astype("object")
+        return pd.Series(np.nan, index=frame.index, dtype="object")
+    values = frame[name].astype("object")
+    # sklearn's default missing-value contract is np.nan, not pandas.NA.
+    # Normalize both absent and partially missing optional source categories.
+    return values.where(values.notna(), np.nan)
 
 
 def build_lock_market_frame(
@@ -517,6 +519,11 @@ def screen_lock_cadence(
         replay.policy, minimum_resolved_win_probability=0.5,
         max_locks_per_week=1_000_000, extra_lock_min_probability=None,
     ))
+    policy_grid = tuple(
+        (normal_cap, extra)
+        for normal_cap, extra in ((2, None), (3, None), (3, 0.55), (3, 0.575))
+        if extra is None or extra >= replay.policy.minimum_resolved_win_probability
+    )
     records = []
     for variant in variants:
         logging.info("Cadence probability head: %s", variant.name)
@@ -530,7 +537,7 @@ def screen_lock_cadence(
             ("spread2_total1", 2, 1), ("spread1_total2", 1, 2),
         ):
             frame = pd.concat(forecasts.values(), ignore_index=True)
-            for normal_cap, extra in ((2, None), (3, None), (3, 0.55), (3, 0.575)):
+            for normal_cap, extra in policy_grid:
                 policy = replace(
                     replay.policy, max_locks_per_week=normal_cap,
                     extra_lock_min_probability=extra,
