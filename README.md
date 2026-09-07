@@ -282,6 +282,12 @@ separate Insights route.
 The shared presentation uses compact eight-pixel surfaces, limited shadows, and custom electric ink blue (`#0B5FCC`) accents while retaining
 44px mobile touch targets. Lock cards use a uniform light-blue outline; favorite cards inherit that outline and show
 spread and/or total lock tags when those markets qualify.
+If a graded result exists for a current-slate game, green win and red loss outlines replace the blue lock outline for
+that individual spread or total everywhere it appears. Standard picks remain unfilled; locks retain their label and
+add a light outcome-colored fill. Pushes use a neutral treatment, with outcomes stated in the model details.
+Graded current-slate presentations replace kickoff time with the compact away/home final score.
+They also show the final margin from the spread pick's team perspective and combined final score for totals while
+removing pregame-only card detail.
 Both How It Works routes render their public methodology Markdown through a shared renderer, including detailed
 feature explanations and responsive images, while developer operations remain in the model READMEs.
 On mobile, the lock carousel begins on the page content line, and favorite-team management is reached through the

@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchApi, UpstreamApiError } from "@/app/lib/api";
+import { fetchApi, fetchSupplementalApi, UpstreamApiError } from "@/app/lib/api";
 
 describe("fetchApi", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -25,5 +26,13 @@ describe("fetchApi", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503, statusText: "Unavailable" })));
 
     await expect(fetchApi("nfl-picks")).rejects.toBeInstanceOf(UpstreamApiError);
+  });
+
+  it("lets supplemental data fail without taking down its page", async () => {
+    vi.stubEnv("ENDPOINT", "https://api.example.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503, statusText: "Unavailable" })));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(fetchSupplementalApi("nfl-pick-results")).resolves.toBeNull();
   });
 });
