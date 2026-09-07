@@ -83,6 +83,44 @@ week plus the final week. It provides preliminary results sooner, but is not a p
 cutoff caching off (the default), a later standard run repeats the overlapping candidate fits. Do not run both by
 habit. Released baseline cutoffs can reuse compatible caches; newly prepared feed values can invalidate them.
 
+## Lightweight Lock-method replay
+
+Lock research has a separate, deliberately cheaper runner. It takes the immutable weekly score predictions from a
+completed standard `BacktestRun` and retrains only small second-stage win-probability heads. It never runs a notebook,
+loads a feed, fits an expected-points score model, contacts Supabase, or writes operational picks:
+
+```sh
+make replay-expected-points-locks LEAGUE=nfl LOCK_SOURCE=version:2.0
+make replay-expected-points-locks LEAGUE=cfb LOCK_SOURCE=version:2.0
+```
+
+`LOCK_SOURCE` accepts `version:N.N`, `deployed` (the default), `artifact:<run-directory>`, or a completed run directory.
+Deployed/version references first resolve the immutable release SHA from Supabase and then search matching validated
+local standard run artifacts; an explicit artifact is the strongest fully offline reproducibility anchor.
+`LOCK_EXPECTED_VERSION` independently fails closed if the loaded recipe version is not the requested one.
+This distinction is intentional: a score prediction Parquet is a valid input to this Locks-only experiment, but it
+is never a feature input or substitute for frame preparation in a whole-recipe comparison.
+
+The standard protocol uses 2023 as chronological warmup, selects among a predeclared candidate registry using only
+prequential 2024 decisions, writes `selection.json`, and only then scores 2025 confirmation. Each target slate trains
+only on games whose kickoffs plus the result-availability lag precede that slate's cutoff. Pushes are excluded from
+resolved-win fitting but retained for probability accounting and profit. Candidate features come from explicit NFL
+and CFB allowlists; final scores, outcomes, prior Locks/probabilities, true results, and postgame ratings cannot enter
+an estimator matrix.
+
+The primary betting metric is flat-stake net units with one unit risked at -110: a win earns `100/110`, a loss costs
+one, and a push earns zero while still counting in turnover. Lock eligibility requires at least 55% resolved-win
+probability and positive expected units. At most five Locks are selected across spread and total together per league
+week; zero-Lock weeks are valid. Promotion also requires probability, calibration, decision-volume, and fixed-seed
+season/week bootstrap profit gates. If no method clears them, the artifact records the most honest probability head
+and disables Locks rather than forcing action.
+
+Outputs live in a fresh `experiments/<study>/<league>/` directory and include source/design manifests, a compact safe
+source ledger, every development variant's decisions and metrics, the immutable selection, confirmation decisions,
+execution status/logs, and a report. The historical input remains a weekly approximation using the then-available
+backtest feed values, not an exact intraday line or public-money snapshot. This fast tournament screens methods; after
+production integration, the normal standard NFL and CFB comparisons remain mandatory end-to-end release evidence.
+
 ## Optional controls
 
 None of these options are required for the standard command above. CLI equivalents apply to

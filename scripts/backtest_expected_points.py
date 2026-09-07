@@ -18,6 +18,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -38,6 +40,148 @@ from src.model_patterns.expected_points.backtest_workflow import (
 )
 from src.model_patterns.expected_points.recipes import get_expected_points_recipe
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
+
+
+def _discover_lock_source(reference: str, league: str, expected_version: str | None) -> tuple[Path, str]:
+    """Resolve a completed local run without loading feeds or fitting scores."""
+    if reference.startswith("artifact:"):
+        direct = Path(reference.removeprefix("artifact:")).resolve()
+        manifest = json.loads((direct / "manifest.json").read_text(encoding="utf-8"))
+        return direct, expected_version or str(manifest["recipe_version"])
+    direct = Path(reference)
+    if direct.exists():
+        direct = direct.resolve()
+        manifest = json.loads((direct / "manifest.json").read_text(encoding="utf-8"))
+        return direct, expected_version or str(manifest["recipe_version"])
+    resolved_sha = None
+    if reference == "deployed" or reference.startswith("version:"):
+        resolved_sha, resolved_version = _resolve_reference(reference, ExpectedPointsLeague(league))
+    else:
+        raise ValueError("Lock replay source must be deployed, version:N.N, artifact:<run>, or a run path")
+    candidates: list[tuple[str, Path]] = []
+    comparison_root = ROOT / ".backtests/expected_points/comparisons" / league
+    for manifest_path in comparison_root.glob("*/**/manifest.json"):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if (manifest.get("artifact_type") == "expected_points_backtest_run"
+                and manifest.get("recipe_version") == resolved_version
+                and manifest.get("profile") == "standard"
+                and (resolved_sha is None or manifest.get("git_identity") == resolved_sha)):
+            candidates.append((str(manifest.get("created_at", "")), manifest_path.parent))
+    if not candidates:
+        raise FileNotFoundError(
+            f"No completed local standard {league.upper()} run for {resolved_version}. "
+            "Pass --source artifact:<run> or materialize it with the normal comparison runner."
+        )
+    if expected_version is not None and expected_version != resolved_version:
+        raise ValueError(f"Source reference resolves to {resolved_version}, expected {expected_version}")
+    return max(candidates, key=lambda item: item[0])[1], resolved_version
+
+
+def _lock_replay(args: argparse.Namespace) -> Path:
+    from src.model_patterns.expected_points.lock_policy import lock_profit_metrics, select_weekly_locks
+    from src.model_patterns.expected_points.lock_replay import (
+        LockReplaySpec,
+        choose_lock_selection,
+        load_lock_replay_source,
+        registered_lock_variants,
+        replay_lock_variant,
+        summarize_lock_variant,
+    )
+    from src.model_patterns.expected_points.lock_replay_artifacts import (
+        write_lock_study_inputs,
+        write_report,
+        write_selection,
+        write_variant,
+    )
+    from src.model_patterns.expected_points.lock_policy import LockPolicy
+
+    output = Path(args.output_dir).resolve() if args.output_dir else (
+        ROOT / ".backtests/expected_points/experiments"
+        / f"{datetime.now(timezone.utc).strftime('%Y%m%d')}-lock-revamp"
+        / args.league
+    )
+    source_path, expected_version = _discover_lock_source(
+        args.source, args.league, args.expected_source_version,
+    )
+    with _job(output, args):
+        source = load_lock_replay_source(
+            source_path,
+            league=args.league,
+            expected_version=expected_version,
+            expected_profile="standard",
+            expected_seasons=(2023, 2024, 2025),
+        )
+        replay = LockReplaySpec(
+            minimum_training_decisions=args.minimum_training_decisions,
+            minimum_class_decisions=args.minimum_class_decisions,
+            bootstrap_samples=args.bootstrap_samples,
+            random_seed=args.seed,
+            policy=LockPolicy(
+                american_odds=args.american_odds,
+                minimum_resolved_win_probability=args.minimum_probability,
+                max_locks_per_week=args.max_locks_per_week,
+            ),
+        )
+        variants = registered_lock_variants(source.run.league)
+        write_lock_study_inputs(output, source, replay)
+        development = {}
+        for market in ("spread", "total"):
+            for position, variant in enumerate(variants, 1):
+                logging.info("Development %s %s/%s: %s", market, position, len(variants), variant.name)
+                decisions = replay_lock_variant(
+                    source, variant, replay, market=market, seasons=replay.development_seasons,
+                )
+                metrics = summarize_lock_variant(decisions, replay)
+                development[(market, variant.name)] = decisions
+                write_variant(
+                    output, phase="development", market=market, name=variant.name,
+                    decisions=decisions, metrics=metrics,
+                )
+        selection = choose_lock_selection(source, replay, development, variants)
+        # The immutable selection is persisted before confirmation rows are scored.
+        write_selection(output, selection)
+        logging.info(
+            "Frozen selection: spread=%s total=%s enabled=%s",
+            selection.spread_variant, selection.total_variant,
+            ",".join(selection.enabled_markets) or "none",
+        )
+        confirmation_decisions = []
+        confirmation_metrics = {}
+        variants_by_name = {variant.name: variant for variant in variants}
+        for market, selected_name in (
+            ("spread", selection.spread_variant), ("total", selection.total_variant)
+        ):
+            selected = variants_by_name[selected_name or "base_rate"]
+            decisions = replay_lock_variant(
+                source, selected, replay, market=market, seasons=replay.confirmation_seasons,
+            )
+            if market not in selection.enabled_markets:
+                decisions["locks_enabled"] = False
+            confirmation_decisions.append(decisions)
+        combined = pd.concat(confirmation_decisions, ignore_index=True)
+        combined = select_weekly_locks(combined, policy=replay.policy)
+        for market in ("spread", "total"):
+            market_decisions = combined.loc[combined["market"].eq(market)].copy()
+            metrics = summarize_lock_variant(market_decisions, replay)
+            confirmation_metrics[market] = metrics
+            write_variant(
+                output, phase="confirmation", market=market,
+                name=str(market_decisions["variant"].iloc[0]),
+                decisions=market_decisions, metrics=metrics,
+            )
+        confirmation_metrics["combined"] = lock_profit_metrics(
+            combined, american_odds=replay.policy.american_odds,
+        )
+        write_json_atomic(output / "confirmation/metrics.json", confirmation_metrics)
+        write_report(output, source, selection, confirmation_metrics)
+        logging.info(
+            "Confirmation complete: %s locks, %.2f units",
+            confirmation_metrics["combined"]["locks"], confirmation_metrics["combined"]["net_units"],
+        )
+    return output
 
 
 def _spec(args: argparse.Namespace) -> BacktestSpec:
@@ -503,7 +647,30 @@ def _main() -> int:
     prepare_parser.add_argument("--through-season", type=int)
     prepare_parser.add_argument("--cache-root", default=str(ROOT / ".backtests/expected_points"))
     prepare_parser.add_argument("--output-dir", required=True)
+    lock_parser = subparsers.add_parser(
+        "lock-replay",
+        help="Screen probability/Lock methods from a frozen score-run artifact without refitting scores",
+    )
+    lock_parser.add_argument("--league", choices=("nfl", "cfb"), required=True)
+    lock_parser.add_argument(
+        "--source", default="version:2.0",
+        help="deployed, version:N.N, artifact:<run>, or a completed BacktestRun path",
+    )
+    lock_parser.add_argument("--expected-source-version")
+    lock_parser.add_argument("--minimum-training-decisions", type=int, default=100)
+    lock_parser.add_argument("--minimum-class-decisions", type=int, default=25)
+    lock_parser.add_argument("--american-odds", type=int, default=-110)
+    lock_parser.add_argument("--minimum-probability", type=float, default=0.55)
+    lock_parser.add_argument("--max-locks-per-week", type=int, default=5)
+    lock_parser.add_argument("--bootstrap-samples", type=int, default=2000)
+    lock_parser.add_argument("--seed", type=int, default=31)
+    lock_parser.add_argument("--output-dir")
     args = parser.parse_args()
+    if args.command == "lock-replay":
+        if args.bootstrap_samples < 1:
+            parser.error("--bootstrap-samples must be positive")
+        print(f"Lock replay written to {_lock_replay(args)}")
+        return 0
     if args.command == "prepare-frame":
         print(f"Backtest frame written to {_prepare(args)}")
         return 0
