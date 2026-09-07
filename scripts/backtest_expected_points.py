@@ -454,100 +454,9 @@ def _compare(args: argparse.Namespace) -> Path:
     return output
 
 
-def _parse_leagues(value: str) -> tuple[str, ...]:
-    leagues = tuple(item.strip().lower() for item in value.split(",") if item.strip())
-    if len(leagues) < 2:
-        raise argparse.ArgumentTypeError("--leagues requires at least two comma-separated leagues")
-    if len(leagues) != len(set(leagues)):
-        raise argparse.ArgumentTypeError("--leagues cannot contain duplicates")
-    unsupported = sorted(set(leagues) - {"nfl", "cfb"})
-    if unsupported:
-        raise argparse.ArgumentTypeError(f"Unsupported leagues: {', '.join(unsupported)}")
-    return leagues
-
-
-def _comparison_subprocess_command(
-    args: argparse.Namespace,
-    *,
-    league: str,
-    output_dir: Path,
-) -> list[str]:
-    command = [
-        sys.executable,
-        str(Path(__file__).resolve()),
-        "compare",
-        "--league", league,
-        "--profile", args.profile,
-        "--baseline", args.baseline,
-        "--candidate", args.candidate,
-        "--bootstrap-samples", str(args.bootstrap_samples),
-        "--cache-root", str(Path(args.cache_root).resolve()),
-        "--output-dir", str(output_dir),
-    ]
-    for option, value in (
-        ("--seasons", getattr(args, "seasons", "")),
-        ("--cadence", getattr(args, "cadence", None)),
-        ("--through-season", getattr(args, "through_season", None)),
-        ("--current-year", getattr(args, "current_year", None)),
-        ("--current-week", getattr(args, "current_week", None)),
-    ):
-        if value not in (None, ""):
-            command.extend([option, str(value)])
-    for option, enabled in (
-        ("--no-cache", args.no_cache),
-        ("--cache-working-tree", args.cache_working_tree),
-        ("--preflight-only", args.preflight_only),
-    ):
-        if enabled:
-            command.append(option)
-    return command
-
-
-def _compare_many(args: argparse.Namespace) -> int:
-    """Run independent league comparisons concurrently without changing fit behavior."""
-    batch_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    processes: list[tuple[str, Path, subprocess.Popen]] = []
-    try:
-        for league in args.leagues:
-            output = ROOT / ".backtests/expected_points/comparisons" / league / batch_id
-            command = _comparison_subprocess_command(args, league=league, output_dir=output)
-            logging.info("Starting %s comparison: %s", league, output)
-            process = subprocess.Popen(
-                command,
-                cwd=ROOT,
-                env={**os.environ, "PYTHONUNBUFFERED": "1"},
-            )
-            processes.append((league, output, process))
-
-        failed = False
-        for league, output, process in processes:
-            return_code = process.wait()
-            failed = failed or return_code != 0
-            print(f"{league}: {'complete' if return_code == 0 else f'failed ({return_code})'} -> {output}")
-        return int(failed)
-    except BaseException:
-        for _league, _output, process in processes:
-            if process.poll() is None:
-                process.terminate()
-        for _league, _output, process in processes:
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-        raise
-
-
-def _add_shared(
-    parser: argparse.ArgumentParser,
-    *,
-    include_league: bool = True,
-    include_frame: bool = True,
-) -> None:
-    if include_league:
-        parser.add_argument("--league", choices=("nfl", "cfb"), required=True)
-    if include_frame:
-        parser.add_argument("--frame", help="Explicit shared saved frame; comparisons otherwise prepare each version automatically")
+def _add_shared(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--league", choices=("nfl", "cfb"), required=True)
+    parser.add_argument("--frame", help="Explicit shared saved frame; comparisons otherwise prepare each version automatically")
     parser.add_argument("--profile", choices=("quick", "standard", "full"), default="standard",
                         help="Coverage: standard (default) = 3 seasons weekly; quick = 1 season sampled; full = 4 seasons")
     parser.add_argument("--seasons", default="")
@@ -559,20 +468,6 @@ def _add_shared(
         action="store_true",
         help="Enable resumable cutoff caching for the mutable working-tree recipe",
     )
-
-
-def _add_comparison_options(parser: argparse.ArgumentParser, *, single_league: bool) -> None:
-    parser.add_argument("--baseline", default="deployed", help="Recipe reference (default: deployed)")
-    parser.add_argument("--candidate", default="working-tree", help="Recipe reference (default: working-tree)")
-    if single_league:
-        parser.add_argument("--baseline-frame", help="Reuse this saved baseline frame instead of preparing it")
-        parser.add_argument("--candidate-frame", help="Reuse this saved candidate frame instead of preparing it")
-        parser.add_argument("--output-dir", help="New job directory; default: a timestamped comparison directory")
-    parser.add_argument("--bootstrap-samples", type=int, default=2000)
-    parser.add_argument("--through-season", type=int, help="Explicit inclusive upper season bound on both frames")
-    parser.add_argument("--preflight-only", action="store_true", help="Prepare/check inputs and stop before fitting")
-    parser.add_argument("--current-year", type=int, help="Advanced: notebook loading context; defaults to history end")
-    parser.add_argument("--current-week", type=int, default=1, help="Advanced: notebook loading context (default: 1)")
 
 
 def _main() -> int:
@@ -590,14 +485,16 @@ def _main() -> int:
                     "and runs standard automatically. All other flags are optional.",
     )
     _add_shared(compare_parser)
-    _add_comparison_options(compare_parser, single_league=True)
-    compare_many_parser = subparsers.add_parser(
-        "compare-many",
-        help="Run independent league comparisons concurrently",
-    )
-    compare_many_parser.add_argument("--leagues", required=True, type=_parse_leagues)
-    _add_shared(compare_many_parser, include_league=False, include_frame=False)
-    _add_comparison_options(compare_many_parser, single_league=False)
+    compare_parser.add_argument("--baseline", default="deployed", help="Recipe reference (default: deployed)")
+    compare_parser.add_argument("--candidate", default="working-tree", help="Recipe reference (default: working-tree)")
+    compare_parser.add_argument("--baseline-frame", help="Reuse this saved baseline frame instead of preparing it")
+    compare_parser.add_argument("--candidate-frame", help="Reuse this saved candidate frame instead of preparing it")
+    compare_parser.add_argument("--bootstrap-samples", type=int, default=2000)
+    compare_parser.add_argument("--output-dir", help="New job directory; default: a timestamped comparison directory")
+    compare_parser.add_argument("--through-season", type=int, help="Explicit inclusive upper season bound on both frames")
+    compare_parser.add_argument("--preflight-only", action="store_true", help="Prepare/check inputs and stop before fitting")
+    compare_parser.add_argument("--current-year", type=int, help="Advanced: notebook loading context; defaults to history end")
+    compare_parser.add_argument("--current-week", type=int, default=1, help="Advanced: notebook loading context (default: 1)")
     prepare_parser = subparsers.add_parser("prepare-frame", help="Execute loading/features only, using the selected recipe checkout")
     prepare_parser.add_argument("--league", choices=("nfl", "cfb"), required=True)
     prepare_parser.add_argument("--recipe", default="working-tree")
@@ -612,11 +509,8 @@ def _main() -> int:
         return 0
     if args.command == "run" and not args.frame:
         parser.error("run requires --frame; use compare for automatic preparation")
-    if args.command in {"compare", "compare-many"} and args.bootstrap_samples < 1:
+    if args.command == "compare" and args.bootstrap_samples < 1:
         parser.error("--bootstrap-samples must be positive")
-
-    if args.command == "compare-many":
-        return _compare_many(args)
 
     if args.command == "run":
         with _job(Path(args.output_dir).resolve(), args):

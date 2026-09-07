@@ -91,7 +91,7 @@ None of these options are required for the standard command above. CLI equivalen
 | Make option | CLI equivalent | When to use it |
 |---|---|---|
 | `LEAGUE=nfl` or `cfb` | `--league nfl` or `cfb` | Select the model. Make defaults to NFL; CLI requires a league. |
-| `LEAGUES=nfl,cfb` | `compare-many --leagues nfl,cfb` | Convenience launcher for concurrent NFL and CFB comparisons; sequential cold runs are generally faster. |
+| `LEAGUES=nfl,cfb` | `.venv/bin/python scripts/backtest_expected_points_many.py --leagues nfl,cfb` | Convenience launcher for concurrent NFL and CFB comparisons; sequential cold runs are generally faster. |
 | `PROFILE=quick` | `--profile quick` | Optional smaller preliminary comparison; full tuning at fewer cutoffs. |
 | `PROFILE=full` | `--profile full` | Evaluate four completed/evaluable seasons rather than standard's three. |
 | `SEASONS=2023,2024,2025` | `--seasons 2023,2024,2025` | Explicit evaluation seasons; prior complete warmup history is still required. With fully automatic inputs, their maximum supplies the history end unless overridden. |

@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from scripts import backtest_expected_points as cli
+from scripts import backtest_expected_points_many as cli_many
 from src.model_patterns.expected_points.backtest_artifacts import load_backtest_frame, save_backtest_frame
 from src.model_patterns.expected_points.backtest_workflow import historical_frame, preflight_frames, preparation_notebook
 from src.model_patterns.expected_points.backtesting import BacktestSpec
@@ -369,34 +370,21 @@ def test_make_default_does_not_supply_implicit_latest_frame():
     assert '--frame' not in result.stdout and '--candidate-frame' not in result.stdout
 
 
-def test_compare_many_starts_both_leagues_and_reports_partial_failure(monkeypatch, capsys):
+def test_parallel_launcher_starts_both_leagues_and_reports_partial_failure(monkeypatch, capsys):
     started = []
 
     class Process:
         def __init__(self, command, **kwargs):
             self.command = command
             self.returncode = 0 if "nfl" in command else 7
-            self.terminated = False
             started.append(self)
 
         def wait(self, timeout=None):
             assert len(started) == 2
             return self.returncode
 
-        def poll(self):
-            return self.returncode
-
-        def terminate(self):
-            self.terminated = True
-
-        def kill(self):
-            self.returncode = -9
-
-    monkeypatch.setattr(cli.subprocess, "Popen", Process)
-    request = args(Path("/tmp"))
-    request.command = "compare-many"
-    request.leagues = ("nfl", "cfb")
-    assert cli._compare_many(request) == 1
+    monkeypatch.setattr(cli_many.subprocess, "Popen", Process)
+    assert cli_many._run(("nfl", "cfb"), ["--profile", "quick"]) == 1
     assert [process.command[process.command.index("--league") + 1] for process in started] == ["nfl", "cfb"]
     outputs = [Path(process.command[process.command.index("--output-dir") + 1]) for process in started]
     assert outputs[0].parent.name == "nfl"
@@ -406,9 +394,9 @@ def test_compare_many_starts_both_leagues_and_reports_partial_failure(monkeypatc
 
 
 @pytest.mark.parametrize("value", ["nfl", "nfl,nfl", "nfl,nba", ","])
-def test_compare_many_rejects_invalid_league_lists(value):
+def test_parallel_launcher_rejects_invalid_league_lists(value):
     with pytest.raises(argparse.ArgumentTypeError):
-        cli._parse_leagues(value)
+        cli_many._parse_leagues(value)
 
 
 def test_make_multi_league_uses_parallel_launcher():
@@ -417,7 +405,7 @@ def test_make_multi_league_uses_parallel_launcher():
         ["make", "-n", "backtest-expected-points", "LEAGUES=nfl,cfb"],
         cwd=cli.ROOT, check=True, capture_output=True, text=True,
     )
-    assert "compare-many" in result.stdout
+    assert "backtest_expected_points_many.py" in result.stdout
     assert '--leagues "nfl,cfb"' in result.stdout
     assert "--league nfl" not in result.stdout
 
