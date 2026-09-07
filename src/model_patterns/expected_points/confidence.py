@@ -1,3 +1,5 @@
+import numpy as np
+
 from lightgbm import LGBMClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -6,6 +8,32 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 from .chronology import predefined_chronological_split, sort_chronologically
+
+
+class ConfiguredLockClassifier:
+    """Compatibility adapter around the shared replay probability head."""
+
+    classes_ = np.array([0, 1])
+
+    def __init__(self, head, history, *, league, market, locks_enabled):
+        self.head = head
+        self.history = history
+        self.league = league
+        self.market = market
+        self.locks_enabled = bool(locks_enabled)
+
+    def predict_outcomes(self, frame):
+        from .lock_policy import estimate_push_probability
+        from .lock_replay import build_lock_market_frame
+
+        features = build_lock_market_frame(
+            frame, self.league, self.market, outcomes_known=False,
+        )
+        return self.head.predict(features), estimate_push_probability(self.history, features)
+
+    def predict_proba(self, frame):
+        probability, _push = self.predict_outcomes(frame)
+        return np.column_stack([1.0 - probability, probability])
 
 
 def _build_classifier_pipeline(num_features, cat_features):
@@ -108,3 +136,59 @@ def fit_classifiers(
     total_clf.fit(total_X, total_y)
 
     return spread_clf, total_clf
+
+
+def fit_configured_classifiers(results, config):
+    """Fit either the released lock heads or the legacy confidence classifiers."""
+    if config.spread_lock_head is None or config.total_lock_head is None:
+        return fit_classifiers(
+            results,
+            config.spread_class_features,
+            config.total_class_features,
+            config.spread_class_cat_features,
+            config.total_class_cat_features,
+            config.confidence_param_grid,
+            time_col=config.time_col,
+            validation_size=config.confidence_validation_size,
+            n_jobs=config.confidence_n_jobs,
+            scoring=config.confidence_scoring,
+        )
+    if config.league is None:
+        raise ValueError("Configured Lock heads require an explicit league")
+
+    from .lock_features import lock_feature_set
+    from .lock_models import LockVariantSpec, fit_probability_head
+    from .lock_replay import build_lock_market_frame, _fit_for_period, LockReplaySpec
+
+    fitted = []
+    for market, head_config in (
+        ("spread", config.spread_lock_head),
+        ("total", config.total_lock_head),
+    ):
+        history = build_lock_market_frame(
+            results, config.league, market, outcomes_known=True,
+        )
+        resolved = history.loc[history["outcome"].isin(["win", "loss"])]
+        counts = resolved["win"].value_counts()
+        ready = len(resolved) >= 100 and len(counts) == 2 and counts.min() >= 25
+        variant = LockVariantSpec(
+            name=f"production_{market}",
+            family=head_config.family,
+            feature_group=head_config.feature_group,
+            calibrator=head_config.calibrator,
+            parameters=dict(head_config.parameters),
+        )
+        if variant.family in {"recorded_raw", "recorded_platt"}:
+            raise ValueError("Recorded classifier probabilities are replay-only, not a production head")
+        feature_set = lock_feature_set(
+            config.league, head_config.feature_group, market=market,
+        )
+        head, ready = _fit_for_period(variant, history, feature_set, LockReplaySpec())
+        fitted.append(ConfiguredLockClassifier(
+            head,
+            history,
+            league=config.league,
+            market=market,
+            locks_enabled=head_config.locks_enabled and ready,
+        ))
+    return tuple(fitted)

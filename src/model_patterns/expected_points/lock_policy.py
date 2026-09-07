@@ -12,14 +12,27 @@ import pandas as pd
 class LockPolicy:
     american_odds: int = -110
     minimum_resolved_win_probability: float = 0.55
+    minimum_edge: float = 0.0
     max_locks_per_week: int = 5
+    max_spreads_per_week: int | None = None
+    max_totals_per_week: int | None = None
+    extra_lock_min_probability: float | None = None
 
     def __post_init__(self) -> None:
         if self.american_odds == 0:
             raise ValueError("American odds cannot be zero")
         if not 0.5 <= self.minimum_resolved_win_probability <= 1.0:
             raise ValueError("Minimum resolved win probability must be between .5 and 1")
-        if self.max_locks_per_week < 0:
+        if self.minimum_edge < 0:
+            raise ValueError("Minimum Lock edge cannot be negative")
+        if self.extra_lock_min_probability is not None and not (
+            self.minimum_resolved_win_probability <= self.extra_lock_min_probability <= 1
+        ):
+            raise ValueError("Extra Lock probability must be at least the ordinary probability floor")
+        if self.max_locks_per_week < 0 or any(
+            cap is not None and cap < 0
+            for cap in (self.max_spreads_per_week, self.max_totals_per_week)
+        ):
             raise ValueError("Weekly Lock cap cannot be negative")
 
 
@@ -73,8 +86,12 @@ def add_outcome_probabilities(
     policy: LockPolicy,
 ) -> pd.DataFrame:
     output = decisions.copy()
-    q = np.clip(np.asarray(resolved_win_probability, dtype=float), 0.0, 1.0)
-    push = np.clip(np.asarray(push_probability, dtype=float), 0.0, 1.0)
+    q = np.asarray(resolved_win_probability, dtype=float)
+    push = np.asarray(push_probability, dtype=float)
+    if q.shape != (len(output),) or push.shape != (len(output),):
+        raise ValueError("Probability arrays must contain one value per decision")
+    q = np.where(np.isfinite(q) & (q >= 0) & (q <= 1), q, np.nan)
+    push = np.where(np.isfinite(push) & (push >= 0) & (push <= 1), push, np.nan)
     output["resolved_win_probability"] = q
     output["p_push"] = push
     output["p_win"] = (1.0 - push) * q
@@ -89,7 +106,11 @@ def select_weekly_locks(
     policy: LockPolicy,
     preserved: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Apply one deterministic spread+total cap to each league week."""
+    """Rank each league week; optionally admit stronger bets beyond its normal cap.
+
+    The cap is not a quota: ordinary bets still need positive EV and the probability
+    floor. Extra bets must independently clear the stronger probability floor.
+    """
     output = decisions.copy()
     required = {
         "season", "week", "game_id", "market", "kickoff", "edge",
@@ -106,8 +127,10 @@ def select_weekly_locks(
     eligible = (
         output["market_supported"].fillna(False)
         & output["locks_enabled"].fillna(False)
-        & output["resolved_win_probability"].ge(policy.minimum_resolved_win_probability)
+        & output["resolved_win_probability"].between(policy.minimum_resolved_win_probability, 1.0)
+        & output["edge"].ge(policy.minimum_edge)
         & output["expected_units"].gt(0.0)
+        & output.get("policy_eligible", pd.Series(True, index=output.index)).fillna(False)
     )
     output.loc[eligible, "lock_reason"] = "eligible"
     preserved_keys: set[tuple[int, object, str, str]] = set()
@@ -126,9 +149,9 @@ def select_weekly_locks(
         frozen = group.loc[group["_preserved"]]
         output.loc[frozen.index, ["lock", "lock_reason"]] = [1, "preserved"]
         capacity = policy.max_locks_per_week - len(frozen)
-        if capacity <= 0:
+        if capacity <= 0 and policy.extra_lock_min_probability is None:
             reason = "legacy_cap_overflow" if len(frozen) > policy.max_locks_per_week else "weekly_cap"
-            output.loc[group.index.intersection(output.index[eligible]), "lock_reason"] = reason
+            output.loc[group.index.intersection(output.index[eligible & ~output["_preserved"]]), "lock_reason"] = reason
             continue
         candidates = group.loc[eligible.loc[group.index] & ~group["_preserved"]].copy()
         candidates["_market_order"] = candidates["market"].map({"spread": 0, "total": 1}).fillna(2)
@@ -137,10 +160,28 @@ def select_weekly_locks(
             ascending=[False, False, False, True, True, True],
             kind="stable",
         )
-        ranked = candidates.index[:capacity]
+        selected = []
+        market_counts = frozen["market"].value_counts().to_dict()
+        market_caps = {"spread": policy.max_spreads_per_week, "total": policy.max_totals_per_week}
+        for index, candidate in candidates.iterrows():
+            market = candidate["market"]
+            cap = market_caps.get(market)
+            if len(selected) >= capacity and (
+                policy.extra_lock_min_probability is None
+                or candidate["resolved_win_probability"] < policy.extra_lock_min_probability
+            ):
+                continue
+            if cap is not None and market_counts.get(market, 0) >= cap and (
+                cap == 0 or policy.extra_lock_min_probability is None
+                or candidate["resolved_win_probability"] < policy.extra_lock_min_probability
+            ):
+                continue
+            selected.append(index)
+            market_counts[market] = market_counts.get(market, 0) + 1
+        ranked = pd.Index(selected)
         output.loc[candidates.index, "lock_rank"] = np.arange(1, len(candidates) + 1)
         output.loc[ranked, ["lock", "lock_reason"]] = [1, "selected"]
-        output.loc[candidates.index[capacity:], "lock_reason"] = "weekly_cap"
+        output.loc[candidates.index.difference(ranked), "lock_reason"] = "weekly_cap"
     return output.drop(columns="_preserved")
 
 
@@ -164,7 +205,10 @@ def lock_profit_metrics(decisions: pd.DataFrame, *, american_odds: int = -110) -
         if len(resolved) else pd.Series(dtype=float)
     )
     cumulative = weekly.cumsum()
-    drawdown = cumulative.cummax() - cumulative
+    drawdown = cumulative.cummax().clip(lower=0.0) - cumulative
+    all_weeks = decisions[["season", "week"]].drop_duplicates()
+    counts = selected.groupby(["season", "week"]).size().rename("locks")
+    weekly_counts = all_weeks.join(counts, on=["season", "week"])["locks"].fillna(0)
     return {
         "locks": decisions_count,
         "wins": wins,
@@ -174,6 +218,13 @@ def lock_profit_metrics(decisions: pd.DataFrame, *, american_odds: int = -110) -
         "net_units": net,
         "roi": net / decisions_count if decisions_count else None,
         "max_drawdown": float(drawdown.max()) if len(drawdown) else 0.0,
+        "evaluated_weeks": len(weekly_counts),
+        "zero_lock_weeks": int(weekly_counts.eq(0).sum()),
+        "weeks_with_two_plus": int(weekly_counts.ge(2).sum()),
+        "weeks_with_three_plus": int(weekly_counts.ge(3).sum()),
+        "weeks_over_five": int(weekly_counts.gt(5).sum()),
+        "two_plus_week_fraction": float(weekly_counts.ge(2).mean()) if len(weekly_counts) else None,
+        "mean_locks_per_week": float(weekly_counts.mean()) if len(weekly_counts) else None,
         "mean_probability": float(resolved["resolved_win_probability"].mean()) if len(resolved) else None,
         "calibration_gap": (
             float(resolved.loc[resolved["outcome"].ne("push"), "resolved_win_probability"].mean()) - wins / non_push

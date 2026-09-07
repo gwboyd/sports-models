@@ -86,6 +86,7 @@ class BacktestRun:
     source_fingerprint: str
     elapsed_seconds: float = 0.0
     cutoff_timings: tuple[dict[str, Any], ...] = ()
+    lock_training: pd.DataFrame | None = None
 
 
 @dataclass(frozen=True)
@@ -315,6 +316,7 @@ def run_walk_forward(
         recipe.version != "working-tree" or spec.cache_working_tree
     )
     predictions: list[pd.DataFrame] = []
+    lock_training_frames: list[pd.DataFrame] = []
     cache_hits = 0
     trained_cutoffs = 0
     cutoff_timings: list[dict[str, Any]] = []
@@ -364,6 +366,13 @@ def run_walk_forward(
                     metadata.get("json_columns", []),
                 )
         if cached is not None:
+            training_path = prediction_path.with_suffix(".lock-training.parquet")
+            if metadata.get("lock_training_sha256") and training_path.exists():
+                if hashlib.sha256(training_path.read_bytes()).hexdigest() != metadata["lock_training_sha256"]:
+                    raise ValueError(f"Corrupted Lock training cache: {training_path}")
+                lock_training_frames.append(_restore_json_columns(
+                    pd.read_parquet(training_path), metadata.get("lock_training_json_columns", []),
+                ))
             cache_hits += 1
             predictions.append(cached)
             elapsed = time.perf_counter() - cutoff_started
@@ -404,10 +413,24 @@ def run_walk_forward(
         graded["recipe_version"] = recipe.version
         graded["recipe_fingerprint"] = fingerprint
         train_elapsed = time.perf_counter() - cutoff_started
+        training = getattr(run, "eval_results", None)
+        training_metadata = {}
+        if training is not None and not training.empty:
+            training = training.copy()
+            training["lock_training_cutoff"] = cutoff.isoformat()
+            lock_training_frames.append(training)
+            if cache_enabled and prediction_path is not None:
+                training_path = prediction_path.with_suffix(".lock-training.parquet")
+                _write_parquet_atomic(training_path, training)
+                training_metadata = {
+                    "lock_training_sha256": hashlib.sha256(training_path.read_bytes()).hexdigest(),
+                    "lock_training_json_columns": _json_object_columns(training),
+                }
         if cache_enabled and prediction_path is not None and metadata_path is not None:
             _write_parquet_atomic(prediction_path, graded)
             _write_json_atomic(metadata_path, {
                 **expected_metadata,
+                **training_metadata,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "rows": len(graded),
                 "train_elapsed_seconds": train_elapsed,
@@ -451,6 +474,8 @@ def run_walk_forward(
         seasons=seasons,
         predictions=combined,
         summary=summarize_predictions(combined),
+        lock_training=(pd.concat(lock_training_frames, ignore_index=True)
+                       if len(lock_training_frames) == len(periods) else None),
         cache_hits=cache_hits,
         trained_cutoffs=trained_cutoffs,
         source_fingerprint=source_fingerprint,

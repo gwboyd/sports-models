@@ -10,6 +10,8 @@ import pandas as pd
 from src.model_patterns.expected_points.types import (
     ExpectedPointsConfig,
     ExpectedPointsLeague,
+    LockHeadConfig,
+    PlayThresholds,
 )
 from src.sports.football.nfl.data_validation import validate_expected_points_frame
 from src.sports.football.nfl.expected_points.utils import (
@@ -183,6 +185,24 @@ class NFLExpectedPointsRecipe:
             home_prediction_features=features,
             away_prediction_features=input_features,
             prediction_now=prediction_now,
+            league=self.league,
+            spread_lock_head=LockHeadConfig(family="symmetric_residual", parameters={"trust": 0.2}, locks_enabled=True),
+            total_lock_head=LockHeadConfig(
+                family="symmetric_residual",
+                parameters={"trust": 0.2},
+                locks_enabled=True,
+            ),
+            play_thresholds=PlayThresholds(
+                max_spreads_plays=2,
+                max_total_plays=1,
+                min_spread_diff=0.0,
+                min_total_diff=0.0,
+                min_total_win_prob=52.5,
+                min_spread_win_prob=52.5,
+                max_combined_plays=3,
+                extra_lock_min_probability=0.55,
+                require_positive_ev=True,
+            ),
         )
 
 

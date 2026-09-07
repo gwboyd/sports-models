@@ -80,8 +80,8 @@ Games at or after kickoff never enter the live prediction frame.
 
 Completed games are sorted by kickoff. The latest 20% form an outer score-model holdout, so every confidence-training
 prediction comes from games later than the score model's training data. Score-model GridSearch uses one chronological
-validation split inside the earlier 80%, and each confidence classifier uses one chronological validation split
-inside the outer holdout. The chosen score parameters are then refit once on all completed games for production;
+validation split inside the earlier 80%. Version 2.1 probability heads fit separate absolute margin/total error
+distributions on the outer holdout, discounted 80% toward an even chance; they do not run a classifier GridSearch. The chosen score parameters are then refit once on all completed games for production;
 GridSearch is not repeated. This keeps update-time cost modest while removing random-split leakage, but it is not a
 full out-of-fold season backtest.
 
@@ -224,12 +224,13 @@ Below is an example of the various calculations for the Dallas Cowboys. It shoul
 
 ## Determining what Picks to Play
 
-As I mentioned, there is a 2nd model that observes what types of games the model is good at picking, and what types of games with which it has struggled to beat Vegas. There is a separate model for spreads and totals.
-
-The training dataset for these classifiers is the later, chronological test set of the 80/20 split. We cannot use predictions of games the score model has been trained on, since the model would have seen them before. The classifier therefore learns only from genuine out-of-time score predictions, while its own parameter search also keeps validation games after its training games.
-
-**A common question I get asked is "Why is the model not confident in the pick even though the predicted spread is so far off the Vegas spread?"** The answer lies in that the "confidence score" comes from this objective 3rd party model, and in a case of high diofference of spreads/totals and low confience, is saying it has seen similar scenarios before where the model has lost and it is therefore not that confident in the pick.
-
+Version 2.1 separates score prediction from bet selection. Spread and total probabilities are `q=.5+.1*F(e)`, where
+`e` is the absolute execution-line edge and `F` is the market-specific absolute score-error CDF on the chronological
+score holdout. This assumes symmetric errors and discounts the inferred advantage 80%; it is not perfect calibration.
+Locks require q>=.525 and positive expected units at assumed -110, including estimated pushes. The normal combined
+weekly limit is three, with up to two spreads and one total; q>=.55 permits additional bets beyond those positive
+caps. A zero market cap remains disabled. Started saved Locks consume capacity and retain their original version.
+Volume is a target, not a forced minimum. See the public methodology for the complete explanation and limitations.
 
 ## Misc
 
@@ -273,3 +274,14 @@ sets the same lever. Changing it requires new candidate features and normal comp
 The shared standard comparison permits different training histories before the first evaluated season. It logs
 those differences, keeps every side's training rows, and requires matching evaluation inputs and shared historical
 outcomes/markets. Full-history identities remain attached to saved runs and caches. NFL training defaults are unchanged.
+
+## Lightweight Lock replay
+
+Use `make replay-expected-points-locks LEAGUE=nfl` to anchor to the deployed release's latest matching local
+standard score run; `LOCK_SOURCE=version:2.0` or `artifact:<run>` pins another source. No expected-score refit is
+needed. `LOCK_SCREEN_CADENCE=1 LOCK_MIN_PROBABILITY=.525` compares combined weekly volume/profit policies and
+labels all evaluated seasons as exposed research. New standard runs retain checksummed per-cutoff
+`lock_training.parquet` data; CLI `--training-history score-holdout --variants symmetric_residual_0.2` replays
+those exact calibration inputs. Older caches support weekly-history research, not identical production calibration
+history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
+documents controls, provenance, uncertainty and mandatory production-path comparisons.

@@ -112,6 +112,13 @@ schema-to-code rollout. Run it when no model update is active to avoid waiting o
 
 ## Expected Points Workflows
 
+Version 2.1 keeps the score model unchanged and separates betting probabilities/Lock selection into small shared
+heads. Locks target roughly 2–3 combined weekly picks, not a forced quota; stronger candidates can exceed five.
+Use `make replay-expected-points-locks LEAGUE=nfl` (or `cfb`) for frozen-score research, with the deployed release as
+the default anchor. `LOCK_SOURCE=version:2.0` pins the earlier cache. The
+[Lock replay guide](docs/expected-points-backtesting.md#lightweight-lock-method-replay) explains cadence screens,
+checksummed calibration-history reuse, and why the final production-path comparison is still required.
+
 NFL and CFB use the shared modeling, tracking, reporting, notebook-execution, and persistence helpers under
 `src/model_patterns/expected_points/`. Sport-specific notebooks remain responsible for producing the model input
 and predictions. League-neutral football feature transforms live under `src/sports/football/transforms/`; feed and

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -66,16 +66,28 @@ def inspect_game(
     confidence_source = prediction if len(prediction) == 1 else raw
     spread = confidence_source.reindex(columns=config.spread_class_features).copy()
     total = confidence_source.reindex(columns=config.total_class_features).copy()
+    if config.spread_lock_head is not None and config.total_lock_head is not None:
+        from .lock_replay import build_lock_market_frame
+        from .lock_features import lock_feature_set
+
+        inspected = []
+        for name, head in (("spread", config.spread_lock_head), ("total", config.total_lock_head)):
+            if prediction.empty:
+                inspected.append(pd.DataFrame([{"head": head.family, "status": "Prediction required to inspect Lock inputs"}]))
+                continue
+            features = build_lock_market_frame(prediction, config.league, name, outcomes_known=False)
+            columns = ("edge",) if head.family == "symmetric_residual" else (
+                () if head.family == "base_rate" else lock_feature_set(config.league, head.feature_group, market=name).all
+            )
+            inputs = features.reindex(columns=columns).copy()
+            inputs["head"] = head.family
+            inputs["parameters"] = [dict(head.parameters)] * len(inputs)
+            inputs["locks_enabled"] = head.locks_enabled
+            inspected.append(inputs)
+        spread, total = inspected
     schedule_row = _matching_game_row(schedule, game_id, raw)
     market_row = _matching_game_row(market, game_id, raw)
-    thresholds = pd.DataFrame([{
-        "max_spreads_plays": config.play_thresholds.max_spreads_plays,
-        "max_total_plays": config.play_thresholds.max_total_plays,
-        "min_spread_diff": config.play_thresholds.min_spread_diff,
-        "min_total_diff": config.play_thresholds.min_total_diff,
-        "min_spread_win_prob": config.play_thresholds.min_spread_win_prob,
-        "min_total_win_prob": config.play_thresholds.min_total_win_prob,
-    }])
+    thresholds = pd.DataFrame([asdict(config.play_thresholds)])
     return GameInspection(
         schedule_row, market_row, raw, score_features, spread, total, prediction, thresholds
     )

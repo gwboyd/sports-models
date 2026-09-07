@@ -38,7 +38,9 @@ class LockVariantSpec:
         "recorded_raw",
         "recorded_platt",
         "empirical_edge",
+        "edge_threshold",
         "residual_distribution",
+        "symmetric_residual",
         "spline_logit",
         "lightgbm",
         "blend",
@@ -96,6 +98,31 @@ class EmpiricalEdgeHead:
 
 
 @dataclass
+class EdgeThresholdHead:
+    """Two-bucket empirical head for a release-fixed minimum score edge.
+
+    The threshold decides which predictions are eligible for the selective
+    policy.  The probabilities themselves are estimated only from the
+    chronological score holdout supplied by the caller and shrink toward the
+    overall resolved-bet rate.
+    """
+
+    minimum_edge: float
+    maximum_rank: int
+    base_probability: float
+    qualifying_probability: float
+
+    def predict(self, frame: pd.DataFrame) -> np.ndarray:
+        edge = pd.to_numeric(frame["edge"], errors="coerce").fillna(0.0).to_numpy(float)
+        rank = pd.to_numeric(frame["weekly_edge_rank"], errors="coerce").fillna(np.inf).to_numpy(float)
+        return np.where(
+            (edge >= self.minimum_edge) & (rank <= self.maximum_rank),
+            self.qualifying_probability,
+            self.base_probability,
+        )
+
+
+@dataclass
 class ResidualDistributionHead:
     """Convert the score model's historical errors into bet-win probabilities."""
 
@@ -114,6 +141,24 @@ class ResidualDistributionHead:
         )
         probability = (successes + 0.5 * self.prior_strength) / (len(self.residuals) + self.prior_strength)
         return np.clip(probability, PROBABILITY_EPSILON, 1.0 - PROBABILITY_EPSILON)
+
+
+@dataclass
+class SymmetricResidualHead:
+    """A conservative score-error distribution translated into bet probabilities.
+
+    Symmetrizing errors estimates P(win) = .5 + .5 P(|error| < edge).
+    Mixing this with an even-chance forecast discounts the score model's edge.
+    The mixture weight is a versioned research choice, not fitted to target outcomes.
+    """
+
+    absolute_errors: np.ndarray
+    trust: float
+
+    def predict(self, frame: pd.DataFrame) -> np.ndarray:
+        edge = pd.to_numeric(frame["edge"], errors="coerce").fillna(0.0).clip(lower=0).to_numpy(float)
+        inside = np.searchsorted(self.absolute_errors, edge, side="left")
+        return 0.5 + 0.5 * self.trust * inside / len(self.absolute_errors)
 
 
 @dataclass
@@ -257,6 +302,15 @@ def fit_probability_head(
         return ConstantHead(shrunken_base_rate(labels))
     if spec.family == "base_rate":
         return ConstantHead(shrunken_base_rate(labels))
+    if spec.family == "symmetric_residual":
+        trust = float(spec.parameters.get("trust", 0.2))
+        if not np.isfinite(trust) or not 0 <= trust <= 1:
+            raise ValueError("Residual trust must be between zero and one")
+        # Pushes also reveal the score model's error; exclude them only from
+        # resolved-win classifiers, not from the score-error distribution.
+        errors = pd.to_numeric(train["score_residual"], errors="coerce")
+        errors = np.sort(errors.loc[np.isfinite(errors)].abs().to_numpy(float))
+        return SymmetricResidualHead(errors, trust) if len(errors) else ConstantHead(0.5)
     if spec.family in {"recorded_raw", "recorded_platt"}:
         raw = ColumnHead("recorded_probability")
         if spec.family == "recorded_raw":
@@ -273,6 +327,20 @@ def fit_probability_head(
             selected = labels.to_numpy()[positions == position]
             probabilities.append(float((selected.sum() + global_rate * strength) / (len(selected) + strength)))
         return EmpiricalEdgeHead(boundaries, tuple(probabilities))
+    if spec.family == "edge_threshold":
+        minimum_edge = float(spec.parameters["minimum_edge"])
+        maximum_rank = int(spec.parameters["maximum_rank"])
+        strength = float(spec.parameters.get("strength", 10.0))
+        global_rate = shrunken_base_rate(labels)
+        qualifying_mask = (
+            pd.to_numeric(resolved["edge"], errors="coerce").fillna(0.0).ge(minimum_edge)
+            & pd.to_numeric(resolved["weekly_edge_rank"], errors="coerce").le(maximum_rank)
+        )
+        qualifying = labels.loc[qualifying_mask]
+        qualifying_rate = float(
+            (qualifying.sum() + global_rate * strength) / (len(qualifying) + strength)
+        )
+        return EdgeThresholdHead(minimum_edge, maximum_rank, global_rate, qualifying_rate)
     if spec.family == "residual_distribution":
         residuals = pd.to_numeric(resolved["score_residual"], errors="coerce").dropna().sort_values().to_numpy(float)
         if not len(residuals):

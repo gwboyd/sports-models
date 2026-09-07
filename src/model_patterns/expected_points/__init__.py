@@ -17,6 +17,7 @@ from .types import (
     ExpectedPointsRecipe,
     ExpectedPointsRunResult,
     ExpectedPointsTrackingConfig,
+    LockHeadConfig,
     PlayThresholds,
 )
 from .versioning import (
@@ -63,6 +64,7 @@ __all__ = [
     "ExpectedPointsRecipe",
     "ExpectedPointsRunResult",
     "ExpectedPointsTrackingConfig",
+    "LockHeadConfig",
     "ModelKey",
     "ModelVersion",
     "PlayThresholds",

@@ -243,7 +243,15 @@ def prepare_tracking_run(
         metadata_columns,
     )
     _require_columns(validated, snapshot_metadata_columns, "Pick snapshot metadata")
-    predicted = validated[pick_columns + list(snapshot_metadata_columns)].copy()
+    policy_columns = [
+        f"{market}_{suffix}"
+        for market in ("spread", "total")
+        for suffix in ("push_prob", "locks_enabled", "market_supported")
+        if f"{market}_{suffix}" in validated
+    ]
+    predicted = validated[list(dict.fromkeys(
+        pick_columns + list(snapshot_metadata_columns) + policy_columns
+    ))].copy()
     existing = get_current_period_picks(all_existing_picks, year_week)
     locked = get_locked_picks(existing, config=config, now=now)
 
@@ -251,11 +259,18 @@ def prepare_tracking_run(
     if not locked.empty:
         final_picks.update(locked.set_index("game_id"))
     final_picks = final_picks.reset_index()
+    # Already-started games are absent from the prediction slate, but their
+    # preserved Locks still consume this week's capacity. Include saved rows
+    # only for selection, then return exactly the requested prediction keys.
+    if config.play_thresholds.max_combined_plays is not None and not locked.empty:
+        reserved = locked.loc[~locked["game_id"].isin(final_picks["game_id"])]
+        final_picks = pd.concat([final_picks, reserved], ignore_index=True, sort=False)
     final_picks = determine_plays(
         final_picks,
         thresholds=config.play_thresholds,
         dont_update=locked["game_id"].tolist() if not locked.empty else [],
     )
+    final_picks = final_picks.loc[final_picks["game_id"].isin(expected_game_ids)].copy()
     final_picks = validate_pick_frame(final_picks, expected_game_ids, metadata_columns)
     differences, pick_changes, play_changes = summarize_pick_diffs(
         existing,

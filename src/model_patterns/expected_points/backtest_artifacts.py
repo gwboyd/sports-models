@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import numbers
 import platform
@@ -38,6 +39,8 @@ def _jsonable(value: Any) -> Any:
         return f"{value.__module__}.{getattr(value, '__qualname__', value.__class__.__name__)}"
     if isinstance(value, np.integer):
         return value.item()
+    if isinstance(value, np.bool_):
+        return bool(value)
     if isinstance(value, (float, np.floating)):
         parsed = float(value)
         return parsed if math.isfinite(parsed) else None
@@ -361,7 +364,16 @@ def write_run_artifacts(run: BacktestRun, output_dir: str | Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     write_parquet_atomic(root / "predictions.parquet", run.predictions)
     write_json_atomic(root / "summary.json", run.summary.to_dict(orient="records"))
+    training_metadata = {}
+    if run.lock_training is not None:
+        training_path = root / "lock_training.parquet"
+        write_parquet_atomic(training_path, run.lock_training)
+        training_metadata = {
+            "lock_training_sha256": hashlib.sha256(training_path.read_bytes()).hexdigest(),
+            "lock_training_json_columns": json_object_columns(run.lock_training),
+        }
     write_json_atomic(root / "manifest.json", {
+        **training_metadata,
         "artifact_type": "expected_points_backtest_run",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "league": run.league.value,
@@ -397,6 +409,12 @@ def load_backtest_run(path: str | Path) -> BacktestRun:
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("artifact_type") != "expected_points_backtest_run":
         raise ValueError(f"Not an expected-points run artifact: {root}")
+    training = None
+    if manifest.get("lock_training_sha256"):
+        training_path = root / "lock_training.parquet"
+        if hashlib.sha256(training_path.read_bytes()).hexdigest() != manifest["lock_training_sha256"]:
+            raise ValueError("Lock training artifact checksum mismatch")
+        training = restore_json_columns(pd.read_parquet(training_path), manifest.get("lock_training_json_columns", []))
     return BacktestRun(
         league=ExpectedPointsLeague(manifest["league"]),
         recipe_name=manifest["recipe_name"],
@@ -414,6 +432,7 @@ def load_backtest_run(path: str | Path) -> BacktestRun:
         source_fingerprint=manifest["source_fingerprint"],
         elapsed_seconds=float(manifest.get("elapsed_seconds", 0.0)),
         cutoff_timings=tuple(manifest.get("cutoff_timings", ())),
+        lock_training=training,
     )
 
 

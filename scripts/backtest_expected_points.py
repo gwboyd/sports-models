@@ -84,6 +84,7 @@ def _lock_replay(args: argparse.Namespace) -> Path:
     from src.model_patterns.expected_points.lock_policy import lock_profit_metrics, select_weekly_locks
     from src.model_patterns.expected_points.lock_replay import (
         LockReplaySpec,
+        assess_lock_promotion,
         choose_lock_selection,
         load_lock_replay_source,
         registered_lock_variants,
@@ -100,7 +101,7 @@ def _lock_replay(args: argparse.Namespace) -> Path:
 
     output = Path(args.output_dir).resolve() if args.output_dir else (
         ROOT / ".backtests/expected_points/experiments"
-        / f"{datetime.now(timezone.utc).strftime('%Y%m%d')}-lock-revamp"
+        / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-lock-revamp"
         / args.league
     )
     source_path, expected_version = _discover_lock_source(
@@ -112,9 +113,15 @@ def _lock_replay(args: argparse.Namespace) -> Path:
             league=args.league,
             expected_version=expected_version,
             expected_profile="standard",
-            expected_seasons=(2023, 2024, 2025),
         )
+        seasons = sorted(source.run.seasons)
+        if len(seasons) < 3:
+            raise ValueError("Lock selection requires at least three seasons: warmup, development, confirmation")
         replay = LockReplaySpec(
+            warmup_seasons=tuple(seasons[:-2]),
+            development_seasons=(seasons[-2],),
+            confirmation_seasons=(seasons[-1],),
+            training_history=args.training_history,
             minimum_training_decisions=args.minimum_training_decisions,
             minimum_class_decisions=args.minimum_class_decisions,
             bootstrap_samples=args.bootstrap_samples,
@@ -123,10 +130,20 @@ def _lock_replay(args: argparse.Namespace) -> Path:
                 american_odds=args.american_odds,
                 minimum_resolved_win_probability=args.minimum_probability,
                 max_locks_per_week=args.max_locks_per_week,
+                extra_lock_min_probability=args.extra_lock_min_probability,
             ),
         )
         variants = registered_lock_variants(source.run.league)
+        if args.variants:
+            requested = set(args.variants.split(","))
+            if requested - {variant.name for variant in variants}:
+                raise ValueError("Unknown Lock variant in --variants")
+            variants = tuple(variant for variant in variants if variant.name in requested or variant.name == "base_rate")
         write_lock_study_inputs(output, source, replay)
+        if args.screen_cadence:
+            from src.model_patterns.expected_points.lock_replay import screen_lock_cadence
+            screen_lock_cadence(source, replay, variants, output)
+            return output
         development = {}
         for market in ("spread", "total"):
             for position, variant in enumerate(variants, 1):
@@ -148,7 +165,8 @@ def _lock_replay(args: argparse.Namespace) -> Path:
             selection.spread_variant, selection.total_variant,
             ",".join(selection.enabled_markets) or "none",
         )
-        confirmation_decisions = []
+        confirmation_decisions = {}
+        confirmation_baseline = {}
         confirmation_metrics = {}
         variants_by_name = {variant.name: variant for variant in variants}
         for market, selected_name in (
@@ -158,10 +176,23 @@ def _lock_replay(args: argparse.Namespace) -> Path:
             decisions = replay_lock_variant(
                 source, selected, replay, market=market, seasons=replay.confirmation_seasons,
             )
-            if market not in selection.enabled_markets:
-                decisions["locks_enabled"] = False
-            confirmation_decisions.append(decisions)
-        combined = pd.concat(confirmation_decisions, ignore_index=True)
+            confirmation_decisions[market] = decisions
+            confirmation_baseline[market] = replay_lock_variant(
+                source, variants_by_name["base_rate"], replay,
+                market=market, seasons=replay.confirmation_seasons,
+            )
+        promotion = assess_lock_promotion(
+            selection,
+            replay,
+            development=development,
+            confirmation=confirmation_decisions,
+            confirmation_baseline=confirmation_baseline,
+        )
+        write_json_atomic(output / "promotion.json", promotion)
+        for market, decisions in confirmation_decisions.items():
+            # Confirmation outcomes must never retrospectively remove bets.
+            decisions["locks_enabled"] &= market in selection.enabled_markets
+        combined = pd.concat(confirmation_decisions.values(), ignore_index=True)
         combined = select_weekly_locks(combined, policy=replay.policy)
         for market in ("spread", "total"):
             market_decisions = combined.loc[combined["market"].eq(market)].copy()
@@ -176,7 +207,7 @@ def _lock_replay(args: argparse.Namespace) -> Path:
             combined, american_odds=replay.policy.american_odds,
         )
         write_json_atomic(output / "confirmation/metrics.json", confirmation_metrics)
-        write_report(output, source, selection, confirmation_metrics)
+        write_report(output, source, selection, confirmation_metrics, promotion)
         logging.info(
             "Confirmation complete: %s locks, %.2f units",
             confirmation_metrics["combined"]["locks"], confirmation_metrics["combined"]["net_units"],
@@ -653,7 +684,7 @@ def _main() -> int:
     )
     lock_parser.add_argument("--league", choices=("nfl", "cfb"), required=True)
     lock_parser.add_argument(
-        "--source", default="version:2.0",
+        "--source", default="deployed",
         help="deployed, version:N.N, artifact:<run>, or a completed BacktestRun path",
     )
     lock_parser.add_argument("--expected-source-version")
@@ -662,6 +693,10 @@ def _main() -> int:
     lock_parser.add_argument("--american-odds", type=int, default=-110)
     lock_parser.add_argument("--minimum-probability", type=float, default=0.55)
     lock_parser.add_argument("--max-locks-per-week", type=int, default=5)
+    lock_parser.add_argument("--extra-lock-min-probability", type=float)
+    lock_parser.add_argument("--screen-cadence", action="store_true", help="Exploratory multi-policy volume/profit screen; exposes all evaluation seasons")
+    lock_parser.add_argument("--training-history", choices=("weekly", "score-holdout"), default="weekly")
+    lock_parser.add_argument("--variants", help="Comma-separated registered heads; base_rate is always retained")
     lock_parser.add_argument("--bootstrap-samples", type=int, default=2000)
     lock_parser.add_argument("--seed", type=int, default=31)
     lock_parser.add_argument("--output-dir")

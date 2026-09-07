@@ -164,3 +164,22 @@ dynamic smoothing uses the target game's week for its span; older frames need re
 The optional `smoothing_span` adjustment parameter overrides the base EWMA span (default: each metric's existing
 10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
 sets the same lever. Changing it requires new candidate features and normal comparison evidence.
+
+## Version 2.1 betting probabilities
+
+Spread probabilities use `q=.5+.1*F(e)`, where `e` is the absolute execution-line edge and `F` is the absolute margin
+error CDF on the chronological score holdout. Symmetric errors and the 80% discount toward even chance are modeling
+assumptions. Totals use a shrunken historical rate with Locks disabled. Locks require q>=.525, positive expected units
+at assumed -110, and two corroborating sportsbook quotes. The normal combined limit is three spreads; q>=.55 permits
+extras without a hard five-bet ceiling. Started Locks retain their version/status and count toward weekly capacity.
+
+## Lightweight Lock replay
+
+Use `make replay-expected-points-locks LEAGUE=cfb` to anchor to the deployed release's latest matching local
+standard score run; `LOCK_SOURCE=version:2.0` or `artifact:<run>` pins another source. No expected-score refit is
+needed. `LOCK_SCREEN_CADENCE=1 LOCK_MIN_PROBABILITY=.525` compares combined weekly volume/profit policies and
+labels all evaluated seasons as exposed research. New standard runs retain checksummed per-cutoff
+`lock_training.parquet` data; CLI `--training-history score-holdout --variants symmetric_residual_0.2` replays
+those exact calibration inputs. Older caches support weekly-history research, not identical production calibration
+history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
+documents controls, provenance, uncertainty and mandatory production-path comparisons.

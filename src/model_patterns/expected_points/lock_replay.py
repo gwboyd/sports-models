@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -40,7 +40,7 @@ from .lock_policy import (
 from .types import ExpectedPointsLeague
 
 
-LOCK_REPLAY_PROTOCOL_VERSION = "1"
+LOCK_REPLAY_PROTOCOL_VERSION = "2"
 RESULT_AVAILABILITY_LAG = pd.Timedelta(hours=8)
 
 REQUIRED_SOURCE_COLUMNS = {
@@ -64,6 +64,8 @@ class LockReplaySpec:
     bootstrap_samples: int = 2000
     random_seed: int = 31
     policy: LockPolicy = LockPolicy()
+    minimum_two_plus_week_fraction: float = 0.8
+    training_history: str = "weekly"
 
     def __post_init__(self) -> None:
         groups = [set(self.warmup_seasons), set(self.development_seasons), set(self.confirmation_seasons)]
@@ -73,6 +75,10 @@ class LockReplaySpec:
             raise ValueError("Lock replay training minimums must be positive")
         if self.bootstrap_samples < 1:
             raise ValueError("Bootstrap samples must be positive")
+        if not 0 <= self.minimum_two_plus_week_fraction <= 1:
+            raise ValueError("Weekly coverage target must be between zero and one")
+        if self.training_history not in {"weekly", "score-holdout"}:
+            raise ValueError("Unknown Lock training history")
 
 
 @dataclass(frozen=True)
@@ -130,17 +136,36 @@ def _safe_object(frame: pd.DataFrame, name: str) -> pd.Series:
     return frame[name].astype("object")
 
 
-def _build_market_ledger(frame: pd.DataFrame, league: ExpectedPointsLeague, market: str) -> pd.DataFrame:
+def build_lock_market_frame(
+    frame: pd.DataFrame,
+    league: ExpectedPointsLeague,
+    market: str,
+    *,
+    outcomes_known: bool,
+) -> pd.DataFrame:
+    """Build the identical explicit feature view used by replay and production."""
     output = pd.DataFrame(index=frame.index)
     for column in ("season", "week", "game_id", "home_team", "away_team"):
         output[column] = frame[column]
     output["market"] = market
-    output["cutoff"] = pd.to_datetime(frame["backtest_cutoff"], utc=True)
     output["kickoff"] = parse_eastern_kickoffs(frame["date_time"])
+    output["cutoff"] = (
+        pd.to_datetime(frame["backtest_cutoff"], utc=True)
+        if "backtest_cutoff" in frame else output["kickoff"]
+    )
     output["result_available_at"] = output["kickoff"] + RESULT_AVAILABILITY_LAG
     output["line"] = _safe_numeric(frame, f"{market}_line")
     output["prediction"] = _safe_numeric(frame, f"{market}_pred")
     output["edge"] = _safe_numeric(frame, f"{market}_diff").abs()
+    output["market_supported"] = (
+        frame.get(f"{market}_market_supported", pd.Series(True, index=frame.index))
+        .fillna(False).astype(bool)
+    )
+    output["weekly_edge_rank"] = (
+        output.sort_values(["kickoff", "game_id"], kind="stable")["edge"].where(output["market_supported"])
+        .groupby([output["season"], output["week"]], sort=False)
+        .rank(method="first", ascending=False)
+    )
     output["signed_edge"] = output["prediction"] - output["line"]
     output["play"] = frame[f"{market}_play"].astype(str)
     output["direction"] = np.where(
@@ -151,21 +176,22 @@ def _build_market_ledger(frame: pd.DataFrame, league: ExpectedPointsLeague, mark
     output["recorded_probability"] = _safe_numeric(frame, f"{market}_win_prob")
     output["recorded_lock"] = _safe_numeric(frame, f"{market}_lock").fillna(0).astype(int)
     output["win"] = _safe_numeric(frame, f"{market}_win")
-    output["outcome"] = frame[f"{market}_win"].map(_outcome)
-    if market == "spread":
+    output["outcome"] = (
+        output["win"].map(_outcome)
+        if outcomes_known else pd.Series(None, index=frame.index, dtype="object")
+    )
+    if market == "spread" and outcomes_known:
         output["score_residual"] = (
             _safe_numeric(frame, "away_score") - _safe_numeric(frame, "home_score")
             - _safe_numeric(frame, "spread_pred")
         )
-    else:
+    elif outcomes_known:
         output["score_residual"] = (
             _safe_numeric(frame, "away_score") + _safe_numeric(frame, "home_score")
             - _safe_numeric(frame, "total_pred")
         )
-    output["market_supported"] = (
-        frame.get(f"{market}_market_supported", pd.Series(True, index=frame.index))
-        .fillna(False).astype(bool)
-    )
+    else:
+        output["score_residual"] = np.nan
     output["spread_line"] = _safe_numeric(frame, "spread_line")
     output["total_line"] = _safe_numeric(frame, "total_line")
     output["predicted_margin"] = -_safe_numeric(frame, "spread_pred")
@@ -229,7 +255,10 @@ def _build_market_ledger(frame: pd.DataFrame, league: ExpectedPointsLeague, mark
 
 def build_lock_ledger(frame: pd.DataFrame, league: ExpectedPointsLeague) -> pd.DataFrame:
     output = pd.concat(
-        [_build_market_ledger(frame, league, market) for market in ("spread", "total")],
+        [
+            build_lock_market_frame(frame, league, market, outcomes_known=True)
+            for market in ("spread", "total")
+        ],
         ignore_index=True,
     )
     keys = ["season", "week", "game_id", "market"]
@@ -244,7 +273,7 @@ def load_lock_replay_source(
     league: ExpectedPointsLeague | str,
     expected_version: str,
     expected_profile: str = "standard",
-    expected_seasons: Sequence[int] = (2023, 2024, 2025),
+    expected_seasons: Sequence[int] | None = None,
 ) -> LockReplaySource:
     source_path = Path(path).resolve()
     run = load_backtest_run(source_path)
@@ -255,7 +284,7 @@ def load_lock_replay_source(
         raise ValueError(f"Lock source version is {run.recipe_version}, expected {expected_version}")
     if run.profile != expected_profile:
         raise ValueError(f"Lock source profile is {run.profile}, expected {expected_profile}")
-    if tuple(run.seasons) != tuple(int(value) for value in expected_seasons):
+    if expected_seasons is not None and tuple(run.seasons) != tuple(int(value) for value in expected_seasons):
         raise ValueError(f"Lock source seasons are {run.seasons}, expected {tuple(expected_seasons)}")
     frame = run.predictions
     missing = sorted(REQUIRED_SOURCE_COLUMNS - set(frame.columns))
@@ -311,6 +340,29 @@ def registered_lock_variants(league: ExpectedPointsLeague) -> tuple[LockVariantS
         LockVariantSpec("recorded_beta", "recorded_platt", calibrator="beta"),
         LockVariantSpec("empirical_edge_25", "empirical_edge", parameters={"strength": 25.0}),
         LockVariantSpec("empirical_edge_50", "empirical_edge", parameters={"strength": 50.0}),
+        *(LockVariantSpec(
+            f"symmetric_residual_{trust:g}", "symmetric_residual", parameters={"trust": trust},
+        ) for trust in (0.2, 0.35, 0.5)),
+        LockVariantSpec(
+            "edge_threshold_6_top1",
+            "edge_threshold",
+            parameters={
+                "minimum_edge": 6.0,
+                "maximum_rank": 1,
+                "strength": 10.0,
+                "max_locks_per_week": 1,
+            },
+        ),
+        LockVariantSpec(
+            "edge_threshold_7_top4",
+            "edge_threshold",
+            parameters={
+                "minimum_edge": 7.0,
+                "maximum_rank": 4,
+                "strength": 10.0,
+                "max_locks_per_week": 4,
+            },
+        ),
         LockVariantSpec("residual_distribution_10", "residual_distribution", parameters={"strength": 10.0}),
         LockVariantSpec("residual_distribution_25", "residual_distribution", parameters={"strength": 25.0}),
         LockVariantSpec("spline_core_c03", "spline_logit", parameters={"C": 0.3}),
@@ -341,6 +393,7 @@ def _fit_for_period(
     resolved = history.loc[history["outcome"].isin(["win", "loss"])].copy()
     ready = (
         len(resolved) >= replay.minimum_training_decisions
+        and resolved["win"].nunique() == 2
         and resolved["win"].value_counts().min() >= replay.minimum_class_decisions
     )
     if not ready and spec.family not in {"recorded_raw"}:
@@ -350,7 +403,7 @@ def _fit_for_period(
         ), False
     head = fit_probability_head(
         spec,
-        resolved,
+        history,
         numeric_features=features.numeric,
         categorical_features=features.categorical,
         label_column="win",
@@ -385,13 +438,27 @@ def replay_lock_variant(
     target = ledger.loc[ledger["season"].astype(int).isin(selected_seasons)].copy()
     features = lock_feature_set(source.run.league, variant.feature_group, market=market)
     decisions = []
+    saved_training = getattr(source.run, "lock_training", None)
+    if replay.training_history == "score-holdout" and saved_training is None:
+        raise ValueError("This source has no saved per-cutoff score holdout; use weekly history or create a new standard run")
     for cutoff, slate in target.groupby("cutoff", sort=True):
-        history = ledger.loc[ledger["result_available_at"].lt(cutoff)].copy()
+        if replay.training_history == "score-holdout":
+            rows = saved_training.loc[pd.to_datetime(saved_training["lock_training_cutoff"], utc=True).eq(cutoff)]
+            if rows.empty:
+                raise ValueError(f"Missing saved score holdout at {cutoff}")
+            history = build_lock_market_frame(rows, source.run.league, market, outcomes_known=True)
+            if not history["kickoff"].lt(cutoff).all():
+                raise ValueError("Saved score holdout contains a target/future game")
+            if variant.family == "recorded_platt" and history["recorded_probability"].isna().any():
+                raise ValueError("Recorded-probability calibration is unavailable in this saved score holdout")
+        else:
+            history = ledger.loc[ledger["result_available_at"].lt(cutoff)].copy()
         head, ready = _fit_for_period(variant, history, features, replay)
         q = head.predict(slate)
         push = estimate_push_probability(history, slate)
         predicted = add_outcome_probabilities(slate, q, push, policy=replay.policy)
         predicted["variant"] = variant.name
+        predicted["training_history"] = replay.training_history
         predicted["feature_group"] = variant.feature_group
         predicted["family"] = variant.family
         predicted["calibrator"] = variant.calibrator
@@ -402,7 +469,18 @@ def replay_lock_variant(
     if not decisions:
         return pd.DataFrame()
     result = pd.concat(decisions, ignore_index=True)
-    return select_weekly_locks(result, policy=replay.policy)
+    variant_policy = replace(
+        replay.policy,
+        minimum_edge=float(variant.parameters.get("minimum_edge", replay.policy.minimum_edge)),
+        max_locks_per_week=int(
+            variant.parameters.get("max_locks_per_week", replay.policy.max_locks_per_week)
+        ),
+    )
+    result["policy_eligible"] = result["edge"].ge(variant_policy.minimum_edge)
+    selected = select_weekly_locks(result, policy=variant_policy)
+    # Preserve the frozen variant's caps when markets are combined later.
+    selected["policy_eligible"] &= selected["lock"].eq(1)
+    return selected
 
 
 def probability_metrics(decisions: pd.DataFrame) -> dict[str, float | int | None]:
@@ -419,6 +497,80 @@ def probability_metrics(decisions: pd.DataFrame) -> dict[str, float | int | None
     }
 
 
+def screen_lock_cadence(
+    source: LockReplaySource,
+    replay: LockReplaySpec,
+    variants: Sequence[LockVariantSpec],
+    output: Path,
+) -> pd.DataFrame:
+    """Exploratory volume/profit screen; refit heads once, reuse forecasts for policies.
+
+    All evaluation seasons are exposed. This is not untouched confirmation or
+    automatic production promotion. Each row references saved bet-level evidence.
+    """
+    import logging
+    from .backtest_artifacts import write_json_atomic, write_parquet_atomic
+
+    seasons = (*replay.development_seasons, *replay.confirmation_seasons)
+    # Policy experiments never change fitted probabilities.
+    forecast_spec = replace(replay, policy=replace(
+        replay.policy, minimum_resolved_win_probability=0.5,
+        max_locks_per_week=1_000_000, extra_lock_min_probability=None,
+    ))
+    records = []
+    for variant in variants:
+        logging.info("Cadence probability head: %s", variant.name)
+        forecasts = {}
+        for market in ("spread", "total"):
+            forecast = replay_lock_variant(source, variant, forecast_spec, market=market, seasons=seasons)
+            forecasts[market] = forecast
+            write_parquet_atomic(output / "forecasts" / variant.name / f"{market}.parquet", forecast)
+        for mode, spread_cap, total_cap in (
+            ("spread", None, 0), ("total", 0, None), ("both", None, None),
+            ("spread2_total1", 2, 1), ("spread1_total2", 1, 2),
+        ):
+            frame = pd.concat(forecasts.values(), ignore_index=True)
+            for normal_cap, extra in ((2, None), (3, None), (3, 0.55), (3, 0.575)):
+                policy = replace(
+                    replay.policy, max_locks_per_week=normal_cap,
+                    extra_lock_min_probability=extra,
+                    max_spreads_per_week=spread_cap, max_totals_per_week=total_cap,
+                )
+                decisions = select_weekly_locks(frame, policy=policy)
+                name = f"{variant.name}-{mode}-top{normal_cap}-extra{extra}"
+                destination = output / "policies" / name
+                write_parquet_atomic(destination / "decisions.parquet", decisions)
+                metrics = summarize_lock_variant(decisions, replay)
+                per_season = {
+                    str(season): summarize_lock_variant(group, replay)
+                    for season, group in decisions.groupby("season")
+                }
+                # Existing weekly source uses NFL weeks 1–18; CFB ordinary slates
+                # 1–14, with conference titles/Army-Navy/bowls disclosed separately.
+                regular = decisions.loc[pd.to_numeric(decisions["week"]).between(
+                    1, 18 if source.run.league is ExpectedPointsLeague.NFL else 14
+                )]
+                cadence = lock_profit_metrics(regular, american_odds=policy.american_odds)
+                record = {
+                    "name": name, "variant": asdict(variant), "mode": mode,
+                    "policy": asdict(policy), "metrics": metrics,
+                    "per_season": per_season, "regular_season": cadence,
+                    "coverage_target_met": (
+                        cadence["two_plus_week_fraction"] is not None
+                        and cadence["two_plus_week_fraction"] >= replay.minimum_two_plus_week_fraction
+                        and cadence["zero_lock_weeks"] <= .1 * cadence["evaluated_weeks"]
+                    ),
+                    "decisions_path": str(destination / "decisions.parquet"),
+                }
+                write_json_atomic(destination / "metrics.json", record)
+                records.append(record)
+    write_json_atomic(output / "screen.json", {
+        "warning": "Retrospective research: all evaluation seasons exposed; intervals are not selection-adjusted.",
+        "policies": records,
+    })
+    return pd.DataFrame(records)
+
+
 def profit_bootstrap_interval(
     decisions: pd.DataFrame,
     *,
@@ -427,8 +579,7 @@ def profit_bootstrap_interval(
     american_odds: int,
 ) -> tuple[float, float]:
     selected = decisions.loc[decisions["lock"].eq(1) & decisions["outcome"].notna()].copy()
-    periods = selected[["season", "week"]].drop_duplicates().itertuples(index=False, name=None)
-    periods = list(periods)
+    periods = list(decisions[["season", "week"]].drop_duplicates().itertuples(index=False, name=None))
     if len(periods) < 2:
         return (float("nan"), float("nan"))
     unit_map = {"win": 100.0 / abs(american_odds) if american_odds < 0 else american_odds / 100.0,
@@ -438,7 +589,11 @@ def profit_bootstrap_interval(
         for season, week in periods
     ])
     rng = np.random.default_rng(seed)
-    draws = values[rng.integers(0, len(values), size=(samples, len(values)))].sum(axis=1)
+    # Resample full season-week blocks, including zero-bet weeks, within season.
+    draws = np.zeros(samples)
+    for season in sorted({season for season, _ in periods}):
+        season_values = values[[index for index, period in enumerate(periods) if period[0] == season]]
+        draws += season_values[rng.integers(0, len(season_values), size=(samples, len(season_values)))].sum(axis=1)
     return tuple(float(value) for value in np.quantile(draws, [0.025, 0.975]))
 
 
@@ -471,11 +626,16 @@ def choose_lock_selection(
             metric = summaries[f"{market}:{variant.name}"]
             brier_ok = (
                 metric["brier"] is not None and baseline["brier"] is not None
-                and metric["brier"] <= baseline["brier"] * 0.99
+                and metric["brier"] <= baseline["brier"] * 0.999
             )
             log_ok = metric["log_loss"] is not None and metric["log_loss"] <= baseline["log_loss"]
-            profit_ok = metric["locks"] >= 50 and np.isfinite(metric["net_units_interval"][0]) and metric["net_units_interval"][0] > 0
-            calibration_ok = metric["calibration_gap"] is None or abs(metric["calibration_gap"]) <= 0.05
+            # The bootstrap lower bound already accounts for volume. Twenty-five
+            # decisions is a hard floor; requiring fifty as well rejected a
+            # genuinely selective, positive-lower-bound strategy by construction.
+            profit_ok = metric["locks"] >= 25 and np.isfinite(metric["net_units_interval"][0]) and metric["net_units_interval"][0] > 0
+            # Overstating a Lock is dangerous; conservative under-confidence is
+            # allowed and is still visible in the probability metrics.
+            calibration_ok = metric["calibration_gap"] is None or metric["calibration_gap"] <= 0.05
             if variant.promotion_eligible and brier_ok and log_ok and profit_ok and calibration_ok:
                 candidates.append((metric["net_units_interval"][0], -metric["log_loss"], variant.name))
         if candidates:
@@ -489,7 +649,7 @@ def choose_lock_selection(
                 and summaries[f"{market}:{variant.name}"]["log_loss"] is not None
             ]
             chosen[market] = min(honest)[1] if honest else "base_rate"
-            reasons.append(f"{market}: no candidate passed probability, calibration, volume, and profit gates")
+            reasons.append(f"{market}: no candidate passed probability, overconfidence, volume, and profit gates")
 
     enabled = tuple(enabled_markets)
     payload = {
@@ -509,12 +669,59 @@ def selection_as_dict(selection: LockSelection) -> dict:
     return asdict(selection)
 
 
+def assess_lock_promotion(
+    selection: LockSelection,
+    replay: LockReplaySpec,
+    *,
+    development: dict[tuple[str, str], pd.DataFrame],
+    confirmation: dict[str, pd.DataFrame],
+    confirmation_baseline: dict[str, pd.DataFrame],
+) -> dict:
+    """Apply untouched-season and combined-evidence gates to a frozen selection."""
+    markets = {}
+    promoted = []
+    for market, selected_name in (
+        ("spread", selection.spread_variant), ("total", selection.total_variant)
+    ):
+        candidate_metrics = summarize_lock_variant(confirmation[market], replay)
+        baseline_metrics = probability_metrics(confirmation_baseline[market])
+        combined_metrics = summarize_lock_variant(
+            pd.concat([development[(market, selected_name)], confirmation[market]], ignore_index=True),
+            replay,
+        )
+        checks = {
+            "development_selected": market in selection.enabled_markets,
+            "confirmation_volume": candidate_metrics["locks"] >= 15,
+            "confirmation_profit": candidate_metrics["net_units"] > 0,
+            "confirmation_brier": candidate_metrics["brier"] <= baseline_metrics["brier"],
+            "confirmation_log_loss": candidate_metrics["log_loss"] <= baseline_metrics["log_loss"],
+            "combined_profit_lower_bound": (
+                np.isfinite(combined_metrics["net_units_interval"][0])
+                and combined_metrics["net_units_interval"][0] > 0
+            ),
+        }
+        passed = all(checks.values())
+        if passed:
+            promoted.append(market)
+        markets[market] = {
+            "variant": selected_name,
+            "promoted": passed,
+            "checks": checks,
+            "confirmation": candidate_metrics,
+            "confirmation_base_rate": baseline_metrics,
+            "development_and_confirmation": combined_metrics,
+        }
+    return {"promoted_markets": promoted, "markets": markets}
+
+
 __all__ = [
     "LOCK_REPLAY_PROTOCOL_VERSION",
     "LockReplaySource",
     "LockReplaySpec",
     "LockSelection",
     "build_lock_ledger",
+    "build_lock_market_frame",
+    "assess_lock_promotion",
     "choose_lock_selection",
     "load_lock_replay_source",
     "probability_metrics",

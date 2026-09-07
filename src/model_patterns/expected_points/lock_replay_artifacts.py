@@ -12,7 +12,8 @@ from typing import Mapping
 import pandas as pd
 
 from .backtest_artifacts import write_json_atomic, write_parquet_atomic, write_text_atomic
-from .lock_replay import LockReplaySource, LockReplaySpec, LockSelection
+from .lock_replay import LockReplaySource, LockReplaySpec, LockSelection, registered_lock_variants
+from .backtesting import recipe_code_identity
 
 
 def write_lock_study_inputs(
@@ -43,9 +44,11 @@ def write_lock_study_inputs(
         "artifact_type": "expected_points_lock_replay_design",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "spec": asdict(spec),
+        "variants": [asdict(variant) for variant in registered_lock_variants(source.run.league)],
+        "code_identity": recipe_code_identity(source.run.league),
         "selection_rule": (
-            "2024 development only; >=1% relative Brier improvement versus shrunken base rate, "
-            "non-worse log loss, <=5pp lock calibration gap, >=50 locks, and positive 95% "
+            "Development seasons only; >=0.1% relative Brier improvement versus shrunken base rate, "
+            "non-worse log loss, no more than 5pp overconfidence, >=25 locks, and positive 95% "
             "season-week bootstrap lower bound for flat -110 net units."
         ),
     })
@@ -102,6 +105,7 @@ def render_lock_study_report(
     source: LockReplaySource,
     selection: LockSelection,
     confirmation: Mapping[str, Mapping] | None = None,
+    promotion: Mapping | None = None,
 ) -> str:
     lines = [
         "# Expected-Points Lock Replay Study",
@@ -129,7 +133,19 @@ def render_lock_study_report(
                 f"| {market} | {metrics.get('locks', 0)} | {metrics.get('wins', 0)}-"
                 f"{metrics.get('losses', 0)}-{metrics.get('pushes', 0)} | "
                 f"{metrics.get('net_units', 0):.2f} | {roi} | "
-                f"{metrics.get('brier', float('nan')):.4f} | {metrics.get('log_loss', float('nan')):.4f} |"
+                f"{metrics.get('brier') if metrics.get('brier') is not None else '—'} | "
+                f"{metrics.get('log_loss') if metrics.get('log_loss') is not None else '—'} |"
+            )
+    if promotion:
+        lines.extend([
+            "", "## Production promotion", "",
+            f"Promoted markets: {', '.join(promotion.get('promoted_markets', [])) or 'none'}", "",
+        ])
+        for market, result in promotion.get("markets", {}).items():
+            failed = [name for name, passed in result["checks"].items() if not passed]
+            lines.append(
+                f"- {market}: {'passed' if result['promoted'] else 'not promoted'}"
+                + (f"; failed {', '.join(failed)}" if failed else "")
             )
     return "\n".join(lines) + "\n"
 
@@ -139,8 +155,12 @@ def write_report(
     source: LockReplaySource,
     selection: LockSelection,
     confirmation: Mapping[str, Mapping] | None = None,
+    promotion: Mapping | None = None,
 ) -> None:
-    write_text_atomic(root / "report.md", render_lock_study_report(source, selection, confirmation))
+    write_text_atomic(
+        root / "report.md",
+        render_lock_study_report(source, selection, confirmation, promotion),
+    )
 
 
 __all__ = [

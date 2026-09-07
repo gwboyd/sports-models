@@ -229,10 +229,18 @@ providers are not executable quotes, and CFBD provider ordering must never affec
 Neither football model may predict a game at or after kickoff, including a game with no pre-existing pick.
 
 Expected-points training uses an outer chronological score holdout, a single inner chronological GridSearch split,
-and one final refit on all completed games with the selected score parameters. Confidence classifiers train from the
-outer out-of-time predictions, tune with their own single chronological split, and refit on that full holdout. Do not
-replace this with random splitting or run a second score GridSearch during the final refit.
-CFB confidence tuning scores candidate parameters with log loss and always includes the execution-line spread/total
+and one final refit on all completed games with the selected score parameters. Version 2.1 Lock heads use the outer
+out-of-time score-error distribution: NFL spreads/totals and CFB spreads use `q=.5+.1*F(abs(edge))`, where F is the
+empirical absolute-error CDF; CFB totals use a shrunken base rate with Locks disabled. Legacy confidence classifiers
+retain their chronological tuning path. Do not replace chronology with random splitting or rerun score GridSearch.
+Locks require q>=.525 and positive EV at assumed -110. The normal combined weekly limit is three: NFL up to two
+spreads and one total, CFB spreads only. q>=.55 can exceed positive market/combined caps; a zero market cap remains
+hard-disabled. The aim is 2–3 combined Locks most weeks, not a quota and not 2–3 per market. Preserve started Locks
+and count them toward capacity even when their games are absent from the new prediction slate. Shared replay and
+production use the same head factory and selector. New historical runs save checksummed per-cutoff score-holdout
+frames for exact-head replay; older caches remain usable with explicitly disclosed weekly-history approximation.
+`lock-replay --screen-cadence` is retrospective policy research, not untouched confirmation or automatic promotion.
+Legacy CFB confidence experiments score candidate parameters with log loss and always include the execution-line spread/total
 edge. Opening-line, movement, market-depth, and no-vig moneyline feature groups remain out of production unless a
 genuine out-of-time comparison improves pooled Brier score by at least one percent, does not worsen log loss, and
 keeps every evaluated season within two percent of its baseline Brier score. Read-only CFB notebook runs execute and

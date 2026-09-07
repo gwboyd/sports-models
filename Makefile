@@ -59,6 +59,10 @@ NO_CACHE ?=
 CACHE_WORKING_TREE ?=
 LOCK_SOURCE ?= deployed
 LOCK_EXPECTED_VERSION ?=
+LOCK_SCREEN_CADENCE ?=
+LOCK_MIN_PROBABILITY ?= 0.55
+LOCK_MAX_PER_WEEK ?= 5
+LOCK_EXTRA_MIN_PROBABILITY ?=
 THROUGH_SEASON ?=
 PREFLIGHT_ONLY ?=
 CURRENT_YEAR ?=
@@ -129,10 +133,14 @@ backtest-expected-points:
 endif
 
 replay-expected-points-locks:
+	set -a && { [[ ! -f .env ]] || source .env; } && set +a && \
 	.venv/bin/python scripts/backtest_expected_points.py lock-replay \
 		--league $(LEAGUE) \
 		--source "$(LOCK_SOURCE)" \
 		$(if $(strip $(LOCK_EXPECTED_VERSION)),--expected-source-version "$(LOCK_EXPECTED_VERSION)",) \
+		--minimum-probability $(LOCK_MIN_PROBABILITY) --max-locks-per-week $(LOCK_MAX_PER_WEEK) \
+		$(if $(filter $(BACKTEST_TRUE_VALUES),$(strip $(LOCK_SCREEN_CADENCE))),--screen-cadence,) \
+		$(if $(strip $(LOCK_EXTRA_MIN_PROBABILITY)),--extra-lock-min-probability $(LOCK_EXTRA_MIN_PROBABILITY),) \
 		--bootstrap-samples $(BOOTSTRAP_SAMPLES) \
 		$(if $(strip $(OUTPUT_DIR)),--output-dir "$(OUTPUT_DIR)",)
 

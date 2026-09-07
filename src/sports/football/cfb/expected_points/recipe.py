@@ -10,6 +10,8 @@ import pandas as pd
 from src.model_patterns.expected_points.types import (
     ExpectedPointsConfig,
     ExpectedPointsLeague,
+    LockHeadConfig,
+    PlayThresholds,
 )
 from src.sports.football.cfb.data_validation import validate_expected_points_frame
 from src.sports.football.cfb.expected_points.betting_lines import scores_to_cfb_bets
@@ -148,6 +150,23 @@ class CFBExpectedPointsRecipe:
             confidence_scoring="neg_log_loss",
             betting_transform=scores_to_cfb_bets,
             prediction_now=prediction_now,
+            league=self.league,
+            spread_lock_head=LockHeadConfig(
+                family="symmetric_residual",
+                parameters={"trust": 0.2},
+                locks_enabled=True,
+            ),
+            total_lock_head=LockHeadConfig(family="base_rate", locks_enabled=False),
+            play_thresholds=PlayThresholds(
+                max_spreads_plays=None,
+                max_total_plays=0,
+                min_spread_diff=0.0,
+                min_spread_win_prob=52.5,
+                min_total_diff=0.0,
+                max_combined_plays=3,
+                extra_lock_min_probability=0.55,
+                require_positive_ev=True,
+            ),
         )
 
 

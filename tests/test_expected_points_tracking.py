@@ -13,7 +13,7 @@ from src.model_patterns.expected_points.tracking import (
     serialize_pick_frame,
     validate_pick_frame,
 )
-from src.model_patterns.expected_points.types import ExpectedPointsTrackingConfig
+from src.model_patterns.expected_points.types import ExpectedPointsTrackingConfig, PlayThresholds
 
 
 def pick(game_id="1", *, date_time="2099-09-01-17:00", spread_play="A", spread_lock=1):
@@ -74,6 +74,28 @@ def test_locked_pick_is_preserved():
     assert run.locked_game_ids == ["1"]
     assert run.picks.iloc[0]["spread_play"] == "B"
     assert run.picks.iloc[0]["spread_lock"] == 1
+
+
+def test_started_locks_absent_from_new_predictions_still_consume_weekly_capacity():
+    existing = pick("started", date_time="2026-08-01-00:15")
+    existing["write_time"] = "2026-07-31 00:00:00"
+    run = prepare_tracking_run(
+        pd.DataFrame([pick("future")]), pd.DataFrame([existing]), "2026_1",
+        ExpectedPointsTrackingConfig(play_thresholds=PlayThresholds(max_combined_plays=2)),
+        now=pd.Timestamp("2026-08-01T04:00:00Z"),
+    )
+    assert run.picks["game_id"].tolist() == ["future"]
+    assert run.picks[["spread_lock", "total_lock"]].sum().sum() == 0
+
+
+def test_tracking_does_not_drop_model_readiness_before_ranking():
+    predicted = pd.DataFrame([pick()]).assign(spread_locks_enabled=False, total_locks_enabled=False)
+    run = prepare_tracking_run(
+        predicted, pd.DataFrame(), "2026_1",
+        ExpectedPointsTrackingConfig(play_thresholds=PlayThresholds(max_combined_plays=3)),
+        now=pd.Timestamp("2026-08-01T04:00:00Z"),
+    )
+    assert run.picks[["spread_lock", "total_lock"]].sum().sum() == 0
 
 
 def test_runtime_model_version_is_added_and_locked_version_is_preserved(monkeypatch):
