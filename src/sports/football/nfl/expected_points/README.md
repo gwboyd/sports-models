@@ -22,7 +22,8 @@ the saved NFL 2.0 comparison predates that fix. A fresh performance comparison w
 so do not attribute those measured gains to the final quarterback-history recipe.
 
 The existing EPA and success-rate feature names now contain opponent-adjusted values. Before each game's kickoff,
-the shared football transform fits ridge-regularized offense and defense effects only from earlier games, reassesses
+the shared football transform fits ridge-regularized offense and defense effects only from results available at
+the snapshot, requiring kickoff plus eight hours to precede that snapshot. It reassesses
 each prior team performance against the defense or offense it faced, and then applies the existing moving-average
 calculation. The adjustment therefore adds no future-game information and leaves downstream score and confidence
 schemas unchanged. Its ridge penalty and cross-season carryover are recipe parameters for backtesting. Ratings use
@@ -38,7 +39,7 @@ screening weeks and evaluated on the standard 2023–2025 comparison recorded in
 `adjustment_strength` scales the opponent correction from zero (unadjusted history) to one (full correction); the moving-average calculation is unchanged. `excluded_seasons` removes listed seasons from both rating estimation and team efficiency history. A zero carryover with no current-season observations uses a neutral correction instead of attempting a zero-weight fit. These controls do not remove score-training games.
 
 After picks are made, separate spread and total probability heads estimate the chance of a resolved bet winning
-from out-of-time score errors. Version 2.2 uses the symmetric error distribution and ranks eligible Locks by
+from out-of-time score errors. The 2.2 recipe uses the symmetric error distribution with trust 0.2 and ranks eligible Locks by
 estimated win probability under a top-three weekly policy. The selection minimum and value limitations are described below.
 
 ## Picks Update Cadence
@@ -207,14 +208,15 @@ README for recovery and preparation details. Prediction-neutral changes keep the
 
 ## Features
 
-The model is primarily powered by EPA per play and Success Rate (broken up by offense/defense and pass/rush). Both of these are efficiency metrics that are impressively predictive.
+The score model uses EPA per play and success rate, split across offense/defense and passing/rushing, alongside market and matchup context.
 
-**EPA (Expected Points Added):** Measures how many expected points a play added to a total. The sum of all expected points added for plays in a drive should be 7, with the more impactful plays relative to expectations carrying more value.
+**EPA (Expected Points Added):** Measures the change in expected points on a play, accounting for the game situation before and after it.
 
 **Success Rate:** "Success" is a tightly defined binary metric that determines if a play is successful or not dependent on the situation the offense is in. I used a custom success rate formula for this model that is as follows:
-- On 1st down if yards gained was more than *0.4 * yards to go* (More than 4 yards on a first and 10)
-- On 2nd down if yards gained was more than *0.6 * yards to go* (More than 6 yards on a second and 10)
-- On 3rd and 4th down if the first down marker was reached
+
+- On first down, gain at least 40% of the yards needed.
+- On second down, gain at least 60% of the yards needed.
+- On third or fourth down, reach the first-down marker.
 
 In the **charts** section, there should be some graphics that show Offensive and Defensive EPA metrics for teams as the model currently sees them. These can be helpful if you are trying to peel back the curtain and understand why the model made a certain pick.
 
@@ -226,7 +228,10 @@ feature importance. The old tree-feature-importance chart does not describe this
 
 ### Moving Averages for Metrics
 
-We calculate the advanced metrics using play by play data, but end up aggregating up to a game. From there, we take an exponentially weighted moving average to smoothe other some of the variance. Finally, we make the window over which weight games dynamic. Typically, it averages over the whole season, but if it is earlier than week 10, it will use the last 10 games, going into the previous year. 
+Play-level metrics are aggregated to games, adjusted for opponents, and smoothed with exponentially weighted
+moving averages. EPA uses a span equal to the larger of ten games and the target week number; success rate uses
+a ten-game span. These spans control decay rather than imposing a hard ten-game cutoff. Earlier games, including
+previous seasons, can still contribute with diminishing weight.
 
 Below is an example of the various calculations for the Dallas Cowboys. It should be fairly obvious why opt to smoothe out the metrics so much.
 
@@ -234,7 +239,7 @@ Below is an example of the various calculations for the Dallas Cowboys. It shoul
 
 ## Determining what Picks to Play
 
-Version 2.2 separates score prediction from bet selection. Both markets use `q=.5+.1*sign(e)*F(abs(e))`, where
+The 2.2 recipe separates score prediction from bet selection. Both markets use `q=.5+.1*sign(e)*F(abs(e))`, where
 `e` is the execution advantage in the selected pick's direction and `F` is the market-specific absolute-error CDF
 from the weekly chronological score holdout. Symmetric errors are an assumption, not proof of calibration.
 The shared selector ranks both markets by resolved win probability, then expected units, edge and stable game
@@ -242,15 +247,17 @@ keys. NFL selects its top three supported picks, even below estimated break-even
 Probabilities and expected units are unchanged. Model readiness, quote support and nonnegative execution edge
 remain mandatory, so insufficient supported opportunities can leave fewer than three picks. Neither market has
 a separate allocation cap. Started saved Locks consume
-capacity even when absent from refreshed predictions and retain their original version. See the public methodology for the complete explanation and limitations.
+capacity even when absent from refreshed predictions and retain their original version. Exact projected-total
+ties choose Over with zero edge and, for a ready residual head, q=0.5; actual scoring pushes remain pushes.
+See the public methodology for the complete explanation and limitations.
 
 ## Misc
 
 ### Power Rankings
 
-The power rankings seen above in the chart are created by taking all of the metrics (so not inclusing odds, enviroment, rest, etc) for teams, training a classification model that predicts winning, and them creating simulations to where each team plays every other team home and away. The model outputs a win probability for esach game, so the teams "win percentage" is just and average of the win probabilities for all 62 (31 * 2) games a team would play.
-
-The game simulations mimick each team's form for the current week (the next week if a team is on a bye), so it would be as if they all played eachother "today."
+A separate LightGBM win classifier uses team-efficiency metrics, without odds, rest or other matchup context,
+to simulate every team against every other team at home and away. A team's ranking averages its win probabilities
+across those 62 hypothetical games. These simulations use current-week form, or next-week form for a team on a bye.
 The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
 logic and does not feed the expected-points picks or betting probability heads.
 

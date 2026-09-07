@@ -117,7 +117,7 @@ NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
 CFB expected-points uses `src/sports/football/cfb/expected_points/cfbd_client.py` for direct authenticated REST
 requests; do not add a conflicting Python SDK dependency.
-NFL2.2 excludes starting-quarterback ratings and actual roof status from prediction inputs because the schedule feed does not preserve their pregame availability. Keep these fields as notebook diagnostics only until a suitable as-of source is available. Diagnostic NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
+The NFL 2.2 recipe excludes starting-quarterback ratings and actual roof status from prediction inputs because the schedule feed does not preserve their pregame availability. Keep these fields as notebook diagnostics only until a suitable as-of source is available. Diagnostic NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
 missing; never calculate a fallback using all future players or seasons. Score-pipeline imputation/scaling and
 legacy confidence imputation must be fitted within chronological training data. Residual probability
 heads use valid historical score errors/outcomes directly and do not impute quarterback features. Explicit NFL/CFB efficiency
@@ -125,6 +125,8 @@ selections must fail when any selected column is missing; never fall back to sub
 Opponent-adjusted football efficiency features are implemented in
 `src/sports/football/transforms/opponent_adjustment.py`. It fits pre-kickoff ridge offense/defense effects, then
 recomputes each team's historical performance against the opponent it faced before applying the established smoother.
+Both the rating fit and rendered efficiency history require kickoff plus eight hours to precede the snapshot,
+including when correction strength is zero.
 Keep downstream feature names stable. Ridge strength, season carryover, CFB's FCS pooling policy, and rating snapshot
 cadence are versioned recipe/backtest levers; any change requires regenerated candidate frames and normal baseline
 comparison evidence. The correction strength is independently configurable from zero to one; excluded seasons
@@ -137,7 +139,10 @@ schedule retains 2017 warmup opponents while score training starts in 2018. `CFB
 owns the training start and historical exclusions. Notebook overrides are `training_start_year`,
 `feature_history_start_year`, and `excluded_history_seasons`; 2020 is excluded before feed loading, Elo updates,
 and efficiency calculations by default. Notebook metric selections must match the recipe; partial parameter overrides preserve
-league defaults.
+league defaults. CFB completion status must exclude unfinished scores from training, Elo and grading and unfinished
+statistics from efficiency history, while retaining scheduled rows. Explicit false completion flags override CSV
+status; legacy status-free inputs retain their prior interpretation. The CFB notebook loads regular-season games;
+do not describe that historical coverage as including bowls or playoffs.
 
 Current expected-points schema model, mirrored for the `nfl` and `cfb` prefixes:
 - `<league>_expected_points_picks`: latest pick per `(year_week, game_id)`
@@ -228,6 +233,8 @@ providers alphabetically. A market without two corroborating providers remains v
 become a lock. The execution line drives model edge, confidence, persistence, display, and grading. Synthetic CFBD
 providers are not executable quotes, and CFBD provider ordering must never affect selection.
 Neither football model may predict a game at or after kickoff, including a game with no pre-existing pick.
+Exact projected-total ties choose Over; CFB chooses against consensus before normal quote shopping. At zero
+execution edge, a ready residual head returns q=0.5. The direction rule does not change grading of actual pushes.
 
 Ordinary expected-points training also applies the eight-hour result-availability guard at `prediction_now`
 (or current UTC when omitted), in addition to its prior-season/prior-week restriction. Earlier week labels cannot
@@ -243,8 +250,8 @@ The 2.2 candidate score model is market-residual ridge with chronological select
 team-feature group's relative shrinkage. Numeric imputation, missing indicators, scaling, and categorical encoding
 fit inside each training partition. Earlier outer-holdout weeks can train later holdout forecasts only after result
 availability; the selected score parameters stay fixed, with no repeated GridSearch. Both leagues use these
-out-of-time errors: CFB has `q=.5+.5*sign(edge)*F(abs(edge))`; NFL retains
-`q=.5+.1*sign(edge)*F(abs(edge))`. F is the empirical absolute-error CDF.
+out-of-time errors with trust 0.2: `q=.5+.1*sign(edge)*F(abs(edge))`, an 80% shrinkage toward 50%.
+F is the empirical absolute-error CDF.
 Execution edge is signed in the selected pick's direction, including when a CFB quote cluster opposes consensus.
 Legacy confidence classifiers retain their chronological tuning path. Never replace chronology with random splits.
 Both leagues use the shared combined selector with an explicit minimum of three supported selections, ranked by

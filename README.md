@@ -113,7 +113,7 @@ schema-to-code rollout. Run it when no model update is active to avoid waiting o
 ## Expected Points Workflows
 
 The 2.2 candidate uses market-residual ridge score models and shared residual-distribution probability heads.
-NFL retains its conservative trust0.2 discount; CFB uses the full symmetric error distribution. NFL excludes
+Both leagues use trust 0.2 (80% shrinkage toward 50%) with half-strength ridge opponent adjustment. NFL excludes
 game-observed quarterback ratings and roof status, and CFB freezes Elo before each week’s first kickoff.
 Both leagues rank supported spread/total picks together by estimated win probability and select three when
 available. NFL stops at three; CFB adds other picks with probability at least 57%, capped at ten. The first three
@@ -140,8 +140,10 @@ release during week 1. CFB data uses the direct REST client in
 `src/sports/football/cfb/expected_points/cfbd_client.py`, rather than a Python SDK. When CFBD adds a new game field,
 the notebook retains that API schema and represents the field as null for older historical CSV rows; the same
 alignment applies to advanced game-stat fields. Scheduled games retain their pregame Elo and never update team
-ratings until both final scores are available. Score-model training coerces final scores to numeric values and excludes
-any game missing or invalid for either target.
+ratings until both final scores are available. Explicit CFBD completion status also excludes unfinished scores and
+advanced statistics from training, ratings, efficiency history and grading; scheduled rows remain available for
+prediction. Score-model training coerces final scores to numeric values and excludes any game missing or invalid
+for either target. The current CFB workflow loads regular-season games; bowl/playoff performance is not covered.
 
 Available routes:
 
@@ -244,7 +246,8 @@ CFBD does not expose spread/total prices or provider-update timestamps, so "best
 corroborated point for the direction already selected, not the best expected payout. Provider, reference/opening
 lines, quote counts/ranges, support status, and selection reasons are retained in the existing pick-update JSON; no
 separate market-snapshot table is used. Games at or after kickoff are removed before prediction, even when no earlier
-pick exists.
+pick exists. Exact projected-total ties choose Over (against consensus for CFB, before normal quote shopping).
+The choice does not create an edge or increase confidence; final scores exactly on the execution line still push.
 
 Both football models tune the score estimator with one predefined chronological validation split inside the earlier
 score-training period. Each training/validation boundary has a gap greater than eight hours between kickoffs so
@@ -344,11 +347,12 @@ contract drift, while `False` logs warnings for feed investigation. Leakage-prev
 and the ordering of lagged features—always fail when their time ordering cannot be proved.
 
 CFB advanced metrics are placed on the complete team-game schedule before lagging. Completed rows contribute the raw
-observations; scheduled rows receive an EWMA derived only from strictly earlier kickoffs. A current prediction row
+observations; opponent ratings and smoothed efficiency use only results whose kickoff plus eight hours precedes
+the opening kickoff of the target week. A current prediction row
 whose monitored efficiency features are all null is a contract failure instead of silently becoming a median-only
 prediction.
 
-The supplemental NFL power-ranking classifier also uses a predefined train-before-validation split. It is used only
+The supplemental NFL LightGBM power-ranking classifier also uses a predefined train-before-validation split. It is used only
 for chart generation and never supplies pick or confidence features.
 
 The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered

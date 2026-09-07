@@ -149,7 +149,7 @@ remain in the overall results. The goal is usually 2–3 per league across marke
 floor still applies and can leave a week empty. `--extra-lock-min-probability` allows stronger bets beyond the
 ordinary cap; without it the cap is hard. Historical -110 pricing is an assumption, not verified executable juice.
 
-The 2.2 production policy selects three supported combined spread/total picks per league when available, ranked
+The 2.2 recipe policy selects three supported combined spread/total picks per league when available, ranked
 by win probability, then expected units, edge and stable game keys. NFL stops at three; CFB admits extras at
 q>=.57 up to ten. The minimum bypasses probability/EV floors without changing forecasts; support, readiness and
 nonnegative execution edge still apply. The generic CLI cadence grid remains exploratory research with its own
@@ -494,7 +494,8 @@ The 2.2 candidate uses market-residual ridge with preprocessing fitted inside th
 available earlier results, without another GridSearch. Saved score-holdout frames retain those weekly forecasts
 and their training-through/row-count traces. A subsequent confidence-health tail tests heads fitted on its earlier
 portion; the final score estimator still refits on all eligible completed games. Generic configurations retain
-`score_holdout_method="static"` for legacy recipes.
+`score_holdout_method="static"` for legacy recipes. Both leagues use trust 0.2 for their symmetric residual
+probability heads: `q=.5+.1*sign(edge)*F(abs(edge))`, with an 80% shrinkage toward 50%.
 
 Score tuning, the outer score holdout, and confidence health/tuning splits require a gap greater than eight hours
 between the final training kickoff and first validation kickoff. Every game remains in exactly one partition; the
@@ -502,7 +503,13 @@ split chooses the nearest eligible boundary to the requested validation fraction
 require kickoff plus eight hours to precede the prediction timestamp, matching the Lock replay availability assumption.
 Ordinary training retains its prior-season/prior-week restriction as well; week labels cannot bypass the time guard. This
 conservative lag prevents learning from games still in progress at adjacent kickoff times, but does not establish
-exact historical result-publication timestamps or account for every unusually delayed game.
+exact historical result-publication timestamps or account for every unusually delayed game. Opponent-rating fits
+and smoothed efficiency histories use the same eight-hour guard at their weekly opening-kickoff snapshot. CFB also
+honors explicit completion status, keeping unfinished outcomes/statistics out of training, ratings and grading.
+The current CFB sources cover regular-season games, not bowls/playoffs.
+
+Exact model/decision-line total ties choose Over before any CFB execution shopping; zero execution edge retains
+q=0.5 for a ready residual head. Actual scoring pushes retain their original grading.
 
 Each simulated week freezes immediately before its earliest kickoff and predicts the full weekly slate once. The
 source frame is loaded once; cutoffs filter that in-memory frame rather than calling APIs weekly. Historical feeds can

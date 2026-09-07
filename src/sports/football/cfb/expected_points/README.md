@@ -12,15 +12,20 @@ suffix-named team inputs and prefix-named pregame Elo inputs toward the team who
 
 The CFB recipe uses opponent-adjusted offense/defense explosiveness, overall PPA, and success rate.
 Existing explosiveness names stay stable; new efficiency columns use the same descriptive EWMA naming convention.
-The shared transform fits ridge offense/defense effects from strictly earlier games and applies half of the
-estimated opponent correction before the established moving average. FCS teams share one pooled entity by default.
-Ratings use the opening kickoff of each game week; exact per-kickoff snapshots remain an optional alternative.
+The shared transform fits ridge offense/defense effects only from results whose kickoff plus eight hours precedes
+the snapshot, and applies half of the estimated opponent correction before the established moving average.
+The same availability guard applies to the efficiency history being smoothed. FCS teams share one pooled entity by default.
+Ratings use the opening kickoff of each game week; per-kickoff snapshots remain an optional historical approximation.
 
 Score training defaults to 2018, with 2017 efficiency warmup. `history.py` owns the explicit policy:
 `training_start_year` overrides the first score-training season, `feature_history_start_year` overrides efficiency
 warmup (default: one year before training), and `excluded_history_seasons` defaults to `[2020]`. Exclusions apply
 before feed loading, Elo updates, and efficiency construction, so COVID games cannot enter any of those paths.
 The separate `efficiency_schedule` supplies warmup opponents without making warmup games score-training examples.
+The workflow loads regular-season CFB games; its historical evidence does not cover bowls or playoffs.
+Explicit CFBD completion status masks unfinished scores before training, Elo and grading and excludes unfinished
+game statistics from efficiency history. Schedule rows are retained. Older status-free inputs retain their legacy
+interpretation; a supplied false completion flag cannot be overridden by a historical status field.
 Changing the history policy regenerates every feature under that policy; the earlier frozen-feature research
 experiment is retained as separate evidence, not used as a production input artifact.
 
@@ -179,22 +184,24 @@ alpha and relative team-feature shrinkage; training-only imputation/scaling/enco
 Each outer-holdout week refits the selected score parameters on available earlier results without retuning. The
 final production score refit uses all eligible completed games. Home/away Elo inputs rotate with the predicted team.
 
-Both spread and total probabilities use `q=.5+.5*sign(e)*F(abs(e))`, with pick-aligned execution edge `e` and the
-market-specific absolute-error CDF from those chronological weekly forecasts. Symmetry is a modeling assumption,
+Both spread and total probabilities use `q=.5+.1*sign(e)*F(abs(e))`, with pick-aligned execution edge `e` and the
+market-specific absolute-error CDF from those chronological weekly forecasts. Trust 0.2 shrinks the symmetric
+error estimate 80% toward 50%, matching NFL. Symmetry is a modeling assumption,
 not proof of calibration. Negative execution advantage cannot become a Lock even when the quote is corroborated.
 The shared selector ranks both markets by resolved win probability, then expected units, edge and stable game
 keys. CFB selects three supported picks when available, then adds other picks at q>=.57 up to ten. The first
 three can have negative expected units at -110; probabilities remain unchanged. Two corroborating sportsbook
 quotes, model readiness and nonnegative execution edge remain mandatory, so the minimum can be underfilled.
 Neither market has a separate allocation cap. Started Locks retain
-their version/status and consume capacity even when absent from refreshed predictions.
+their version/status and consume capacity even when absent from refreshed predictions. Exact projected-total
+ties choose Over against consensus before normal quote shopping. At zero execution edge a ready residual head
+returns q=0.5; a better execution quote can create a real edge. Actual scoring pushes remain pushes.
 
 ### Adjustable weekly selection
 
 `CFBExpectedPointsRecipe` owns independent `minimum_weekly_locks=3`,
 `maximum_weekly_locks=10` and `extra_lock_min_probability=.57` settings. The minimum is also the
-normal selection count; the maximum caps extras. To enable NFL extras, set a probability threshold and raise its
-maximum. Changing the count or thresholds is a prediction-affecting recipe change requiring a standard comparison
+normal selection count; the maximum caps extras. Changing the count or thresholds is a prediction-affecting recipe change requiring a standard comparison
 and release preparation. The notebook and production path both consume `build_config()`.
 Shared `PlayThresholds.min_combined_plays` maps to `LockPolicy.min_locks_per_week`; zero retains the legacy
 probability/EV floors and expected-units ranking. A positive minimum uses probability-first ranking and waives

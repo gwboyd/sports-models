@@ -161,8 +161,9 @@ empty drafts, `model-versions.json`, and these methodology pages together. Git r
 records deployment/live status. If model changes continue after preparation, reopen the consolidated draft from the
 unpublished notes, update these methodology pages, and rerun preparation to amend that unpublished release. Nonblank
 drafts block deployment. Backend deployment does not create another documentation commit.
-Model Insights is limited to the live power-ranking and offensive/defensive EPA views. Feature importance and the
-dynamic moving-average explanation remain in How It Works.
+Model Insights is limited to the live power-ranking and offensive/defensive EPA views. Power rankings come from a
+supplemental LightGBM win classifier that averages home-and-away matchups; expected-points forecasts use ridge
+regression. The dynamic moving-average explanation remains in How It Works.
 
 ## Checks
 
