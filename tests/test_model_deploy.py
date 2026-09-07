@@ -131,7 +131,7 @@ def test_aws_verification_accepts_active_lambda_with_exact_metadata(monkeypatch)
         function_name = args[args.index("--function-name") + 1]
         configuration = (
             coordinator_configuration
-            if function_name == deploy_models.COORDINATOR_FUNCTION_NAME
+            if function_name in (deploy_models.COORDINATOR_FUNCTION_NAME, deploy_models.API_FUNCTION_NAME)
             else training_configuration
         )
         return SimpleNamespace(stdout=json.dumps(configuration))
@@ -187,7 +187,7 @@ def test_aws_verification_retries_a_stale_configuration(monkeypatch):
         function_name = args[args.index("--function-name") + 1]
         configuration = (
             coordinator_configuration
-            if function_name == deploy_models.COORDINATOR_FUNCTION_NAME
+            if function_name in (deploy_models.COORDINATOR_FUNCTION_NAME, deploy_models.API_FUNCTION_NAME)
             else next(training_configurations)
         )
         return SimpleNamespace(stdout=json.dumps(configuration))
@@ -360,3 +360,15 @@ def test_register_recovery_reverifies_aws_before_database_write(tmp_path, monkey
     assert calls == ["aws", "database", "database_verified"]
     payload = json.loads(recovery_path.read_text(encoding="utf-8"))
     assert payload["deployed_at"] is not None
+
+
+def test_schema_preflight_blocks_deployment_before_build_or_release_changes(monkeypatch):
+    monkeypatch.setattr(deploy_models.sys, 'argv', ['deploy_models.py'])
+    monkeypatch.setattr(deploy_models, '_ensure_clean_tree', lambda: None)
+    def missing_schema():
+        raise RuntimeError('Apply the additive setup SQL before deployment')
+    monkeypatch.setattr(deploy_models, 'verify_manual_update_schema', missing_schema)
+    monkeypatch.setattr(deploy_models, '_sam_deploy', lambda *_a: pytest.fail('build/deploy started'))
+    monkeypatch.setattr(deploy_models, '_write_recovery_plan', lambda *_a: pytest.fail('release plan written'))
+    with pytest.raises(RuntimeError, match='setup SQL before deployment'):
+        deploy_models._main()

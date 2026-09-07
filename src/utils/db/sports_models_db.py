@@ -318,8 +318,8 @@ def is_scheduled_model_update_completed(
 ) -> bool:
     """Return whether a plan atomically linked its persisted model update."""
 
-    if not run_key.startswith("aws-scheduler:"):
-        raise ValueError("Scheduled run key must start with 'aws-scheduler:'")
+    if not run_key.startswith(("aws-scheduler:", "api:")):
+        raise ValueError("Scheduled run key must start with 'aws-scheduler:' or 'api:'")
     league_value = _coerce_league(league).value
     query = f"""
         select 1
@@ -378,9 +378,10 @@ def get_scheduled_model_updates(
     week: int | None = None,
     pending_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return persisted plans for operational reconciliation or API display."""
+    """Return automatic plans for calendar reconciliation, excluding manual jobs."""
 
-    filters: list[str] = []
+    # Calendar reconciliation must never cancel a manually requested schedule.
+    filters: list[str] = ["trigger_source = 'scheduler'"]
     params: list[Any] = []
     if league is not None:
         filters.append("league = %s")
@@ -406,6 +407,111 @@ def get_scheduled_model_updates(
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(query, tuple(params))
         return list(cur.fetchall())
+
+
+def verify_manual_update_schema() -> None:
+    """Fail deployment before changing AWS if the additive job columns are missing."""
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select column_name from information_schema.columns
+            where table_schema = %s and table_name = 'scheduled_model_updates'
+              and column_name in ('trigger_source', 'client_name')
+            """,
+            (SCHEMA,),
+        )
+        columns = {row["column_name"] for row in cur.fetchall()}
+    missing = {"trigger_source", "client_name"} - columns
+    if missing:
+        raise RuntimeError(
+            "Apply the additive scheduled_model_updates setup SQL before deployment; "
+            f"missing columns: {', '.join(sorted(missing))}. "
+            "See db/sql/001_create_sports_models_schema.sql."
+        )
+
+
+def get_model_update_job(run_key: str) -> dict[str, Any] | None:
+    """Read a scheduled or manual job without inferring completion from AWS delivery."""
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"select * from {SCHEMA}.scheduled_model_updates where run_key = %s",
+            (run_key,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def insert_manual_model_update(record: dict[str, Any]) -> dict[str, Any]:
+    """First submission wins, including its chosen week, client, and scheduled time."""
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            insert into {SCHEMA}.scheduled_model_updates (
+                run_key, model_key, league, season, week, window_key,
+                scheduled_for, aws_schedule_name, reason, trigger_source, client_name
+            ) values (
+                %(run_key)s, %(model_key)s, %(league)s, %(season)s, %(week)s, 'manual',
+                %(scheduled_for)s, %(aws_schedule_name)s, %(reason)s, 'api', %(client_name)s
+            ) on conflict (run_key) do nothing
+            """,
+            record,
+        )
+        cur.execute(
+            f"select * from {SCHEMA}.scheduled_model_updates where run_key = %s",
+            (record["run_key"],),
+        )
+        return dict(cur.fetchone())
+
+
+def get_model_update_job_result(league: ExpectedPointsLeague | str, update_id: int) -> dict[str, Any] | None:
+    """Read a compact result; large pick snapshots stay out of status responses."""
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            select id, model_version, source_git_sha, write_time, runtime,
+                   picks_num, pick_changes, play_changes, updates_skipped
+            from {_table(league, 'pick_updates')} where id = %s
+            """,
+            (update_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def confirm_manual_model_update_schedule(run_key: str) -> None:
+    """Record AWS acceptance without overwriting a faster training attempt's state."""
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            update {SCHEMA}.scheduled_model_updates
+            set status = 'scheduled', updated_at = now()
+            where run_key = %s and trigger_source = 'api' and status = 'planned'
+            """,
+            (run_key,),
+        )
+
+
+def cancel_obsolete_manual_update(run_key: str) -> None:
+    """Cancel only the claimed manual job, never a completed transaction."""
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            update {SCHEMA}.scheduled_model_updates
+            set status = 'cancelled',
+                last_error = 'A newer model week has already been published', updated_at = now()
+            where run_key = %s and trigger_source = 'api'
+              and status = 'running' and update_id is null
+            """,
+            (run_key,),
+        )
+        if cur.rowcount != 1:
+            raise RuntimeError(f"Manual run is not claimable for cancellation: {run_key}")
 
 
 def upsert_scheduled_model_update(record: dict[str, Any]) -> dict[str, Any]:
@@ -508,9 +614,14 @@ def claim_scheduled_model_update(
     season: int,
     week: int,
     *,
-    lease: timedelta = timedelta(minutes=16),
+    lease: timedelta = timedelta(minutes=15),
 ) -> str:
-    """Atomically claim one delivery, allowing retry after a full Lambda timeout."""
+    """Claim one delivery using a lease matching the trainer's 900-second limit.
+
+    Keep this bound aligned with the serialized training Lambda's timeout. AWS's
+    first error retry can arrive one minute after timeout, so a 16-minute lease
+    measured from the later database claim could reject that retry unnecessarily.
+    """
 
     league_value = _coerce_league(league).value
     query = f"""
@@ -644,8 +755,8 @@ def _complete_scheduled_model_update(
 ) -> None:
     """Link a scheduled plan to its update row in the same write transaction."""
 
-    if not run_key.startswith("aws-scheduler:"):
-        raise ValueError("Scheduled run key must start with 'aws-scheduler:'")
+    if not run_key.startswith(("aws-scheduler:", "api:")):
+        raise ValueError("Scheduled run key must start with 'aws-scheduler:' or 'api:'")
     league_value = _coerce_league(league).value
     query = f"""
         update {SCHEMA}.scheduled_model_updates

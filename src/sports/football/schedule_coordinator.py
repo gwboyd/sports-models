@@ -8,12 +8,12 @@ import hashlib
 import json
 import logging
 import os
+from threading import Lock
 from typing import Any, Mapping, Sequence
 from zoneinfo import ZoneInfo
 
 import boto3
 from botocore.exceptions import ClientError
-import nflreadpy as nfl
 
 from src.model_patterns.expected_points.types import ExpectedPointsLeague
 from src.model_patterns.expected_points.versioning import ModelKey
@@ -41,6 +41,7 @@ PLANNER_LEAD = timedelta(minutes=15)
 PENDING_STATUSES = {"planned", "scheduled", "failed"}
 DELIVERY_GRACE = timedelta(minutes=30)
 STALE_CLAIM_AGE = timedelta(minutes=30)
+_NFL_SCHEDULE_LOCK = Lock()
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,7 @@ def handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     if event.get("job") != COORDINATOR_JOB:
         raise ValueError(f"Unsupported coordinator job: {event.get('job')!r}")
-    configuration = _scheduler_configuration()
+    configuration = scheduler_configuration()
     scheduler_client = boto3.client("scheduler")
     now = datetime.now(UTC)
     outcomes: list[dict[str, Any]] = []
@@ -167,7 +168,7 @@ def handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     return {"status": "success", "outcomes": outcomes}
 
 
-def _scheduler_configuration() -> dict[str, str]:
+def scheduler_configuration() -> dict[str, str]:
     names = (
         "TRAINING_FUNCTION_ARN",
         "SCHEDULER_TARGET_ROLE_ARN",
@@ -380,7 +381,7 @@ def reconcile_update_schedules(
         if row.get("status") in {"completed", "running"}:
             counts["unchanged"] += 1
             continue
-        changed = _ensure_aws_schedule(
+        changed = ensure_update_schedule(
             scheduler_client,
             plan=plan,
             training_function_arn=training_function_arn,
@@ -426,7 +427,7 @@ def reconcile_update_schedules(
     return counts
 
 
-def _ensure_aws_schedule(
+def ensure_update_schedule(
     scheduler_client: Any,
     *,
     plan: ScheduledUpdatePlan,
@@ -464,15 +465,27 @@ def _ensure_aws_schedule(
     except ClientError as exc:
         if exc.response.get("Error", {}).get("Code") != "ResourceNotFoundException":
             raise
-        scheduler_client.create_schedule(
-            Name=plan.aws_schedule_name,
-            GroupName=schedule_group_name,
-            **common,
-        )
+        try:
+            scheduler_client.create_schedule(
+                Name=plan.aws_schedule_name,
+                GroupName=schedule_group_name,
+                **common,
+            )
+        except ClientError as conflict:
+            if conflict.response.get("Error", {}).get("Code") != "ConflictException":
+                raise
+            # Concurrent submissions can both observe a missing schedule.
+            current = scheduler_client.get_schedule(
+                Name=plan.aws_schedule_name, GroupName=schedule_group_name,
+            )
+            if not _aws_schedule_matches(current, schedule_expression, target):
+                raise
         return True
 
     if _aws_schedule_matches(current, schedule_expression, target):
         return False
+    if plan.window_key == "manual":
+        raise RuntimeError("An existing manual schedule does not match its immutable plan")
     scheduler_client.update_schedule(
         Name=plan.aws_schedule_name,
         GroupName=schedule_group_name,
@@ -492,6 +505,7 @@ def _aws_schedule_matches(
         and current.get("ScheduleExpressionTimezone") == "UTC"
         and current.get("State") == "ENABLED"
         and current.get("FlexibleTimeWindow") == {"Mode": "OFF"}
+        and current.get("ActionAfterCompletion") == "DELETE"
         and current_target.get("Arn") == target["Arn"]
         and current_target.get("RoleArn") == target["RoleArn"]
         and current_target.get("Input") == target["Input"]
@@ -592,14 +606,31 @@ def load_schedule(
     league: ExpectedPointsLeague,
     *,
     now: datetime,
+    timeout: int = 30,
 ) -> list[ScheduledGame]:
     if league is ExpectedPointsLeague.NFL:
-        return _load_nfl_schedule(now)
-    return _load_cfb_schedule(now)
+        return _load_nfl_schedule(now, timeout=timeout)
+    return _load_cfb_schedule(now, timeout=timeout)
 
 
-def _load_nfl_schedule(now: datetime) -> list[ScheduledGame]:
-    rows = nfl.load_schedules([now.year - 1, now.year]).to_dicts()
+def _load_nfl_schedule(now: datetime, *, timeout: int = 30) -> list[ScheduledGame]:
+    import nflreadpy as nfl
+    from nflreadpy.config import get_config, update_config
+
+    # nflreadpy's downloader/config are process-global. Serialize this short feed
+    # fetch so HTTP requests cannot restore each other's timeout/cache settings.
+    if not _NFL_SCHEDULE_LOCK.acquire(timeout=timeout):
+        raise TimeoutError("Another NFL schedule request is still loading")
+    try:
+        config = get_config()
+        previous = {name: getattr(config, name) for name in ("cache_mode", "timeout", "verbose")}
+        try:
+            update_config(cache_mode="off", timeout=timeout, verbose=False)
+            rows = nfl.load_schedules([now.year - 1, now.year]).to_dicts()
+        finally:
+            update_config(**previous)
+    finally:
+        _NFL_SCHEDULE_LOCK.release()
     games: list[ScheduledGame] = []
     for row in rows:
         try:
@@ -620,13 +651,13 @@ def _load_nfl_schedule(now: datetime) -> list[ScheduledGame]:
     return games
 
 
-def _load_cfb_schedule(now: datetime) -> list[ScheduledGame]:
+def _load_cfb_schedule(now: datetime, *, timeout: int = 30) -> list[ScheduledGame]:
     api_key = os.getenv("CFBD_API_KEY")
     if not api_key:
         raise RuntimeError("CFBD_API_KEY is required by the schedule coordinator")
     years = [now.year - 1, now.year]
     game_rows: list[dict[str, Any]] = []
-    with CFBDClient(api_key) as client:
+    with CFBDClient(api_key, timeout=timeout) as client:
         for year in years:
             game_rows.extend(client.get_games(year=year, season_type="regular"))
 

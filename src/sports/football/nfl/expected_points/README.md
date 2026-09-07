@@ -130,10 +130,25 @@ Each operational update:
 Only the deployed AWS training Lambda writes automatically. Interactive runs default to `client_name="notebook"`
 and `allow_non_aws_write=False`, so they remain read-only. To perform an intentional notebook write, set
 `allow_non_aws_write=True`; the notebook resolves the latest registered NFL version and requires the exact
-`WRITE NFL <VERSION>` confirmation before using the shared atomic writer. Local API and `sam local` calls are also
-read-only unless their request explicitly enables `allow_non_aws_write`. Changes to this workflow require a
+`WRITE NFL <VERSION>` confirmation before using the shared atomic writer. Local API and SAM-local update requests return `403` and cannot create production schedules. Explicit season/week
+and non-AWS write options remain available to the internal notebook runner, not the HTTP endpoint. Changes to this workflow require a
 human-verified update run before merging, including checks for pick counts, update history, locked-game preservation,
 graded results when applicable, and the read endpoints.
+
+## On-demand refresh
+
+`POST /nfl-update-picks` on the deployed API takes no body (or `{}`) and requires admin `Authorization` and
+`client-name` headers. It selects the current eligible slate and schedules the existing trainer 60–120 seconds later.
+A confirmed submission returns `202` with the selected season/week, run key, and status URL; no eligible slate returns
+`200` / `not_scheduled`. Explicit-week bodies and the reserved client name `notebook` return `422`.
+
+Supply an `Idempotency-Key` for safe retries. Reusing it retrieves the same job; a new key requests another run.
+Poll admin-only `GET /model-update-jobs/{run_key}` for state, errors, and the completed update's version/SHA and counts.
+Manual jobs retain the requesting client and use the trainer's version at execution time. Older protected picks keep
+their original versions.
+
+See [On-demand updates](../../../../../README.md#on-demand-updates) for request examples, retry/status semantics,
+and the required database additions and deployment checks under [Scheduled Pick Updates](../../../../../README.md#scheduled-pick-updates).
 
 ## Model Release Queue
 

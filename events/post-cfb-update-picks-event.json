@@ -4,7 +4,8 @@
   "httpMethod": "POST",
   "headers": {
     "Authorization": "replace_me",
-    "client-name": "sam-local"
+    "client-name": "sam-local",
+    "Idempotency-Key": "example-cfb-refresh-1"
   },
   "queryStringParameters": null,
   "multiValueQueryStringParameters": null,
@@ -15,6 +16,6 @@
     "httpMethod": "POST",
     "path": "/cfb-update-picks"
   },
-  "body": "{\"season\": 2026, \"week\": 1}",
+  "body": null,
   "isBase64Encoded": false
 }

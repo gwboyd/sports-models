@@ -324,3 +324,76 @@ def test_scheduled_update_claim_reports_existing_terminal_status(monkeypatch):
         1,
     ) == "completed"
     assert len(cursor.calls) == 2
+
+
+def test_manual_api_run_links_versioned_update_in_same_transaction(monkeypatch):
+    cursor = FakeCursor()
+    transactions = []
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'training')
+    monkeypatch.delenv('AWS_SAM_LOCAL', raising=False)
+    monkeypatch.setenv('EXPECTED_POINTS_RUN_KEY', 'api:nfl:abc')
+
+    @contextmanager
+    def connection():
+        transactions.append('begin')
+        try:
+            yield FakeConnection(cursor)
+            transactions.append('commit')
+        except Exception:
+            transactions.append('rollback')
+            raise
+
+    monkeypatch.setattr(sports_models_db, 'get_connection', connection)
+    record = update_record(cursor, client_name='will')
+    record.update(model_version='2.3', source_git_sha='executing-sha')
+    sports_models_db.write_expected_points_run(ExpectedPointsLeague.NFL, [], record)
+    completion = next(call for call in cursor.calls if 'set update_id = %s' in call[1])
+    assert completion[2][:3] == (42, 'api:nfl:abc', 'nfl')
+    inserted = next(call for call in cursor.calls if 'insert into' in call[1] and 'pick_updates' in call[1])
+    assert inserted[2]['model_version'] == '2.3'
+    assert inserted[2]['source_git_sha'] == 'executing-sha'
+    assert inserted[2]['client_name'] == 'will'
+    assert transactions == ['begin', 'commit']
+    cursor.rowcount = 0
+    with pytest.raises(RuntimeError, match='completion'):
+        sports_models_db.write_expected_points_run(ExpectedPointsLeague.NFL, [], record)
+    assert transactions[-2:] == ['begin', 'rollback']
+
+
+def test_calendar_query_explicitly_excludes_manual_jobs(monkeypatch):
+    cursor = FakeCursor()
+    cursor.fetchall = lambda: []
+    @contextmanager
+    def connection():
+        yield FakeConnection(cursor)
+    monkeypatch.setattr(sports_models_db, 'get_connection', connection)
+    sports_models_db.get_scheduled_model_updates(ExpectedPointsLeague.NFL, pending_only=True)
+    assert "trigger_source = 'scheduler'" in cursor.calls[0][1]
+
+
+def test_manual_job_insert_never_rewrites_an_existing_plan(monkeypatch):
+    cursor = FakeCursor()
+    cursor.fetchone = lambda: {'run_key': 'api:nfl:key', 'season': 2026, 'week': 1}
+    @contextmanager
+    def connection():
+        yield FakeConnection(cursor)
+    monkeypatch.setattr(sports_models_db, 'get_connection', connection)
+    job = sports_models_db.insert_manual_model_update({'run_key': 'api:nfl:key'})
+    assert job['week'] == 1
+    assert 'on conflict (run_key) do nothing' in cursor.calls[0][1]
+
+
+@pytest.mark.parametrize('columns, ready', [(['trigger_source', 'client_name'], True), (['client_name'], False), ([], False)])
+def test_manual_schema_preflight_checks_existing_database(monkeypatch, columns, ready):
+    cursor = FakeCursor()
+    cursor.fetchall = lambda: [{'column_name': name} for name in columns]
+    @contextmanager
+    def connection():
+        yield FakeConnection(cursor)
+    monkeypatch.setattr(sports_models_db, 'get_connection', connection)
+    if ready:
+        sports_models_db.verify_manual_update_schema()
+    else:
+        with pytest.raises(RuntimeError, match='setup SQL before deployment'):
+            sports_models_db.verify_manual_update_schema()
+    assert 'information_schema.columns' in cursor.calls[0][1]

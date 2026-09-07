@@ -162,3 +162,88 @@ def test_main_handler_keeps_http_events_on_mangum(monkeypatch):
 def test_scheduled_update_rejects_invalid_events(event, message):
     with pytest.raises(ValueError, match=message):
         scheduled_updates.run_scheduled_expected_points_update(event)
+
+
+@pytest.mark.parametrize('league', ['nfl', 'cfb'])
+def test_manual_event_uses_registered_client_and_same_versioned_runner(monkeypatch, league):
+    from src.utils.db import sports_models_db as db
+    module = scheduled_updates.nfl_update_picks if league == 'nfl' else scheduled_updates.cfb_update_picks
+    run_key = f'api:{league}:abc'
+    plan = {'trigger_source': 'api', 'league': league, 'season': 2026, 'week': 1, 'client_name': 'will'}
+    monkeypatch.setattr(scheduled_updates, 'is_aws_lambda_runtime', lambda: True)
+    monkeypatch.setattr(db, 'get_model_update_job', lambda *_a: plan)
+    monkeypatch.setattr(db, 'claim_scheduled_model_update', lambda *_a: 'claimed')
+    monkeypatch.setattr(db, 'get_expected_points_picks', lambda *_a, **_k: [{'season': 2026, 'week': '1'}])
+    monkeypatch.setattr(db, 'is_scheduled_model_update_completed', lambda *_a: True)
+    monkeypatch.setenv(f'{league.upper()}_EXPECTED_POINTS_VERSION', '2.3')
+    monkeypatch.setenv('SOURCE_GIT_SHA', 'executing-deployment-sha')
+    observed = {}
+    def execute(path, **kwargs):
+        observed.update(kwargs)
+        return {'database_updated': True}
+    monkeypatch.setattr(module, 'execute_expected_points_notebook', execute)
+    result = scheduled_updates.run_scheduled_expected_points_update(scheduled_event(
+        league=league, run_key=run_key, client_name='spoofed-payload-client', model_version='9.9',
+    ))
+    assert result['status'] == 'success'
+    assert observed == {
+        'season': 2026, 'week': 1, 'client_name': 'will', 'allow_non_aws_write': False,
+        'model_version': '2.3', 'source_git_sha': 'executing-deployment-sha', 'run_key': run_key,
+    }
+
+
+def test_obsolete_manual_job_is_cancelled_without_notebook_or_pick_writes(monkeypatch):
+    from src.utils.db import sports_models_db as db
+    run_key = 'api:nfl:abc'
+    cancelled = []
+    monkeypatch.setattr(scheduled_updates, 'is_aws_lambda_runtime', lambda: True)
+    monkeypatch.setattr(db, 'get_model_update_job', lambda *_a: {
+        'trigger_source': 'api', 'league': 'nfl', 'season': 2026, 'week': 1, 'client_name': 'will',
+    })
+    monkeypatch.setattr(db, 'claim_scheduled_model_update', lambda *_a: 'claimed')
+    monkeypatch.setattr(db, 'get_expected_points_picks', lambda *_a, **_k: [{'season': 2026, 'week': '2'}])
+    monkeypatch.setattr(db, 'cancel_obsolete_manual_update', cancelled.append)
+    monkeypatch.setattr(scheduled_updates.nfl_update_picks, 'main', lambda *_a, **_k: pytest.fail('obsolete run trained'))
+    result = scheduled_updates.run_scheduled_expected_points_update(scheduled_event(run_key=run_key))
+    assert result['status'] == 'cancelled'
+    assert cancelled == [run_key]
+
+
+def test_manual_payload_cannot_change_registered_week(monkeypatch):
+    from src.utils.db import sports_models_db as db
+    monkeypatch.setattr(scheduled_updates, 'is_aws_lambda_runtime', lambda: True)
+    monkeypatch.setattr(db, 'get_model_update_job', lambda *_a: {
+        'trigger_source': 'api', 'league': 'nfl', 'season': 2026, 'week': 2, 'client_name': 'will',
+    })
+    monkeypatch.setattr(db, 'claim_scheduled_model_update', lambda *_a: pytest.fail('invalid event claimed'))
+    with pytest.raises(ValueError, match='registered plan'):
+        scheduled_updates.run_scheduled_expected_points_update(scheduled_event(run_key='api:nfl:abc'))
+
+
+def test_sam_routes_http_to_api_and_keeps_trainer_serialized():
+    from pathlib import Path
+    import yaml
+    template = yaml.load((Path(__file__).resolve().parents[1] / 'template.yaml').read_text(), Loader=yaml.BaseLoader)
+    resources = template['Resources']
+    api = resources['ApiLambdaFunction']['Properties']
+    trainer = resources['TrainingLambdaFunction']['Properties']
+    paths = {event['Properties']['Path'] for event in api['Events'].values()}
+    assert {'/nfl-update-picks', '/cfb-update-picks', '/model-update-jobs/{run_key}'} <= paths
+    assert 'Events' not in trainer
+    assert trainer['ReservedConcurrentExecutions'] == '1'
+    assert api['Environment']['Variables']['TRAINING_FUNCTION_ARN'] == 'TrainingLambdaFunction.Arn'
+    assert 'NFL_EXPECTED_POINTS_VERSION' not in api['Environment']['Variables']
+    permissions = api['Policies'][0]['Statement']
+    assert permissions[0]['Action'] == ['scheduler:CreateSchedule', 'scheduler:GetSchedule']
+    assert 'manual-' in permissions[0]['Resource']
+    assert permissions[1]['Condition']['StringEquals']['iam:PassedToService'] == 'scheduler.amazonaws.com'
+
+
+def test_active_claim_is_not_acknowledged_as_a_successful_retry(monkeypatch):
+    from src.utils.db import sports_models_db as db
+    monkeypatch.setattr(scheduled_updates, 'is_aws_lambda_runtime', lambda: True)
+    monkeypatch.setattr(db, 'claim_scheduled_model_update', lambda *_a: 'running')
+    monkeypatch.setattr(scheduled_updates, '_update_runner', lambda *_a: pytest.fail('active claim ran twice'))
+    monkeypatch.setattr(db, 'set_scheduled_model_update_status', lambda *_a, **_k: pytest.fail('active claim was overwritten'))
+    with pytest.raises(RuntimeError, match='active claim'):
+        scheduled_updates.run_scheduled_expected_points_update(scheduled_event())

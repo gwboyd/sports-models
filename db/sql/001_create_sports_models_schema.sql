@@ -70,6 +70,13 @@ create table if not exists sports_models.scheduled_model_updates (
 
 -- `model_key` determines which model-specific update-history table owns `update_id`,
 -- allowing new scheduled models without adding another link column.
+-- Apply these additive statements to an existing database before deploying manual updates.
+alter table sports_models.scheduled_model_updates
+    add column if not exists trigger_source text not null default 'scheduler'
+        check (trigger_source in ('scheduler', 'api'));
+alter table sports_models.scheduled_model_updates
+    add column if not exists client_name text not null default 'aws-scheduler';
+
 create unique index if not exists scheduled_model_updates_result_idx
     on sports_models.scheduled_model_updates (model_key, update_id)
     where update_id is not null;

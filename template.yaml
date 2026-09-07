@@ -120,7 +120,46 @@ Resources:
       FunctionName: !Ref ApiFunctionName
       Timeout: 30
       MemorySize: 1024
+      Environment:
+        Variables:
+          CFBD_API_KEY: !Ref CfbdApiKey
+          TRAINING_FUNCTION_ARN: !GetAtt TrainingLambdaFunction.Arn
+          SCHEDULER_TARGET_ROLE_ARN: !GetAtt TrainingScheduleInvokeRole.Arn
+          SCHEDULE_GROUP_NAME: !Ref TrainingScheduleGroupName
+          SCHEDULER_DLQ_ARN: !GetAtt ScheduledUpdateDeliveryDlq.Arn
+          SOURCE_GIT_SHA: !Ref SourceGitSha
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:GetSchedule
+              Resource: !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${TrainingScheduleGroupName}/sports-models-*-manual-*
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: !GetAtt TrainingScheduleInvokeRole.Arn
+              Condition:
+                StringEquals:
+                  iam:PassedToService: scheduler.amazonaws.com
       Events:
+        NflUpdatePicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /nfl-update-picks
+            Method: POST
+        CfbUpdatePicks:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /cfb-update-picks
+            Method: POST
+        ModelUpdateJobStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SportsModelsHttpApi
+            Path: /model-update-jobs/{run_key}
+            Method: GET
         Root:
           Type: HttpApi
           Properties:
@@ -286,19 +325,6 @@ Resources:
           NFL_EXPECTED_POINTS_VERSION: !Ref NflExpectedPointsVersion
           CFB_EXPECTED_POINTS_VERSION: !Ref CfbExpectedPointsVersion
           SOURCE_GIT_SHA: !Ref SourceGitSha
-      Events:
-        NflUpdatePicks:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SportsModelsHttpApi
-            Path: /nfl-update-picks
-            Method: POST
-        CfbUpdatePicks:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref SportsModelsHttpApi
-            Path: /cfb-update-picks
-            Method: POST
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: .

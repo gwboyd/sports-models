@@ -13,6 +13,7 @@ newer deployment.
 - `src/sports/`: Sport- and model-specific implementations (NFL/NBA/CFB notebooks, handlers, utilities).
 - `src/sports/football/schedule_coordinator.py`: Dynamic calendar policy and lightweight Lambda entrypoint.
 - `src/sports/football/scheduled_updates.py`: Idempotent direct training-Lambda dispatcher.
+- `src/sports/football/manual_updates.py`: Current-slate HTTP submission and read-only job-status presentation.
 - `src/utils/db/`: Centralized Postgres data access for operational tables/views.
 - `src/utils/`: Shared infrastructure utilities and Pydantic models.
 - `frontend/`: Frontend app for serving model views.
@@ -43,9 +44,9 @@ uvicorn main:app --host 0.0.0.0 --port 3000 --reload --log-level warning
 ```
 
 ```sh
-sam local invoke "FastAPILambdaFunction"
+sam local invoke "ApiLambdaFunction"
 sam local start-api
-sam local invoke FastAPILambdaFunction -e events/get-health-event.json
+sam local invoke ApiLambdaFunction -e events/get-health-event.json
 ```
 
 ```sh
@@ -78,12 +79,12 @@ flowchart LR
   COORD --> PLANS[(Supabase Update Plans)]
   COORD --> SCH[One-time EventBridge Schedules]
   SCH --> JOB[Direct Training Dispatcher]
-  JOB --> EP
   API --> NFL[NFL Router]
   API --> CFB[CFB Router]
   API --> NBA[NBA Router]
-  NFL --> EP[Shared Expected Points Runtime]
-  CFB --> EP
+  NFL --> SCH
+  CFB --> SCH
+  JOB --> EP[Shared Expected Points Runtime]
   EP --> NB[Papermill Notebook Execution]
   NB --> DB[(Supabase Postgres)]
   NFL --> DB
@@ -94,9 +95,9 @@ flowchart LR
 ```
 
 `main.py` creates the FastAPI app, validates API keys, and mounts sport/model routers. Operational reads and
-writes go through `src/utils/db/sports_models_db.py`. NFL and CFB update endpoints execute their notebooks via the
-shared runtime in `src/model_patterns/expected_points/runtime.py`. Shared tracking helpers validate picks, preserve
-started games, calculate changes, and grade completed picks. `write_expected_points_run` persists the update record,
+writes go through `src/utils/db/sports_models_db.py`. NFL and CFB update endpoints on the API Lambda create one-time
+Scheduler jobs; the training Lambda executes their notebooks via the shared runtime in
+`src/model_patterns/expected_points/runtime.py`. Shared tracking helpers validate picks, preserve started games, calculate changes, and grade completed picks. `write_expected_points_run` persists the update record,
 current picks, and newly graded results in one transaction so a failed run cannot partially commit. For a scheduled
 run, that same transaction links `scheduled_model_updates.update_id` to the model-specific update-history row and
 marks the plan completed. Initial Postgres connection failures use bounded retries in `src/utils/postgres.py`.
@@ -108,7 +109,7 @@ the active horizon, derives exact run windows from schedule dates, and reconcile
 resources. Those one-time schedules invoke the training Lambda through a dedicated IAM role; the coordinator never
 invokes training itself. `main.handler` sends `expected_points_update` events to `scheduled_updates.py` and HTTP events
 through Mangum. Scheduled exceptions must propagate so asynchronous retries and SQS failure destinations can observe
-them. The training Lambda has reserved concurrency of one, and the coordinator and trainer share a verified Git SHA.
+them. The training Lambda has reserved concurrency of one, and the API, coordinator, and trainer share a verified Git SHA.
 
 NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected_points/data_loader.py`: `nflreadpy`
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
@@ -210,8 +211,8 @@ and diagrams while correcting stale claims.
 Only the deployed AWS training Lambda writes expected-points records automatically; the coordinator writes scheduling
 state and plans but never picks, update history, or grading rows. Runtime origin is determined from Lambda runtime
 markers while explicitly excluding `AWS_SAM_LOCAL`; `client_name` is audit metadata, not authority.
-Local API, `sam local`, and interactive notebook executions are read-only by default. A non-AWS API request must set
-`allow_non_aws_write=true`, then it uses the latest registered release version. Notebooks default to
+Local API and SAM-local update requests return `403` and cannot schedule production work. HTTP updates no longer
+accept season/week or `allow_non_aws_write`; explicit parameters remain internal notebook-runner inputs. Notebooks default to
 `client_name="notebook"` and `allow_non_aws_write=False`; enabling the flag requires the exact interactive
 `WRITE <LEAGUE> <VERSION>` confirmation. The shared database writer must retain its defensive non-AWS authorization
 check. CFB eligibility is explicit:
@@ -365,14 +366,40 @@ Production model deployments use the interactive `make sam-deploy` workflow only
 major/minor for every non-empty draft, keeps empty drafts at their latest version, prints both decisions, and requires
 final confirmation. The checked-out branch must be `main`, and the working tree, including untracked files, must be
 completely clean so the deployed image matches the recorded Git SHA. NFL and CFB share one training Lambda image, so both populated drafts must be released
-in the same deployment. There is no GitHub Actions version gate, source fingerprint, or changed-path heuristic. After
-SAM succeeds, the command uses bounded retries to verify that the active training and coordinator Lambdas share the
+in the same deployment. Before building/changing AWS, verify the additive manual-job database columns exist.
+There is no GitHub Actions version gate, source fingerprint, or changed-path heuristic. After
+SAM succeeds, the command uses bounded retries to verify that the active API, training, and coordinator Lambdas share the
 planned Git SHA and that training contains both planned model versions; only then does it record release rows and
 initialize any kept bootstrap release's null source SHA. That conditional initialization is one-time and must never
 replace a non-null registry SHA. A release is considered live only after its first successful AWS pick update sets
 `first_pick_at`. The ignored `.aws-sam/model-release-plan.json` preserves exact
 draft snapshots for recovery. `make sam-register-releases` re-verifies AWS before registering, while
 `make sam-finalize-release-files` verifies the Supabase rows before archiving/resetting drafts and removing the plan.
+
+On-demand `POST /nfl-update-picks` and `POST /cfb-update-picks` require admin auth and `client-name`, take no body
+(or `{}`), and optionally accept an `Idempotency-Key` scoped per league. Reject the reserved interactive client name `notebook`. They use the shared week selector at actual
+request time, persist the selected season/week once, and create a one-time schedule at a UTC minute 60–120 seconds
+later. A confirmed schedule returns `202` and a run/status URL; no upcoming eligible slate returns `200` /
+`not_scheduled`. Old explicit-week bodies return `422`. Keys are echoed on success and `503`; clients needing safe
+retries after connection loss should supply their own. Replays never retarget, move, or recreate delivered schedules.
+Only still-future `planned` submissions can reconcile an uncertain AWS create. New keys request intentional reruns.
+
+Reuse `scheduled_model_updates` with additive `trigger_source` (`scheduler` default or `api`) and `client_name`
+(`aws-scheduler` default). Apply those idempotent setup statements before deployment. Manual rows use `window_key=manual`
+and `api:<league>:<key-hash>` run identities. Calendar reconciliation must only read automatic rows. Both sources use
+the same atomic claim/completion linkage, while manual events load client/target metadata from their registered row.
+A manual job is cancelled before notebook execution if a newer model week has already published. It runs under the
+trainer's version/SHA at execution time and never satisfies an automatic plan.
+
+Admin-only `GET /model-update-jobs/{run_key}` returns persisted lifecycle/error fields and the compact linked update
+summary, including version/SHA (omit the SHA for historical rows where it is null). Preserve Lambda's log handler and
+explicitly enable INFO logging for API/training audit events. Repeated POSTs return the same status (`202` pending,
+`200` terminal or unconfirmed).
+NFL schedule reads disable caching and honor the requested feed timeout under a process lock; restore nflreadpy
+settings afterward. Status reads never mutate or repair jobs. `failed` denotes the last failed attempt, not exhausted AWS retries.
+Nonterminal rows more than three hours after `scheduled_for`, and `planned` rows past their delivery time, report
+`outcome_unconfirmed=true`; consult logs/failure queues before rerunning. Keep that conservative three-hour bound in
+sync with Scheduler/Lambda event-age and runtime settings. No extra failure consumer or progress workflow is present.
 
 Production scheduling is source-controlled in `template.yaml` and `schedule_coordinator.py`. Recurring Scheduler
 resources wake the planner at 4:45 AM and noon Eastern; Supabase state suppresses feed work until an active-season
@@ -389,8 +416,9 @@ Completed picks, including a season's final games, are graded only by the next s
 
 EventBridge Scheduler is at-least-once. Stable schedule/run identities, the `scheduled_model_updates` atomic claim,
 the serialized training Lambda, and atomic `(model_key, update_id)` completion link jointly prevent duplicate notebook
-execution and recover a delivery whose database commit succeeded before its Lambda response completed. `client_name`
-remains source metadata (`aws-scheduler` for these runs); the deterministic `run_key` remains only in the orchestration
+execution and recover a delivery whose database commit succeeded before its Lambda response completed. The claim lease
+is 15 minutes, aligned with the trainer timeout; an active claim must raise rather than acknowledge a retry as successful.
+`client_name` remains source metadata (`aws-scheduler` for automatic runs, original client for manual runs); the deterministic `run_key` remains only in the orchestration
 path and is not added to model update-history tables. Unscheduled writes do not link to or satisfy a planned run.
 One-time schedules delete themselves after delivery, while Supabase retains planned, running, completed, failed,
 cancelled, and missed history. Schedule-only changes are infrastructure work and do not populate either
@@ -439,8 +467,8 @@ because they are not real Lambda runtimes.
   - `ADMIN_API_KEY`, `FRONT_END_API_KEY`, `READ_API_KEY`, `NBA_API_KEY`, `AWS_API_KEY`
   - `CFBD_API_KEY`
   - `SUPABASE_DB_URL`, `SUPABASE_SCHEMA`
-  - `TRAINING_FUNCTION_ARN` (coordinator target metadata, supplied by SAM)
-  - `SCHEDULER_TARGET_ROLE_ARN`, `SCHEDULE_GROUP_NAME`, `SCHEDULER_DLQ_ARN` (dynamic Scheduler resources, supplied by SAM)
+  - `TRAINING_FUNCTION_ARN` (API/coordinator target metadata, supplied by SAM)
+  - `SCHEDULER_TARGET_ROLE_ARN`, `SCHEDULE_GROUP_NAME`, `SCHEDULER_DLQ_ARN` (API/coordinator Scheduler resources, supplied by SAM)
 - Add new routers in `src/sports/<sport>/<league>/<model>/handler.py` and mount them in `main.py`.
 - Add new DB access helpers in `src/utils/db/`.
 - Add model-specific Pydantic schemas beside their API boundary; only truly application-wide schemas belong in a

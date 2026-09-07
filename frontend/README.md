@@ -195,3 +195,10 @@ five minutes. This keeps deployments independent of backend availability.
 
 The CFB games page fetches the current slate only. Its results route handles a missing result set as an empty state,
 allowing the first season to launch before graded data exists.
+
+## Generated API types
+
+Regenerate `app/types/generated/openapi.ts` with `npm run codegen` against the current local backend after API changes.
+The generated contract includes admin-only asynchronous current-slate update submission and
+`GET /model-update-jobs/{run_key}`. These operational endpoints are not called by the public frontend; keep its
+existing read-only credentials and UI.

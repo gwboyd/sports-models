@@ -14,6 +14,7 @@ from typing import List
 
 from src.sports.football.nfl.expected_points import handler as nfl_expected_points_handler
 from src.sports.football.cfb.expected_points import handler as cfb_expected_points_handler
+from src.sports.football.expected_points_api import jobs as model_update_jobs
 from src.sports.football.scheduled_updates import (
     SCHEDULED_UPDATE_JOB,
     run_scheduled_expected_points_update,
@@ -27,6 +28,8 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(message)s',
     stream=sys.stderr
 )
+# Lambda installs its own handler before import, so basicConfig can be a no-op.
+logging.getLogger().setLevel(logging.INFO)
 
 app = FastAPI(
     title="Will's Sports Models",
@@ -127,6 +130,7 @@ app.include_router(nfl_expected_points_handler.update, dependencies=[Depends(req
 app.include_router(cfb_expected_points_handler.picks, dependencies=[Depends(require_permission("read"))])
 app.include_router(cfb_expected_points_handler.pick_results, dependencies=[Depends(require_permission("read"))])
 app.include_router(cfb_expected_points_handler.update, dependencies=[Depends(require_permission())])
+app.include_router(model_update_jobs, dependencies=[Depends(require_permission())])
 
 app.include_router(nba_first_basket_handler.pick_upload, dependencies=[Depends(require_permission("nba"))])
 app.include_router(nba_first_basket_handler.picks, dependencies=[Depends(require_permission("nba","read"))])
@@ -148,6 +152,10 @@ def handler(event, context):
     """Dispatch scheduled training events directly and HTTP events through Mangum."""
 
     if isinstance(event, dict) and event.get("job") == SCHEDULED_UPDATE_JOB:
+        logging.getLogger(__name__).info(
+            "Training dispatch run_key=%s aws_request_id=%s",
+            event.get("run_key"), getattr(context, "aws_request_id", None),
+        )
         return run_scheduled_expected_points_update(event)
     return api_handler(event, context)
 
