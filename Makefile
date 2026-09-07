@@ -13,7 +13,7 @@ help:
 	@echo "  make sync-cfb-teams     Refresh CFB team metadata/logos (YEAR=current year)"
 	@echo "  make sync-nfl-teams     Refresh NFL metadata/logos from nflverse"
 	@echo "  make sync-football-teams Refresh both football team catalogs"
-	@echo "  make backtest-expected-points Compare an expected-points candidate with a baseline"
+	@echo "  make backtest-expected-points Compare one league; LEAGUES=nfl,cfb starts both for convenience"
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"
@@ -43,6 +43,7 @@ sync-football-teams:
 	set -a && source .env && set +a && cd frontend && npm run sync:football-teams -- --year $(YEAR)
 
 LEAGUE ?= nfl
+LEAGUES ?=
 PROFILE ?= standard
 BASELINE ?= deployed
 CANDIDATE ?= working-tree
@@ -99,6 +100,20 @@ ifneq ($(filter $(BACKTEST_TRUE_VALUES),$(strip $(CACHE_WORKING_TREE))),)
 BACKTEST_OPTIONAL_ARGS += --cache-working-tree
 endif
 
+ifneq ($(strip $(LEAGUES)),)
+backtest-expected-points:
+	@if [[ -n "$(strip $(FRAME)$(BASELINE_FRAME)$(CANDIDATE_FRAME)$(OUTPUT_DIR))" ]]; then \
+		echo "FRAME, BASELINE_FRAME, CANDIDATE_FRAME, and OUTPUT_DIR require a single LEAGUE" >&2; \
+		exit 2; \
+	fi
+	set -a && { [[ ! -f .env ]] || source .env; } && set +a && \
+	.venv/bin/python scripts/backtest_expected_points_many.py \
+		--leagues "$(LEAGUES)" \
+		--profile $(PROFILE) \
+		--baseline "$(BASELINE)" \
+		--candidate "$(CANDIDATE)" \
+		$(BACKTEST_OPTIONAL_ARGS)
+else
 backtest-expected-points:
 	set -a && { [[ ! -f .env ]] || source .env; } && set +a && \
 	.venv/bin/python scripts/backtest_expected_points.py compare \
@@ -108,6 +123,7 @@ backtest-expected-points:
 		--candidate "$(CANDIDATE)" \
 		$(BACKTEST_FRAME_ARGS) \
 		$(BACKTEST_OPTIONAL_ARGS)
+endif
 
 sam-build:
 	sam build
