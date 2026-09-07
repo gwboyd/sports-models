@@ -570,17 +570,47 @@ def test_notebook_inspection_exposes_exact_home_and_away_score_features():
     assert "2024_2_0" not in set(history["game_id"])
 
 
-def test_league_recipes_match_notebook_feature_ordering():
-    frame = pd.DataFrame(columns=[
-        "z_ewma_success_rate", "a_ewma_dynamic_window", "weekday", "roof",
-        "conference_game", "implied_points_home", "implied_points_away",
-        "home_pregame_elo", "away_pregame_elo",
-    ])
+def test_league_recipes_select_only_registered_features_in_stable_order():
+    nfl_metrics = [
+        f"{base}_{venue}" for base in (
+            "ewma_dynamic_window_rushing_offense", "ewma_dynamic_window_passing_offense",
+            "ewma_dynamic_window_rushing_defense", "ewma_dynamic_window_passing_defense",
+            "ewma_success_rate_rushing_offense", "ewma_success_rate_passing_offense",
+            "ewma_success_rate_rushing_defense", "ewma_success_rate_passing_defense",
+        ) for venue in ("home", "away")
+    ]
+    cfb_metrics = [f"{side}_explosiveness_ewma_dynamic_window_{venue}"
+                   for venue in ("home", "away") for side in ("offense", "defense")]
+    frame = pd.DataFrame(columns=[*nfl_metrics, *cfb_metrics, "future_outcome_ewma_dynamic"])
     nfl = NFLExpectedPointsRecipe().build_config(frame, season=2026, week=1)
-    assert nfl.features.index("a_ewma_dynamic_window") < nfl.features.index("z_ewma_success_rate")
-    cfb = CFBExpectedPointsRecipe().build_config(frame, season=2026, week=1)
-    assert cfb.features[-1] == "a_ewma_dynamic_window"
+    assert [c for c in nfl.features if c in nfl_metrics] == nfl_metrics
+    cfb = CFBExpectedPointsRecipe(efficiency_metrics=("explosiveness",)).build_config(frame, season=2026, week=1)
+    assert cfb.features == cfb_metrics
+    assert "future_outcome_ewma_dynamic" not in nfl.features + cfb.features
     assert cfb.confidence_scoring == "neg_log_loss"
     assert cfb.betting_transform is not None
     assert cfb.spread_class_features[-1] == "spread_diff"
     assert cfb.total_class_features[-1] == "total_diff"
+    for recipe, column in ((NFLExpectedPointsRecipe(), nfl_metrics[0]),
+                           (CFBExpectedPointsRecipe(efficiency_metrics=("explosiveness",)), cfb_metrics[0])):
+        with pytest.raises(ValueError, match="features are missing"):
+            recipe.build_config(frame.drop(columns=column), season=2026, week=1)
+
+
+def test_run_remains_loadable_when_report_rendering_fails(tmp_path, monkeypatch):
+    from src.model_patterns.expected_points import backtest_artifacts
+
+    monkeypatch.setattr(
+        "src.model_patterns.expected_points.backtesting.run_expected_points_at_cutoff",
+        _fake_cutoff_run,
+    )
+    run = run_walk_forward(_historical_frame(), TinyRecipe("working-tree"),
+                           BacktestSpec(profile="quick", cache_root=tmp_path / "cache"))
+    def fail_report(_run):
+        raise RuntimeError("report rendering failed")
+    monkeypatch.setattr(backtest_artifacts, "render_run_report", fail_report)
+    with pytest.raises(RuntimeError, match="report rendering failed"):
+        write_run_artifacts(run, tmp_path / "saved")
+    restored = load_backtest_run(tmp_path / "saved")
+    assert restored.predictions.game_id.tolist() == run.predictions.game_id.tolist()
+    assert restored.source_fingerprint == run.source_fingerprint

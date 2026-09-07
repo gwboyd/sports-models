@@ -65,6 +65,7 @@ Useful routes:
 - `http://127.0.0.1:5173/models/nfl/insights`
 - `http://127.0.0.1:5173/models/cfb`
 - `http://127.0.0.1:5173/models/cfb/results`
+- `http://127.0.0.1:5173/models/cfb/how-it-works`
 - `http://127.0.0.1:5173/models/nba?bankroll=500`
 
 `/models/info` is retained as a redirect to `/models/nfl/how-it-works`.
@@ -139,11 +140,21 @@ to the frontend.
 The results routes use the existing pick-results responses. They calculate season-specific summaries from graded game
 rows, keep the selected season in `?season=`, and show a designed empty state when results are not available. Summary
 cards lead with spread and total locks, followed by all spread and total picks; there is no separate predicted-games
-tile because every metric already includes its graded-pick count. The NFL
-visitor explainer is maintained separately from developer documentation in `content/nfl-how-it-works.md`.
-That document carries forward the public methodology previously rendered by the production Info page. Its renderer
-supports nested headings, lists, links, inline code, and responsive Markdown images; operational database and
-deployment instructions remain in the model README instead.
+tile because every metric already includes its graded-pick count. Public explanations are maintained in
+`content/nfl-how-it-works.md` and `content/cfb-how-it-works.md`, served at each league's How It Works route and linked
+from its navigation. Both pages use `ModelMethodology`, preserving nested headings, lists, links, inline code, and
+responsive Markdown images. The NFL explanation retains the detailed former production Info-page content.
+
+Write these pages as complete explanations of the current models, not release-centered narratives. Cover the
+inputs, training, predictions, confidence, update behavior, and limitations alongside opponent adjustment.
+For every model version change, review the relevant public Markdown alongside its `UNRELEASED.md`: update the
+methodology version, shipped features, training window, opponent adjustments, limitations, confidence/lock rules,
+and refresh timing. Remove completed future ideas. Review both pages for shared changes and coordinate frontend
+publication with the backend model release. Mathematical explanations such as ridge regression belong here;
+code paths, deployment steps, and backtest results do not. Release notes describe the differences, while these
+pages describe the whole model. Operational instructions remain in developer READMEs. Large internal reports live
+only in Git-ignored `.backtests/expected_points/reports/` at the repository root, alongside the existing detailed
+comparison and experiment directories; they are not included in the site or pushed to Git.
 Model Insights is limited to the live power-ranking and offensive/defensive EPA views. Feature importance and the
 dynamic moving-average explanation remain in How It Works.
 

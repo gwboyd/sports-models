@@ -13,6 +13,7 @@ const leagueLinks = {
   cfb: [
     { href: "/models/cfb", label: "Games" },
     { href: "/models/cfb/results", label: "Results" },
+    { href: "/models/cfb/how-it-works", label: "How it works" },
   ],
 } as const;
 
