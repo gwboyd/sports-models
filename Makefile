@@ -13,7 +13,7 @@ help:
 	@echo "  make sync-cfb-teams     Refresh CFB team metadata/logos (YEAR=current year)"
 	@echo "  make sync-nfl-teams     Refresh NFL metadata/logos from nflverse"
 	@echo "  make sync-football-teams Refresh both football team catalogs"
-	@echo "  make backtest-expected-points Compare an expected-points candidate with a baseline"
+	@echo "  make backtest-expected-points Compare one league, or LEAGUES=nfl,cfb in parallel"
 	@echo "  make sam-build          Build the Lambda image/artifacts with SAM"
 	@echo "  make sam-invoke-health  Invoke the API Lambda with the sample health event"
 	@echo "  make sam-api            Run the SAM local API on 127.0.0.1:3001"
@@ -43,6 +43,7 @@ sync-football-teams:
 	set -a && source .env && set +a && cd frontend && npm run sync:football-teams -- --year $(YEAR)
 
 LEAGUE ?= nfl
+LEAGUES ?=
 PROFILE ?= standard
 BASELINE ?= deployed
 CANDIDATE ?= working-tree
@@ -70,6 +71,7 @@ ifneq ($(strip $(CANDIDATE_FRAME)),)
 BACKTEST_FRAME_ARGS += --candidate-frame "$(CANDIDATE_FRAME)"
 endif
 BACKTEST_OPTIONAL_ARGS = --bootstrap-samples $(BOOTSTRAP_SAMPLES)
+BACKTEST_SINGLE_ARGS = $(BACKTEST_FRAME_ARGS)
 ifneq ($(strip $(CURRENT_YEAR)),)
 BACKTEST_OPTIONAL_ARGS += --current-year $(CURRENT_YEAR)
 endif
@@ -90,7 +92,7 @@ ifneq ($(strip $(CADENCE)),)
 BACKTEST_OPTIONAL_ARGS += --cadence $(CADENCE)
 endif
 ifneq ($(strip $(OUTPUT_DIR)),)
-BACKTEST_OPTIONAL_ARGS += --output-dir "$(OUTPUT_DIR)"
+BACKTEST_SINGLE_ARGS += --output-dir "$(OUTPUT_DIR)"
 endif
 ifneq ($(filter $(BACKTEST_TRUE_VALUES),$(strip $(NO_CACHE))),)
 BACKTEST_OPTIONAL_ARGS += --no-cache
@@ -99,6 +101,20 @@ ifneq ($(filter $(BACKTEST_TRUE_VALUES),$(strip $(CACHE_WORKING_TREE))),)
 BACKTEST_OPTIONAL_ARGS += --cache-working-tree
 endif
 
+ifneq ($(strip $(LEAGUES)),)
+backtest-expected-points:
+	@if [[ -n "$(strip $(FRAME)$(BASELINE_FRAME)$(CANDIDATE_FRAME)$(OUTPUT_DIR))" ]]; then \
+		echo "FRAME, BASELINE_FRAME, CANDIDATE_FRAME, and OUTPUT_DIR require a single LEAGUE" >&2; \
+		exit 2; \
+	fi
+	set -a && { [[ ! -f .env ]] || source .env; } && set +a && \
+	.venv/bin/python scripts/backtest_expected_points.py compare-many \
+		--leagues "$(LEAGUES)" \
+		--profile $(PROFILE) \
+		--baseline "$(BASELINE)" \
+		--candidate "$(CANDIDATE)" \
+		$(BACKTEST_OPTIONAL_ARGS)
+else
 backtest-expected-points:
 	set -a && { [[ ! -f .env ]] || source .env; } && set +a && \
 	.venv/bin/python scripts/backtest_expected_points.py compare \
@@ -106,8 +122,9 @@ backtest-expected-points:
 		--profile $(PROFILE) \
 		--baseline "$(BASELINE)" \
 		--candidate "$(CANDIDATE)" \
-		$(BACKTEST_FRAME_ARGS) \
+		$(BACKTEST_SINGLE_ARGS) \
 		$(BACKTEST_OPTIONAL_ARGS)
+endif
 
 sam-build:
 	sam build

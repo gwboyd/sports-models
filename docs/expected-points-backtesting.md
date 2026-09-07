@@ -14,6 +14,16 @@ For CFB:
 make backtest-expected-points LEAGUE=cfb
 ```
 
+To start both independent comparisons concurrently:
+
+```sh
+make backtest-expected-points LEAGUES=nfl,cfb
+```
+
+This is the same work as running the two single-league commands in separate terminals. It keeps separate job and
+cache directories, waits for both processes, and reports both output paths. Keep shared model code unchanged until
+both jobs finish. Frame overrides and an explicit output directory remain single-league options.
+
 With no `LEAGUE`, Make defaults to NFL. This is the normal evaluation path for **all prediction-affecting changes**:
 adding, removing, or renaming features; changing feature calculations or opponent adjustment; changing training
 windows, estimators, tuning, confidence inputs, or lock rules. Each version uses its own feature construction and
@@ -77,6 +87,7 @@ None of these options are required for the standard command above. CLI equivalen
 | Make option | CLI equivalent | When to use it |
 |---|---|---|
 | `LEAGUE=nfl` or `cfb` | `--league nfl` or `cfb` | Select the model. Make defaults to NFL; CLI requires a league. |
+| `LEAGUES=nfl,cfb` | `compare-many --leagues nfl,cfb` | Run the normal NFL and CFB comparisons concurrently. |
 | `PROFILE=quick` | `--profile quick` | Optional smaller preliminary comparison; full tuning at fewer cutoffs. |
 | `PROFILE=full` | `--profile full` | Evaluate four completed/evaluable seasons rather than standard's three. |
 | `SEASONS=2023,2024,2025` | `--seasons 2023,2024,2025` | Explicit evaluation seasons; prior complete warmup history is still required. With fully automatic inputs, their maximum supplies the history end unless overridden. |
