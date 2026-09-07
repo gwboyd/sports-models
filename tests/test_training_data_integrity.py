@@ -6,13 +6,16 @@ import pytest
 from sklearn.base import BaseEstimator
 
 from src.model_patterns.expected_points.chronology import (
+    RESULT_AVAILABILITY_LAG,
     chronological_train_test_split,
     predefined_chronological_split,
 )
 from src.model_patterns.expected_points.trainer import (
+    _build_train_df_at_cutoff,
     _duplicate_predefined_split,
     _fit_final_score_model,
 )
+from src.model_patterns.expected_points.types import ExpectedPointsConfig
 from src.sports.data_validation import DataContractError, validate_frame
 from src.sports.data_validation import validate_feature_coverage
 from src.sports.football.kickoff import (
@@ -63,6 +66,44 @@ def test_score_split_keeps_home_and_away_representations_together():
 
     np.testing.assert_array_equal(duplicated[: len(games)], duplicated[len(games) :])
     np.testing.assert_array_equal(duplicated, [-1, -1, 0, 0, -1, -1, 0, 0])
+
+
+def test_chronological_split_waits_for_training_results_without_dropping_games():
+    games = pd.DataFrame({
+        "game_id": list("abcde"),
+        "date_time": ["2025-09-01-13:00", "2025-09-08-13:00", "2025-09-08-16:00",
+                      "2025-09-08-19:00", "2025-09-09-13:00"],
+    })
+    train, validation = chronological_train_test_split(games, time_col="date_time", test_size=.4)
+    assert parse_eastern_kickoffs(train.date_time).max() + RESULT_AVAILABILITY_LAG < parse_eastern_kickoffs(validation.date_time).min()
+    assert set(train.game_id) | set(validation.game_id) == set(games.game_id)
+    assert set(train.game_id).isdisjoint(validation.game_id)
+    assert validation.game_id.tolist() == ["e"]
+    folds = predefined_chronological_split(games, time_col="date_time", test_size=.4).test_fold
+    np.testing.assert_array_equal(folds, [-1, -1, -1, -1, 0])
+
+
+def test_chronological_split_rejects_unavailable_result_boundaries():
+    games = pd.DataFrame({"date_time": ["2025-09-01-12:00", "2025-09-01-20:00"]})
+    with pytest.raises(ValueError, match="result-availability"):
+        chronological_train_test_split(games, time_col="date_time", test_size=.5)
+
+
+def test_historical_training_requires_results_available_before_cutoff():
+    config = ExpectedPointsConfig(
+        current_year=2025, current_week=2, targets=["home_score", "away_score"],
+        features=[], input_features=[], spread_class_features=[], total_class_features=[], cat_features=[],
+    )
+    games = pd.DataFrame({
+        "game_id": ["available", "boundary", "in_progress", "future"],
+        "date_time": ["2025-09-07-01:00", "2025-09-07-05:00", "2025-09-07-06:00", "2025-09-07-14:00"],
+        "home_score": [24, 31, 17, 28], "away_score": [21, 10, 14, 7],
+    })
+    cutoff = pd.Timestamp("2025-09-07T17:00:00Z")  # 13:00 Eastern.
+    fitted = _build_train_df_at_cutoff(games, config, cutoff=cutoff)
+    assert fitted.game_id.tolist() == ["available"]
+    games.loc[games.game_id != "available", ["home_score", "away_score"]] = 1000
+    pd.testing.assert_frame_equal(_build_train_df_at_cutoff(games, config, cutoff=cutoff), fitted)
 
 
 def test_chronological_split_does_not_separate_simultaneous_games():

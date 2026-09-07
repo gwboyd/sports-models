@@ -151,20 +151,29 @@ class CFBExpectedPointsRecipe:
             betting_transform=scores_to_cfb_bets,
             prediction_now=prediction_now,
             league=self.league,
+            score_target="market_residual",
+            score_estimator="ridge",
+            score_holdout_method="walk_forward",
+            score_team_features=[column for column in ewma_features + ["home_pregame_elo", "away_pregame_elo"] if column in features],
+            score_param_grid={
+                "ridge__alpha": [10.0, 100.0, 1000.0, 10000.0],
+                "columntransformer__transformer_weights": [{"team": 0.0}, {"team": 0.25}, {"team": 1.0}],
+            },
             spread_lock_head=LockHeadConfig(
                 family="symmetric_residual",
-                parameters={"trust": 0.2},
+                parameters={"trust": 1.0},
                 locks_enabled=True,
             ),
-            total_lock_head=LockHeadConfig(family="base_rate", locks_enabled=False),
+            total_lock_head=LockHeadConfig(family="symmetric_residual", parameters={"trust": 1.0}, locks_enabled=True),
             play_thresholds=PlayThresholds(
                 max_spreads_plays=None,
-                max_total_plays=0,
+                max_total_plays=1,
                 min_spread_diff=0.0,
                 min_spread_win_prob=52.5,
                 min_total_diff=0.0,
+                min_total_win_prob=52.5,
                 max_combined_plays=3,
-                extra_lock_min_probability=0.55,
+                extra_lock_min_probability=None,
             ),
         )
 

@@ -22,6 +22,8 @@ from src.sports.football.kickoff import parse_eastern_kickoffs
 
 from .backtest_artifacts import _jsonable, load_backtest_run
 from .backtesting import BacktestRun, frame_fingerprint
+from .chronology import RESULT_AVAILABILITY_LAG
+from .betting import directional_bet_edge
 from .lock_features import LockFeatureSet, lock_feature_set
 from .lock_models import (
     CalibratedHead,
@@ -40,7 +42,6 @@ from .types import ExpectedPointsLeague
 
 
 LOCK_REPLAY_PROTOCOL_VERSION = "2"
-RESULT_AVAILABILITY_LAG = pd.Timedelta(hours=8)
 
 REQUIRED_SOURCE_COLUMNS = {
     "season", "week", "game_id", "date_time", "backtest_cutoff",
@@ -158,7 +159,7 @@ def build_lock_market_frame(
     output["result_available_at"] = output["kickoff"] + RESULT_AVAILABILITY_LAG
     output["line"] = _safe_numeric(frame, f"{market}_line")
     output["prediction"] = _safe_numeric(frame, f"{market}_pred")
-    output["edge"] = _safe_numeric(frame, f"{market}_diff").abs()
+    output["edge"] = directional_bet_edge(frame, market)
     output["market_supported"] = (
         frame.get(f"{market}_market_supported", pd.Series(True, index=frame.index))
         .fillna(False).astype(bool)

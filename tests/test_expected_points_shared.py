@@ -105,6 +105,7 @@ def test_train_frame_excludes_rows_missing_any_score_target():
         {
             "season": [2025, 2025, 2025, 2025, 2026],
             "week": [1, 2, 3, 4, 1],
+            "date_time": ["2025-01-01-12:00"] * 4 + ["2026-01-01-12:00"],
             "home_score": ["21", "17", np.nan, "not-a-score", "24"],
             "away_score": ["14", np.nan, "10", "7", "20"],
         }
@@ -115,6 +116,45 @@ def test_train_frame_excludes_rows_missing_any_score_target():
     assert train_df.index.tolist() == [0, 4]
     assert train_df["home_score"].dtype.kind == "f"
     assert train_df["away_score"].dtype.kind == "f"
+
+
+def test_requested_training_period_never_includes_completed_future_seasons():
+    config = ExpectedPointsConfig(
+        current_year=2024, current_week=3, targets=["home_score", "away_score"],
+        features=[], input_features=[], spread_class_features=[], total_class_features=[], cat_features=[],
+    )
+    frame = pd.DataFrame({
+        "season": [2023, 2024, 2024, 2024, 2025],
+        "week": [18, 2, 3, 4, 1],
+        "date_time": ["2023-01-01-12:00"] + ["2024-01-01-12:00"] * 3 + ["2025-01-01-12:00"],
+        "home_score": [20., 21., 22., 23., 24.],
+        "away_score": [10., 11., 12., 13., 14.],
+    })
+    expected = frame.iloc[:2].copy()
+    pd.testing.assert_frame_equal(_build_train_df(frame, config), expected)
+    frame.loc[4, ["home_score", "away_score"]] = [999., -999.]
+    pd.testing.assert_frame_equal(_build_train_df(frame, config), expected)
+
+
+def test_ordinary_training_respects_availability_despite_earlier_week_labels():
+    config = ExpectedPointsConfig(
+        current_year=2025, current_week=2,
+        prediction_now=pd.Timestamp("2025-09-10T16:00:00Z"),
+        targets=["home_score", "away_score"], features=[], input_features=[],
+        spread_class_features=[], total_class_features=[], cat_features=[],
+    )
+    frame = pd.DataFrame({
+        "season": [2025] * 5, "week": [1, 1, 1, 1, 2],
+        "date_time": [
+            "2025-09-08-12:00", "2025-09-12-12:00",
+            "2025-09-10-04:00", "2025-09-10-03:59", "2025-09-08-12:00",
+        ],
+        "home_score": [21.] * 5, "away_score": [14.] * 5,
+    })
+    # Postponed, unavailable, and current-week labels cannot enter training.
+    assert _build_train_df(frame, config).index.tolist() == [0, 3]
+    frame.loc[[1, 2, 4], ["home_score", "away_score"]] = [999., -999.]
+    assert _build_train_df(frame, config).index.tolist() == [0, 3]
 
 
 def test_run_expected_points_end_to_end():

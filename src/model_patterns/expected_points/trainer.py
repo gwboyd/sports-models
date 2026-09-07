@@ -8,7 +8,11 @@ from sklearn.model_selection import GridSearchCV, PredefinedSplit
 from src.sports.football.kickoff import exclude_started_games, parse_eastern_kickoffs
 
 from .betting import calculate_wins, determine_plays, scores_to_bets, win_probability
-from .chronology import chronological_train_test_split, predefined_chronological_split
+from .chronology import (
+    RESULT_AVAILABILITY_LAG,
+    chronological_train_test_split,
+    predefined_chronological_split,
+)
 from .confidence import fit_configured_classifiers
 from .evaluation import safe_confidence_health_evaluation, score_prediction_metrics
 from .pipeline import make_score_pipeline
@@ -67,6 +71,30 @@ def _fit_final_score_model(best_estimator, X: pd.DataFrame, y: pd.DataFrame):
     return final_model
 
 
+def _walk_forward_score_holdout(
+    train_df: pd.DataFrame, validation: pd.DataFrame, config: ExpectedPointsConfig, *, best_estimator,
+) -> pd.DataFrame:
+    """Refit fixed parameters before each holdout week, never retuning on its labels."""
+    kickoffs = parse_eastern_kickoffs(train_df[config.time_col])
+    validation_kickoffs = parse_eastern_kickoffs(validation[config.time_col])
+    outputs = []
+    betting_transform = config.betting_transform or scores_to_bets
+    periods = validation.groupby([config.season_col, config.week_col], sort=False).groups.values()
+    for indices in sorted(periods, key=lambda rows: validation_kickoffs.loc[rows].min()):
+        slate = validation.loc[indices].copy()
+        cutoff = validation_kickoffs.loc[indices].min()
+        history = train_df.loc[kickoffs + RESULT_AVAILABILITY_LAG < cutoff]
+        if history.empty:
+            raise ValueError("Rolling score holdout has no available earlier training games")
+        model = _fit_final_score_model(best_estimator, history[config.input_features], history[config.targets])
+        for team in ("home", "away"):
+            slate[f"{team}_score_pred"] = model.predict_scores(slate[config.input_features], team)
+        slate["score_training_through"] = kickoffs.loc[history.index].max()
+        slate["score_training_rows"] = len(history)
+        outputs.append(calculate_wins(betting_transform(slate)))
+    return pd.concat(outputs).loc[validation.index]
+
+
 def fit_eval(
     df: pd.DataFrame,
     X_train: pd.DataFrame,
@@ -113,12 +141,19 @@ def _build_train_df(df: pd.DataFrame, config: ExpectedPointsConfig) -> pd.DataFr
         train_df[target] = pd.to_numeric(train_df[target], errors="coerce")
     train_df = train_df.dropna(subset=config.targets, inplace=False)
     train_df = train_df[
-        ~(
+        (train_df[config.season_col] < config.current_year)
+        | (
             (train_df[config.season_col] == config.current_year)
-            & (train_df[config.week_col] >= config.current_week)
+            & (train_df[config.week_col] < config.current_week)
         )
     ]
-    return train_df
+    # Week labels alone cannot establish availability: an earlier-week game
+    # may be postponed, in progress, or present with a retrospectively known
+    # result in an inspection frame. Apply the same as-of guard as replay.
+    cutoff = config.prediction_now
+    if cutoff is None:
+        cutoff = pd.Timestamp.now(tz="UTC")
+    return _build_train_df_at_cutoff(train_df, config, cutoff=cutoff)
 
 
 def _build_train_df_at_cutoff(
@@ -137,7 +172,7 @@ def _build_train_df_at_cutoff(
         raise ValueError("Historical cutoff must be timezone-aware")
     return train_df.loc[
         train_df[list(config.targets)].notna().all(axis=1)
-        & (kickoffs < parsed_cutoff.tz_convert("UTC"))
+        & (kickoffs + RESULT_AVAILABILITY_LAG < parsed_cutoff.tz_convert("UTC"))
     ].copy()
 
 
@@ -158,7 +193,13 @@ def _fit_expected_points(
     train_df: pd.DataFrame,
     config: ExpectedPointsConfig,
 ):
-    score_pipeline = make_score_pipeline(config.features, config.cat_features)
+    if config.score_holdout_method not in {"static", "walk_forward"}:
+        raise ValueError(f"Unknown score holdout method: {config.score_holdout_method}")
+    score_pipeline = make_score_pipeline(
+        config.features, config.cat_features,
+        score_target=config.score_target, score_estimator=config.score_estimator,
+        team_features=config.score_team_features,
+    )
     betting_transform = config.betting_transform or scores_to_bets
     train_partition, test_partition = _split(train_df, config)
     X = train_df[config.input_features]
@@ -181,6 +222,10 @@ def _fit_expected_points(
         score_n_jobs=config.score_n_jobs,
         betting_transform=betting_transform,
     )
+    if config.score_holdout_method == "walk_forward":
+        eval_results = _walk_forward_score_holdout(
+            train_df, test_partition, config, best_estimator=score_search.best_estimator_,
+        )
 
     health_results, health_metrics = safe_confidence_health_evaluation(
         eval_results,

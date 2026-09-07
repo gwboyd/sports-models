@@ -597,6 +597,7 @@ def test_league_recipes_select_only_registered_features_in_stable_order():
             recipe.build_config(frame.drop(columns=column), season=2026, week=1)
 
 
+
 def test_run_remains_loadable_when_report_rendering_fails(tmp_path, monkeypatch):
     from src.model_patterns.expected_points import backtest_artifacts
 

@@ -155,8 +155,13 @@ def select_weekly_locks(
             continue
         candidates = group.loc[eligible.loc[group.index] & ~group["_preserved"]].copy()
         candidates["_market_order"] = candidates["market"].map({"spread": 0, "total": 1}).fillna(2)
+        # Equivalent forecasts can differ at floating-point precision after
+        # fitting or percentage conversion. Let the stable game keys break
+        # those ties, without changing probabilities or eligibility floors.
+        for column, decimals in (("expected_units", 12), ("resolved_win_probability", 12), ("edge", 9)):
+            candidates[f"_rank_{column}"] = candidates[column].round(decimals)
         candidates = candidates.sort_values(
-            ["expected_units", "resolved_win_probability", "edge", "kickoff", "game_id", "_market_order"],
+            ["_rank_expected_units", "_rank_resolved_win_probability", "_rank_edge", "kickoff", "game_id", "_market_order"],
             ascending=[False, False, False, True, True, True],
             kind="stable",
         )

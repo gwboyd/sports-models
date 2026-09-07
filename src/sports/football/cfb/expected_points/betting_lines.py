@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.model_patterns.expected_points.betting import directional_bet_edge
 
 CLUSTER_MAX_RANGE = 2.0
 SYNTHETIC_PROVIDERS = frozenset({"consensus", "numberfire", "teamrankings"})
@@ -173,6 +174,10 @@ def _collapse_provider_quotes(raw_quotes: Any) -> dict[str, dict[str, float | No
         provider_values = values.setdefault(provider, {field: [] for field in fields})
         for field, aliases in fields.items():
             parsed = _finite_float(_quote_value(raw_quote, *aliases))
+            # A nonpositive football total is a missing/bad quote, even when
+            # its feed sentinel is finite. Zero remains a valid spread.
+            if field in {"total", "total_open"} and parsed is not None and parsed <= 0:
+                continue
             if parsed is not None:
                 provider_values[field].append(parsed)
 
@@ -440,8 +445,8 @@ def scores_to_cfb_bets(results: pd.DataFrame) -> pd.DataFrame:
     output["spread_line"] = spread_quotes.map(lambda quote: quote.value)
     output["total_provider"] = total_quotes.map(lambda quote: quote.provider)
     output["total_line"] = total_quotes.map(lambda quote: quote.value)
-    output["spread_diff"] = (output["spread_line"] - output["spread_pred"]).abs()
-    output["total_diff"] = (output["total_line"] - output["total_pred"]).abs()
+    output["spread_diff"] = directional_bet_edge(output, "spread")
+    output["total_diff"] = directional_bet_edge(output, "total")
 
     output["spread_shopping_points"] = output.apply(
         lambda row: (

@@ -117,9 +117,9 @@ NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
 CFB expected-points uses `src/sports/football/cfb/expected_points/cfbd_client.py` for direct authenticated REST
 requests; do not add a conflicting Python SDK dependency.
-NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
-missing; never calculate a fallback using all future players or seasons. Native score-model missing handling and
-legacy confidence imputation fitted within chronological training data handle those inputs. Version 2.1 probability
+NFL2.2 excludes starting-quarterback ratings and actual roof status from prediction inputs because the schedule feed does not preserve their pregame availability. Keep these fields as notebook diagnostics only until a suitable as-of source is available. Diagnostic NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
+missing; never calculate a fallback using all future players or seasons. Score-pipeline imputation/scaling and
+legacy confidence imputation must be fitted within chronological training data. Residual probability
 heads use valid historical score errors/outcomes directly and do not impute quarterback features. Explicit NFL/CFB efficiency
 selections must fail when any selected column is missing; never fall back to substring-based column discovery.
 Opponent-adjusted football efficiency features are implemented in
@@ -229,14 +229,28 @@ become a lock. The execution line drives model edge, confidence, persistence, di
 providers are not executable quotes, and CFBD provider ordering must never affect selection.
 Neither football model may predict a game at or after kickoff, including a game with no pre-existing pick.
 
+Ordinary expected-points training also applies the eight-hour result-availability guard at `prediction_now`
+(or current UTC when omitted), in addition to its prior-season/prior-week restriction. Earlier week labels cannot
+admit a postponed or still-unavailable result. Historical cutoff fitting uses the same availability helper.
+
 Expected-points training uses an outer chronological score holdout, a single inner chronological GridSearch split,
-and one final refit on all completed games with the selected score parameters. Version 2.1 Lock heads use the outer
-out-of-time score-error distribution: NFL spreads/totals and CFB spreads use `q=.5+.1*F(abs(edge))`, where F is the
-empirical absolute-error CDF; CFB totals use a shrunken base rate with Locks disabled. Legacy confidence classifiers
-retain their chronological tuning path. Do not replace chronology with random splitting or rerun score GridSearch.
-Locks require q>=.525 and positive EV at assumed -110. The normal combined weekly limit is three: NFL up to two
-spreads and one total, CFB spreads only. q>=.55 can exceed positive market/combined caps; a zero market cap remains
-hard-disabled. The aim is 2–3 combined Locks most weeks, not a quota and not 2–3 per market. Preserve started Locks
+and one final refit on all completed games with the selected score parameters. Splits require a gap greater than
+eight hours between the last training kickoff and first validation kickoff so earlier game
+results are treated as available before fitting the validation forecast. The split keeps every game in one partition
+and chooses the nearest eligible boundary; historical cutoff fitting applies the same eight-hour availability lag.
+This matches Lock replay's conservative assumption and is not an exact reconstruction of result publication times.
+The 2.2 candidate score model is market-residual ridge with chronological selection of L2 penalty and the
+team-feature group's relative shrinkage. Numeric imputation, missing indicators, scaling, and categorical encoding
+fit inside each training partition. Earlier outer-holdout weeks can train later holdout forecasts only after result
+availability; the selected score parameters stay fixed, with no repeated GridSearch. Both leagues use these
+out-of-time errors: CFB has `q=.5+.5*sign(edge)*F(abs(edge))`; NFL retains
+`q=.5+.1*sign(edge)*F(abs(edge))`. F is the empirical absolute-error CDF.
+Execution edge is signed in the selected pick's direction, including when a CFB quote cluster opposes consensus.
+Legacy confidence classifiers retain their chronological tuning path. Never replace chronology with random splits.
+Locks require q>=.525 and positive EV at assumed -110. The hard combined weekly limit is three: NFL up to two
+spreads and one total, CFB up to one total. Higher probability never overrides the configured caps.
+The combined limits are not quotas or per-market targets. Conservative NFL confidence can produce long stretches
+with few or no Locks; do not increase confidence just to populate the slate. Preserve started Locks
 and count them toward capacity even when their games are absent from the new prediction slate. Shared replay and
 production use the same head factory and selector. New historical runs save checksummed per-cutoff score-holdout
 frames for exact-head replay; older caches remain usable with explicitly disclosed weekly-history approximation.

@@ -1,20 +1,22 @@
 # NFL Expected Points Model
 
-This page describes the **2.1 methodology**. Each saved pick keeps the model version that produced it, so historical results can include earlier versions.
+This page describes the **2.2 methodology**. Each saved pick keeps the model version that produced it, so historical results can include earlier versions.
 
 The model predicts **how many points each NFL team should score in a matchup**. Those expected scores produce a projected final score, spread, and total. The model then compares its forecast with the available market lines to select a side and total for every game.
 
-The score model uses play-by-play and game-level data beginning in 2010. Expected Points Added (EPA) per play and Success Rate have been the most useful predictors, alongside starting-quarterback performance, rest, venue, matchup context, and available market information.
+The score model uses play-by-play and game-level data beginning in 2010. Market-implied points provide its starting forecast. Expected Points Added (EPA), success rate, rest, and matchup context help it learn adjustments from earlier games.
 
-After the picks are made, separate spread and total probability models use unseen-game score errors to estimate betting confidence. Estimates are strongly pulled toward an even chance. Locks are selected using those probabilities and expected profit, with roughly two or three combined opportunities as the usual aim rather than a forced quota.
+After the picks are made, separate spread and total probability models use unseen-game score errors to estimate betting confidence. Locks are selected using those probabilities and expected profit, with at most three combined opportunities per week and no forced quota.
 
 ## How the score model learns
 
-A gradient-boosted model learns the relationship between matchup inputs and the points each team scores. Each game contributes a home-team and an away-team scoring example, and both examples stay together when data is split for validation.
+A ridge-regression score model starts with the points implied by the market spread and total, then learns a correction from the matchup inputs. For a home spread `s` and total `t`, the market-implied scores are `(t-s)/2` for the home team and `(t+s)/2` for the away team. The final forecast is **market-implied points + learned adjustment**, floored at zero.
 
-Training follows time order. The model selects its settings using earlier games and a later validation period, then makes predictions for a separate later holdout. Those unseen-game predictions supply the training examples for the spread and total probability models. After selecting the score-model settings, it refits on all eligible completed games before predicting the upcoming slate.
+Ridge penalizes large coefficients so weak or noisy evidence produces smaller adjustments. The model selects the penalty and how strongly to shrink the team-performance inputs using one chronological validation split inside the earlier training history. It can reduce the entire team-performance group to zero when that earlier validation favors market and context inputs. These choices are made again as training history grows; they are not chosen from the upcoming games.
 
-Starting-quarterback performance uses a moving average of that player's earlier starts, ordered by kickoff. When there is no earlier start, the quarterback-history input remains missing rather than borrowing information from later games. The score model handles missing values directly.
+Each game contributes a home-team and an away-team scoring example. Both examples stay together in every chronological split, and team-specific inputs rotate with the team being predicted. Numerical inputs use medians and scales fitted only on the training partition, with indicators for missing values. Categorical inputs use a separate missing category; an unseen category can be handled without learning from the prediction slate.
+
+A separate, later score holdout supplies confidence-training forecasts. Before each historical week in that holdout, the score model refits on the games available then using the already selected settings. It does not retune on the holdout. Earlier holdout results can inform later weeks only after they become available. A later confidence-health tail checks the probability and Lock selection process. Historical fitting assumes results become available eight hours after kickoff, and split boundaries allow that gap. Finally, the score model refits on eligible completed games before forecasting the upcoming slate. Ordinary training also applies the eight-hour availability guard at the prediction timestamp; an earlier week label cannot admit a postponed or still-unavailable result.
 
 ## From expected scores to picks
 
@@ -30,7 +32,7 @@ A saved prediction is preserved when its game enters the 30-minute kickoff prote
 
 ## Features
 
-The model is primarily powered by EPA per play and Success Rate, split across offense, defense, passing, and rushing. These efficiency metrics are more predictive than raw yardage or points alone.
+EPA per play and success rate are split across offense, defense, passing, and rushing. They describe team performance alongside the market inputs, rather than treating raw yardage or previous points as a complete measure of team strength.
 
 **EPA (Expected Points Added):** Measures how much a play changed the offense's expected points, accounting for field position, down, distance, and game situation. High-impact plays receive more credit than routine gains.
 
@@ -54,7 +56,7 @@ The offense and defense estimates are fitted together across the schedule. This 
 
 For an offensive performance, the model removes half of the estimated opposing defense effect. For a defensive performance, it removes half of the opposing offense effect. For example, if an opponent is estimated to inflate offensive EPA by 0.10 points per play, an observed 0.20 becomes 0.15 after the half-strength correction. This is an illustration, not a current team rating.
 
-The adjusted game performances then pass through the moving averages below. The ridge regression prepares the efficiency inputs; a separate gradient-boosted score model turns those inputs and the other matchup information into expected scores. Starting-quarterback performance is still a separate input and does not receive this opponent adjustment.
+The adjusted game performances then pass through the moving averages below. The ridge regression prepares the efficiency inputs; the separate ridge score model uses those inputs and other matchup information to adjust market-implied points.
 
 ### Early-season ratings and information timing
 
@@ -62,21 +64,15 @@ Ratings use only games played before the opening kickoff of the target game week
 
 Previous seasons help when current-season evidence is scarce. In the opponent-rating fit, each season back halves a game's weight: a prior-season game receives half the weight of a current-season game, and a game two seasons back receives a quarter. Ridge also limits unsupported effects. An opponent with no estimated effect receives a neutral correction. This cannot fully account for roster turnover or guarantee an accurate early-season rating.
 
-### Feature importance
+### Other inputs and missing history
 
-The expected-points model uses a gradient-boosted framework. It does not assign one simple linear weight to every input, but feature importance still provides a useful view of which inputs contribute most to its forecasts.
-
-![Model feature importances](https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/feature_importance.png)
-
-Feature importance can change as new games enter the training data, although the model has now seen enough seasons that the broad ordering is relatively steady. Efficiency metrics have generally remained more useful than information originating from market data.
-
-The model also distinguishes home and away teams to account for venue and home-field context.
+Rest, weekday, division matchups, and available betting information supply additional context. American odds are converted to implied probabilities before entering the linear model. Starting-quarterback ratings and roof status are excluded: the historical feed identifies quarterbacks from game participation and records actual retractable-roof decisions, rather than preserving those inputs as they were known before a prediction. The market remains an indirect source of personnel and weather information.
 
 ### Moving averages for team metrics
 
 Advanced metrics begin at the play level and are aggregated to games. The model then uses exponentially weighted moving averages to reduce week-to-week noise while giving more influence to recent performance.
 
-EPA uses a smoothing span equal to the larger of ten games and the current week number. Success-rate and quarterback metrics use a ten-game span. Recent games receive more weight, while older games can still contribute, including games from previous seasons. These are gradual weighting schemes rather than hard cutoffs on the number of games used.
+EPA uses a smoothing span equal to the larger of ten games and the current week number. Success-rate metrics use a ten-game span. Recent games receive more weight, while older games can still contribute, including games from previous seasons. These are gradual weighting schemes rather than hard cutoffs on the number of games used.
 
 The chart below shows why smoothing is useful: raw game-level performance is volatile, while the moving averages preserve the underlying trend.
 
@@ -84,13 +80,13 @@ The chart below shows why smoothing is useful: raw game-level performance is vol
 
 ## Pick win probability and Locks
 
-The probability layer uses forecasts for games outside the score model's training sample. For spreads it measures errors in the projected margin; for totals it measures errors in the projected combined score. These chronological holdout errors are kept separate from the final score-model refit.
+The probability layer uses chronological forecasts for games that were outside the score model's training sample when predicted. It measures errors in the projected margin for spreads and in the projected combined score for totals. Each forecast is refreshed using the earlier history available at that historical week, keeping its own outcome out of training.
 
-Let `e` be the absolute gap between the model prediction and the displayed betting line, and `F(e)` the fraction of earlier absolute score errors smaller than that gap. The estimated resolved-bet win probability is `q = 0.5 + 0.1 × F(e)`. This assumes symmetric score errors and discounts their implied advantage by 80%, keeping estimates between 50% and 60%. Symmetry and the fixed discount are modeling assumptions, not proof of perfect calibration. Fewer than 100 resolved examples or fewer than 25 wins or losses triggers a shrunken historical-rate fallback with no Locks.
+Let `e` be the model's advantage in the selected pick's direction at the displayed execution line, and `F(|e|)` the fraction of earlier absolute prediction errors smaller than that advantage. The estimated resolved-bet win probability is `q = 0.5 + 0.1 × sign(e) × F(|e|)`. A positive advantage increases confidence; an adverse execution quote lowers it below 50% and cannot qualify as a Lock. NFL retains an 80% shrinkage toward 50% rather than treating the full error-distribution estimate as certain. This assumes a symmetric error distribution that remains relevant to the next matchup. It is an approximation, not proof of perfect calibration. Fewer than 100 resolved examples or fewer than 25 wins or losses triggers a shrunken historical-rate fallback with no Locks.
 
 A Lock needs at least a 52.5% estimated resolved-win probability and positive expected profit at assumed -110 pricing. A one-unit win earns about 0.909 units and a loss costs one unit. With estimated push probability `s`, expected profit is `(1-s) × [0.909 × q - (1-q)]`. Push estimates use earlier integer-line outcomes. Actual sportsbook prices may differ and can change the value of a bet. The probability refers to the displayed betting pick, not whether a team wins outright.
 
-Candidates are ranked by expected profit. The normal combined limit is three per NFL week, with up to two spreads and one total. Additional candidates may exceed these normal limits only at a stronger 55% probability floor; there is no separate hard ceiling of five. This is not a weekly minimum: thin slates can have fewer or no Locks. Preserved picks near kickoff retain their original version and Lock status and count toward weekly capacity.
+Candidates are ranked by expected profit. The hard combined limit is three per NFL week, with up to two spreads and one total. Higher confidence does not override these limits. Small model advantages can produce long stretches with few or no NFL Locks; the limit is not a quota. Preserved picks near kickoff retain their original version and Lock status and count toward weekly capacity.
 
 A **Lock** is a selective category, not a guarantee. Historical comparisons guided these rules, but repeated experimentation and limited samples mean future profitability is not established.
 
@@ -102,12 +98,16 @@ Each team's simulated win percentage is the average of its win probabilities acr
 
 ## Ideas for the future
 
-- Add more player-specific data beyond quarterbacks to better account for injuries and trades
+- Add announced starters and player-specific information with reliable pregame timestamps to account for injuries and trades
 - Include explosiveness and more third-down-specific features
 - Add position-group metrics to identify matchup advantages
 - Improve how rookie and low-sample players are represented
 - Reduce dependence on market information where predictive quality allows
 - Add opening lines and public-positioning data to better measure changes in market sentiment
+
+## Limits of historical evaluation
+
+Walk-forward comparisons recreate weekly decisions using currently available historical feed values. They cannot recover every intraday line, injury update, or later data correction exactly as it appeared at the time. Repeated experiments on the same seasons also create selection risk. Score-error improvements and past winning records support model development, but neither guarantees that the next season will improve or be profitable.
 
 ## Glossary
 

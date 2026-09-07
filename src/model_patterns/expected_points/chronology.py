@@ -11,6 +11,11 @@ from sklearn.model_selection import PredefinedSplit
 from src.sports.football.kickoff import parse_eastern_kickoffs
 
 
+# Historical feeds do not retain exact result publication timestamps. Use the
+# same conservative availability assumption for fitting and historical replay.
+RESULT_AVAILABILITY_LAG = pd.Timedelta(hours=8)
+
+
 def sort_chronologically(frame: pd.DataFrame, *, time_col: str) -> pd.DataFrame:
     if time_col not in frame.columns:
         raise ValueError(f"Training frame is missing chronological column: {time_col}")
@@ -41,7 +46,9 @@ def chronological_train_test_split(
         raise ValueError("Chronological split requires at least two distinct kickoff times")
 
     candidates: list[tuple[int, int, pd.Timestamp]] = []
-    for cutoff in unique_kickoffs.iloc[1:]:
+    for previous, cutoff in zip(unique_kickoffs.iloc[:-1], unique_kickoffs.iloc[1:]):
+        if previous + RESULT_AVAILABILITY_LAG >= cutoff:
+            continue
         candidate_rows = int((kickoffs >= cutoff).sum())
         candidates.append(
             (
@@ -50,6 +57,8 @@ def chronological_train_test_split(
                 cutoff,
             )
         )
+    if not candidates:
+        raise ValueError("Chronological split requires a result-availability gap greater than eight hours")
     _, _, cutoff = min(candidates)
     test_mask = kickoffs >= cutoff
     train = ordered.loc[~test_mask].copy()

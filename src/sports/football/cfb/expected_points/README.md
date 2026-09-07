@@ -5,6 +5,11 @@ persistence workflow. CFB-specific acquisition and feature preparation remain in
 runs use strict validation, chronological training splits, and the direct CFBD client described in the repository
 README and `AGENTS.md`.
 
+Score and confidence validation boundaries require more than eight hours between training and validation kickoffs,
+matching historical replay's result-availability assumption. Every game remains in one partition. Historical cutoff
+fitting applies the same lag; exact result publication times are not reconstructed. The score pipeline rotates both
+suffix-named team inputs and prefix-named pregame Elo inputs toward the team whose points are being predicted.
+
 The CFB recipe uses opponent-adjusted offense/defense explosiveness, overall PPA, and success rate.
 Existing explosiveness names stay stable; new efficiency columns use the same descriptive EWMA naming convention.
 The shared transform fits ridge offense/defense effects from strictly earlier games and applies half of the
@@ -167,13 +172,18 @@ The optional `smoothing_span` adjustment parameter overrides the base EWMA span 
 10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
 sets the same lever. Changing it requires new candidate features and normal comparison evidence.
 
-## Version 2.1 betting probabilities
+## Version 2.2 candidate score and betting models
 
-Spread probabilities use `q=.5+.1*F(e)`, where `e` is the absolute execution-line edge and `F` is the absolute margin
-error CDF on the chronological score holdout. Symmetric errors and the 80% discount toward even chance are modeling
-assumptions. Totals use a shrunken historical rate with Locks disabled. Locks require q>=.525, positive expected units
-at assumed -110, and two corroborating sportsbook quotes. The normal combined limit is three spreads; q>=.55 permits
-extras without a hard five-bet ceiling. Started Locks retain their version/status and count toward weekly capacity.
+The score model learns market-implied-point residuals with ridge regression. One chronological inner split selects
+alpha and relative team-feature shrinkage; training-only imputation/scaling/encoding stays inside the estimator.
+Each outer-holdout week refits the selected score parameters on available earlier results without retuning. The
+final production score refit uses all eligible completed games. Home/away Elo inputs rotate with the predicted team.
+
+Both spread and total probabilities use `q=.5+.5*sign(e)*F(abs(e))`, with pick-aligned execution edge `e` and the
+market-specific absolute-error CDF from those chronological weekly forecasts. Symmetry is a modeling assumption,
+not proof of calibration. Negative execution advantage cannot become a Lock even when the quote is corroborated.
+Locks require q>=.525, positive expected units at assumed -110, and two corroborating sportsbook quotes. The hard
+combined limit is three, including at most one total. Started Locks retain their version/status and consume capacity.
 
 ## Lightweight Lock replay
 
@@ -185,3 +195,6 @@ labels all evaluated seasons as exposed research. New standard runs retain check
 those exact calibration inputs. Older caches support weekly-history research, not identical production calibration
 history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
 documents controls, provenance, uncertainty and mandatory production-path comparisons.
+
+
+CFB Elo inputs are built by `build_weekly_pregame_elo` in `features.py`. Every game in a season/week shares the opening-kickoff rating snapshot, using only completed results older than eight hours. Initial FBS/FCS ratings, K25, rounding, history exclusions, and chronological postgame diagnostics are retained. Postgame columns are never score inputs. This prevents opening-week double appearances from using an intervening result in a weekly forecast.

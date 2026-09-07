@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.model_patterns.expected_points.betting import determine_plays
+from src.model_patterns.expected_points.betting import determine_plays, directional_bet_edge
 from src.model_patterns.expected_points.types import PlayThresholds
 from src.sports.football.cfb.expected_points.betting_lines import (
     OPTIONAL_CONFIDENCE_FEATURE_GROUPS,
@@ -40,6 +40,67 @@ def with_predictions(markets, *, home=27.0, away=21.0):
         home_score_pred=home,
         away_score_pred=away,
     )
+
+
+@pytest.mark.parametrize("market,play,expected", [
+    ("spread", "H", 3.0), ("spread", "A", -3.0),
+    ("total", "over", 5.0), ("total", "under", -5.0),
+    ("spread", None, None), ("total", "None", None),
+])
+def test_execution_edge_follows_the_actual_pick_direction(market, play, expected):
+    frame = pd.DataFrame({
+        "home_team": ["H"], "away_team": ["A"],
+        "spread_line": [-3.0], "spread_pred": [-6.0],
+        "total_line": [50.0], "total_pred": [55.0], f"{market}_play": [play],
+    })
+    edge = directional_bet_edge(frame, market).iloc[0]
+    assert pd.isna(edge) if expected is None else edge == expected
+    frame[f"{market}_line"] = float("inf")
+    assert pd.isna(directional_bet_edge(frame, market).iloc[0])
+
+
+def test_supported_execution_cluster_can_oppose_consensus_pick_without_positive_edge():
+    markets = assemble_cfb_betting_markets(pd.DataFrame([game([
+        quote(provider, -3.0, total)
+        for provider, total in zip(
+            ["Bovada", "DraftKings", "Caesars", "ESPN Bet", "William Hill"],
+            [52.0, 53.0, 64.0, 68.0, 72.0],
+        )
+    ])]))
+    frame = scores_to_cfb_bets(with_predictions(markets, home=33.0, away=30.0))
+    row = frame.iloc[0]
+    assert row["total_reference_line"] == 64.0
+    assert row["total_play"] == "under"
+    assert row["total_line"] == 53.0
+    assert row["total_market_supported"]
+    assert row["total_diff"] == -10.0
+    frame = frame.assign(spread_win_prob=60.0, total_win_prob=90.0)
+    selected = determine_plays(frame, PlayThresholds(
+        min_spread_diff=0, min_total_diff=0, max_combined_plays=3,
+    ))
+    assert selected.iloc[0]["total_lock"] == 0
+
+
+@pytest.mark.parametrize("invalid_total", [-1.0, 0.0])
+def test_nonpositive_totals_cannot_make_a_game_eligible(invalid_total):
+    markets = assemble_cfb_betting_markets(
+        pd.DataFrame([game([quote("Bovada", 0.0, invalid_total)])])
+    )
+    assert markets.empty
+
+
+def test_invalid_total_quotes_do_not_contaminate_consensus_or_support():
+    markets = assemble_cfb_betting_markets(pd.DataFrame([game([
+        quote("Bovada", 0.0, -1.0, total_open=-1.0),
+        quote("DraftKings", 0.0, 50.0, total_open=49.0),
+    ])]))
+    row = markets.iloc[0]
+    assert row["spread_reference_line"] == 0.0
+    assert row["spread_quote_count"] == 2
+    assert row["total_reference_line"] == 50.0
+    assert row["total_open_line"] == 49.0
+    assert row["total_quote_count"] == 1
+    assert not row["total_market_supported"]
 
 
 def test_consensus_direction_then_shops_best_corroborated_lines():

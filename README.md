@@ -112,8 +112,11 @@ schema-to-code rollout. Run it when no model update is active to avoid waiting o
 
 ## Expected Points Workflows
 
-Version 2.1 keeps the score model unchanged and separates betting probabilities/Lock selection into small shared
-heads. Locks target roughly 2–3 combined weekly picks, not a forced quota; stronger candidates can exceed five.
+The 2.2 candidate uses market-residual ridge score models and shared residual-distribution probability heads.
+NFL retains its conservative trust0.2 discount; CFB uses the full symmetric error distribution. NFL excludes
+game-observed quarterback ratings and roof status, and CFB freezes Elo before each week’s first kickoff.
+Locks have a hard combined weekly cap of three, with at most one total and, for NFL, at most two spreads.
+The aim is selective opportunities, not a forced quota.
 Use `make replay-expected-points-locks LEAGUE=nfl` (or `cfb`) for frozen-score research, with the deployed release as
 the default anchor. `LOCK_SOURCE=version:2.0` pins the earlier cache. The
 [Lock replay guide](docs/expected-points-backtesting.md#lightweight-lock-method-replay) explains cadence screens,
@@ -240,12 +243,15 @@ separate market-snapshot table is used. Games at or after kickoff are removed be
 pick exists.
 
 Both football models tune the score estimator with one predefined chronological validation split inside the earlier
-score-training period. A separate outer holdout is strictly later than those training games and supplies genuine
-out-of-time score errors and resolved betting outcomes to the probability heads. Version 2.1 fits the residual-based
-heads and CFB total base rate on that holdout without classifier GridSearch. After parameter selection and evaluation,
-the production score model is refit once on all completed games without repeating GridSearch. Legacy confidence
-classifiers retain a chronological validation split and full-holdout refit. This is intentionally a low-cost temporal
-evaluation design rather than full out-of-fold backtesting.
+score-training period. Each training/validation boundary has a gap greater than eight hours between kickoffs so
+earlier game results are treated as available before the first validation prediction. The same conservative lag
+applies to ordinary training, historical cutoff fits, and Lock replay; it is not an exact reconstruction of result publication times.
+Every game remains assigned to one training or validation partition. The later outer score holdout supplies
+out-of-time score errors and resolved betting outcomes to the probability heads. Within that holdout, the 2.2
+candidate refits the selected score estimator before each historical week using only results available then.
+Score parameters remain fixed throughout this pass; no second GridSearch occurs. Both markets use these weekly
+errors for their probability distributions. After evaluation, the production score model refits on all completed
+games. Legacy confidence classifiers retain their chronological validation and full-holdout refit paths.
 
 Every normal expected-points train also reports a chronology-safe health slice. Team-score, margin, and total
 MAE/RMSE/bias come from the outer score holdout. Confidence, calibration, and lock metrics come from a later untouched
@@ -320,7 +326,7 @@ The runner is read-only with respect to Supabase. It uses currently available hi
 labels its output as a weekly pre-first-kickoff approximation rather than exact intraday line or roster replay.
 
 The retained CFB classifier feature experiments use the selected execution-line edge and tune with log loss; these
-legacy classifiers are not the version 2.1 production probability heads.
+legacy classifiers are separate from the residual-distribution production probability heads.
 Raw home moneyline is not an eligibility gate; paired provider moneylines are converted to an optional median no-vig
 home probability with an explicit missing indicator. Opening-line, movement, market-depth, and no-vig feature groups
 must pass a genuine out-of-time gate before production use: pooled Brier score improves by at least one percent, log

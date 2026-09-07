@@ -161,13 +161,16 @@ class NFLExpectedPointsRecipe:
         missing = sorted(set(ewma_features) - set(frame.columns))
         if missing:
             raise ValueError(f"NFL selected efficiency features are missing: {missing}")
-        cat_features = ["roof", "weekday"]
+        # Schedule QB identities come from game participation, and roof can
+        # encode the actual open/closed decision. Neither has a reliable
+        # pregame snapshot here; keep them as notebook diagnostics only.
+        cat_features = ["weekday"]
         betting_features = [
             "moneyline_home", "spread_line", "spread_odds_home", "total_line", "over_odds",
         ]
         other_features = [
             "rest_away", "rest_home", "div_game", "implied_points_home",
-            "implied_points_away", "ewma_qbr_home", "ewma_qbr_away",
+            "implied_points_away",
         ]
         features = other_features + cat_features + ewma_features + betting_features
         input_features = features + ["moneyline_away", "spread_odds_away"]
@@ -186,6 +189,14 @@ class NFLExpectedPointsRecipe:
             away_prediction_features=input_features,
             prediction_now=prediction_now,
             league=self.league,
+            score_target="market_residual",
+            score_estimator="ridge",
+            score_holdout_method="walk_forward",
+            score_team_features=ewma_features,
+            score_param_grid={
+                "ridge__alpha": [10.0, 100.0, 1000.0, 10000.0],
+                "columntransformer__transformer_weights": [{"team": 0.0}, {"team": 0.25}, {"team": 1.0}],
+            },
             spread_lock_head=LockHeadConfig(family="symmetric_residual", parameters={"trust": 0.2}, locks_enabled=True),
             total_lock_head=LockHeadConfig(
                 family="symmetric_residual",
@@ -200,7 +211,7 @@ class NFLExpectedPointsRecipe:
                 min_total_win_prob=52.5,
                 min_spread_win_prob=52.5,
                 max_combined_plays=3,
-                extra_lock_min_probability=0.55,
+                extra_lock_min_probability=None,
             ),
         )
 

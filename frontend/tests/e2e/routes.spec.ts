@@ -68,8 +68,8 @@ test("legacy model information redirects into the NFL section", async ({ page })
   await page.goto("/models/info");
   await expect(page).toHaveURL(/\/models\/nfl\/how-it-works$/);
   await expect(page.getByRole("heading", { name: "NFL Expected Points Model" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Feature importance" })).toBeVisible();
-  await expect(page.getByAltText("Model feature importances")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Other inputs and missing history" })).toBeVisible();
+  await expect(page.getByAltText("Dynamic moving-average window example")).toBeVisible();
 
   await page.goto("/models/nfl/insights");
   await expect(page.getByRole("heading", { name: "Power rankings" })).toBeVisible();

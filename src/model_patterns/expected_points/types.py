@@ -67,6 +67,10 @@ class ExpectedPointsConfig:
     score_n_jobs: int = -1
     confidence_n_jobs: int = -1
     confidence_scoring: str | None = None
+    score_target: str = "points"
+    score_estimator: str = "lightgbm"
+    score_team_features: list[str] = field(default_factory=list)
+    score_holdout_method: str = "static"
     betting_transform: Callable[[pd.DataFrame], pd.DataFrame] | None = None
     prediction_now: pd.Timestamp | None = None
     score_param_grid: dict[str, list] = field(

@@ -474,6 +474,22 @@ outputs or execution counts.
 
 ## Fidelity limits
 
+
+The 2.2 candidate uses market-residual ridge with preprocessing fitted inside the chronological partitions.
+`score_holdout_method="walk_forward"` refits the selected estimator before each outer-holdout season/week using
+available earlier results, without another GridSearch. Saved score-holdout frames retain those weekly forecasts
+and their training-through/row-count traces. A subsequent confidence-health tail tests heads fitted on its earlier
+portion; the final score estimator still refits on all eligible completed games. Generic configurations retain
+`score_holdout_method="static"` for legacy recipes.
+
+Score tuning, the outer score holdout, and confidence health/tuning splits require a gap greater than eight hours
+between the final training kickoff and first validation kickoff. Every game remains in exactly one partition; the
+split chooses the nearest eligible boundary to the requested validation fraction. Ordinary training and historical cutoff fitting also
+require kickoff plus eight hours to precede the prediction timestamp, matching the Lock replay availability assumption.
+Ordinary training retains its prior-season/prior-week restriction as well; week labels cannot bypass the time guard. This
+conservative lag prevents learning from games still in progress at adjacent kickoff times, but does not establish
+exact historical result-publication timestamps or account for every unusually delayed game.
+
 Each simulated week freezes immediately before its earliest kickoff and predicts the full weekly slate once. The
 source frame is loaded once; cutoffs filter that in-memory frame rather than calling APIs weekly. Historical feeds can
 contain corrected or final line/roster values, so reports describe the result as a weekly approximation, not an exact
