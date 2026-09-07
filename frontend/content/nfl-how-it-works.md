@@ -22,7 +22,7 @@ A separate, later score holdout supplies confidence-training forecasts. Before e
 
 If the model projects San Francisco to win by 4.6 points while the market offers San Francisco +1.5, the displayed spread pick is **San Francisco +1.5**. The number shown first is always the actionable market line; the underlying model projection remains available in the game details.
 
-Totals work the same way. A projected total above the market line produces an Over pick, while a lower projection produces an Under pick.
+Totals work the same way. A projected total above the market line produces an Over pick, while a lower projection produces an Under pick. An exact match produces an Over pick with zero model edge and, when the probability model is ready, 50% resolved-win probability. Choosing a side does not add confidence; a final score exactly on the line still grades as a push.
 
 ## Prediction update cadence
 
@@ -60,7 +60,7 @@ The adjusted game performances then pass through the moving averages below. The 
 
 ### Early-season ratings and information timing
 
-Ratings use only games played before the opening kickoff of the target game week. As new weeks arrive, earlier performances are reassessed using the opponent estimates available then; future games never enter an earlier week's estimate.
+Opponent ratings and efficiency histories use only results available before the opening kickoff of the target game week, allowing more than eight hours after each historical kickoff. As new weeks arrive, earlier performances are reassessed using the opponent estimates available then; future games never enter an earlier week's estimate.
 
 Previous seasons help when current-season evidence is scarce. In the opponent-rating fit, each season back halves a game's weight: a prior-season game receives half the weight of a current-season game, and a game two seasons back receives a quarter. Ridge also limits unsupported effects. An opponent with no estimated effect receives a neutral correction. This cannot fully account for roster turnover or guarantee an accurate early-season rating.
 

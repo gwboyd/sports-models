@@ -423,7 +423,7 @@ def scores_to_cfb_bets(results: pd.DataFrame) -> pd.DataFrame:
     output["total_play"] = output.apply(
         lambda row: "under"
         if row["total_pred"] < row["total_reference_line"]
-        else ("over" if row["total_pred"] > row["total_reference_line"] else None),
+        else ("over" if row["total_pred"] >= row["total_reference_line"] else None),
         axis=1,
     )
 

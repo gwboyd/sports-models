@@ -26,7 +26,7 @@ def scores_to_bets(results: pd.DataFrame) -> pd.DataFrame:
         lambda row: row["home_team"] if row["spread_pred"] < row["spread_line"] else row["away_team"], axis=1
     )
     output["total_play"] = output.apply(
-        lambda row: "under" if row["total_pred"] < row["total_line"] else ("over" if row["total_pred"] > row["total_line"] else None),
+        lambda row: "under" if row["total_pred"] < row["total_line"] else ("over" if row["total_pred"] >= row["total_line"] else None),
         axis=1,
     )
     output["spread_diff"] = (output["spread_line"] - output["spread_pred"]).abs()

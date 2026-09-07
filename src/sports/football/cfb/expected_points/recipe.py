@@ -164,10 +164,10 @@ class CFBExpectedPointsRecipe:
             },
             spread_lock_head=LockHeadConfig(
                 family="symmetric_residual",
-                parameters={"trust": 1.0},
+                parameters={"trust": 0.2},
                 locks_enabled=True,
             ),
-            total_lock_head=LockHeadConfig(family="symmetric_residual", parameters={"trust": 1.0}, locks_enabled=True),
+            total_lock_head=LockHeadConfig(family="symmetric_residual", parameters={"trust": 0.2}, locks_enabled=True),
             play_thresholds=PlayThresholds(
                 max_spreads_plays=None,
                 max_total_plays=None,
