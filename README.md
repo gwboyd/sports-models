@@ -112,7 +112,7 @@ schema-to-code rollout. Run it when no model update is active to avoid waiting o
 
 ## Expected Points Workflows
 
-The 2.2 candidate uses market-residual ridge score models and shared residual-distribution probability heads.
+The 2.2 candidate predicts actual team points directly with ridge regression and optional sportsbook features; shared score-error probability heads translate forecasts into betting confidence.
 Both leagues use trust 0.2 (80% shrinkage toward 50%) with half-strength ridge opponent adjustment. NFL excludes
 game-observed quarterback ratings and roof status, and CFB freezes Elo before each week’s first kickoff.
 Both leagues rank supported spread/total picks together by estimated win probability and select three when

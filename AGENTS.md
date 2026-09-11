@@ -246,7 +246,9 @@ eight hours between the last training kickoff and first validation kickoff so ea
 results are treated as available before fitting the validation forecast. The split keeps every game in one partition
 and chooses the nearest eligible boundary; historical cutoff fitting applies the same eight-hour availability lag.
 This matches Lock replay's conservative assumption and is not an exact reconstruction of result publication times.
-The 2.2 candidate score model is market-residual ridge with chronological selection of L2 penalty and the
+The 2.2 candidate score model predicts actual points directly with ridge regression and optional sportsbook features.
+There is no market-score offset. `include_sportsbook_features=False` refits without sportsbook-derived score inputs;
+market lines remain downstream betting/evaluation inputs. Power rankings are unchanged. Chronology selects L2 penalty and the
 team-feature group's relative shrinkage. Numeric imputation, missing indicators, scaling, and categorical encoding
 fit inside each training partition. Earlier outer-holdout weeks can train later holdout forecasts only after result
 availability; the selected score parameters stay fixed, with no repeated GridSearch. Both leagues use these

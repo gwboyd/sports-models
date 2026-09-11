@@ -181,10 +181,14 @@ sets the same lever. Changing it requires new candidate features and normal comp
 
 ## Version 2.2 candidate score and betting models
 
-The score model learns market-implied-point residuals with ridge regression. One chronological inner split selects
+The score model learns actual team points with ridge regression; sportsbook-implied points are optional inputs. One chronological inner split selects
 alpha and relative team-feature shrinkage; training-only imputation/scaling/encoding stays inside the estimator.
 Each outer-holdout week refits the selected score parameters on available earlier results without retuning. The
 final production score refit uses all eligible completed games. Home/away Elo inputs rotate with the predicted team.
+
+Set `include_sportsbook_features=False` on the league recipe or in the notebook parameters to refit the
+score model using analytics alone. This removes every sportsbook-derived score input; it does not fill lines
+with zeros or remove markets from downstream betting evaluation. The normal release keeps this parameter true.
 
 Both spread and total probabilities use `q=.5+.1*sign(e)*F(abs(e))`, with pick-aligned execution edge `e` and the
 market-specific absolute-error CDF from those chronological weekly forecasts. Trust 0.2 shrinks the symmetric

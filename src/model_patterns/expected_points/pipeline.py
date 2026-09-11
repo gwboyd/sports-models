@@ -123,8 +123,8 @@ class ScorePipeline(Pipeline):
         baseline = self._market_baseline(X) if self.score_target == "market_residual" else None
         predictions = super().predict(X, **params)
         if baseline is not None:
-            return np.maximum(0.0, np.asarray(predictions) + baseline)
-        return predictions
+            predictions = np.asarray(predictions) + baseline
+        return np.maximum(0.0, predictions)
 
     def predict_scores(self, X, team: str):
         X = X.copy()

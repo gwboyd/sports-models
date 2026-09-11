@@ -76,6 +76,7 @@ class CFBExpectedPointsRecipe:
     protocol_version: str = "2"
     league: ExpectedPointsLeague = ExpectedPointsLeague.CFB
     efficiency_metrics: tuple[str, ...] = DEFAULT_CFB_EFFICIENCY_METRICS
+    include_sportsbook_features: bool = True
     minimum_weekly_locks: int = 3
     maximum_weekly_locks: int = 10
     extra_lock_min_probability: float | None = .57
@@ -122,16 +123,18 @@ class CFBExpectedPointsRecipe:
         missing = sorted(set(ewma_features) - set(frame.columns))
         if missing:
             raise ValueError(f"CFB selected efficiency features are missing: {missing}")
-        cat_features = [column for column in ("weekday",) if column in frame.columns]
+        cat_features = ["pred_team"] + [column for column in ("weekday",) if column in frame.columns]
         other_features = [
             column
             for column in (
-                "conference_game", "implied_points_home", "implied_points_away",
+                "conference_game",
                 "home_pregame_elo", "away_pregame_elo",
             )
             if column in frame.columns
         ]
         features = other_features + cat_features + ewma_features
+        if self.include_sportsbook_features:
+            features += ["implied_points_home", "implied_points_away"]
         confidence_market_features = [
             "spread_reference_line", "total_reference_line", "spread_line", "total_line",
         ]
@@ -154,7 +157,7 @@ class CFBExpectedPointsRecipe:
             betting_transform=scores_to_cfb_bets,
             prediction_now=prediction_now,
             league=self.league,
-            score_target="market_residual",
+            score_target="points",
             score_estimator="ridge",
             score_holdout_method="walk_forward",
             score_team_features=[column for column in ewma_features + ["home_pregame_elo", "away_pregame_elo"] if column in features],

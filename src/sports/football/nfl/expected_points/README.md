@@ -9,7 +9,7 @@ Score and confidence validation boundaries require more than eight hours between
 matching the historical replay assumption for result availability. The split retains all games in one of the two
 partitions. Historical cutoff fitting applies the same lag; exact result publication times are not reconstructed.
 
-The score model uses play-by-play data beginning in 2010. Market-implied points anchor its forecast; EPA, success rate, rest, and market/context inputs help estimate a regularized correction.
+The score model uses play-by-play data beginning in 2010. EPA, success rate, rest, and optional sportsbook/context inputs predict actual team points through a regularized fit.
 
 Starting-quarterback ratings and actual roof status are excluded from the score recipe because the available feed does not preserve reliable pregame snapshots for those fields. Notebook diagnostics retain those columns.
 
@@ -86,12 +86,17 @@ Kickoffs are stored as `America/New_York` wall time for both football leagues. N
 source timezone and are validated during frame preparation; comparisons with the current instant are timezone-aware.
 Games at or after kickoff never enter the live prediction frame.
 
+Set `include_sportsbook_features=False` on the league recipe or in the notebook parameters to refit the
+score model using analytics alone. This removes every sportsbook-derived score input; it does not fill lines
+with zeros or remove markets from downstream betting evaluation. The normal release keeps this parameter true.
+Power rankings retain their existing separate workflow.
+
 ## Temporal Training and Evaluation
 
 Completed games are sorted by kickoff. The latest 20% form an outer score-model holdout. One chronological
 validation split inside the earlier 80% selects ridge alpha and relative shrinkage of the team-feature group.
 Preprocessing, including American-odds conversion, training-only imputation/scaling, and categorical encoding,
-remains inside the fitted score pipeline. The score target is the residual from market-implied team points.
+remains inside the fitted score pipeline. The score target is actual team points. Sportsbook inputs are removable features, not a fixed prediction offset.
 
 Before each outer-holdout week, the selected estimator refits on results available then without another GridSearch.
 These weekly out-of-time forecasts train separate margin/total error distributions. The confidence-health tail
@@ -220,9 +225,10 @@ The score model uses EPA per play and success rate, split across offense/defense
 
 In the **charts** section, there should be some graphics that show Offensive and Defensive EPA metrics for teams as the model currently sees them. These can be helpful if you are trying to peel back the curtain and understand why the model made a certain pick.
 
-### Score adjustment weights
+### Score model weights
 
-The ridge score model adds linear matchup corrections to market-implied points and penalizes large coefficients.
+The direct ridge score model learns actual points from matchup inputs and penalizes large coefficients.
+Sportsbook-implied points are ordinary features with learned weights, without a fixed market-score offset.
 Its coefficients depend on training-only scaling and correlated inputs; they should not be interpreted as causal
 feature importance. The old tree-feature-importance chart does not describe this score estimator.
 

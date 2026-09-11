@@ -4,17 +4,19 @@ This page describes the **2.2 methodology**. Each saved pick keeps the model ver
 
 The model predicts **how many points each NFL team should score in a matchup**. Those expected scores produce a projected final score, spread, and total. The model then compares its forecast with the available market lines to select a side and total for every game.
 
-The score model uses play-by-play and game-level data beginning in 2010. Market-implied points provide its starting forecast. Expected Points Added (EPA), success rate, rest, and matchup context help it learn adjustments from earlier games.
+The score model uses play-by-play and game-level data beginning in 2010. Expected Points Added (EPA), success rate, rest, matchup context, and optional sportsbook information help it learn team scores from earlier games.
 
 After the picks are made, separate spread and total probability models use unseen-game score errors to estimate betting confidence. Locks highlight the top three supported spread and total opportunities combined each week, ranked by estimated win probability. That selection rule can include picks below estimated break-even.
 
 ## How the score model learns
 
-A ridge-regression score model starts with the points implied by the market spread and total, then learns a correction from the matchup inputs. For a home spread `s` and total `t`, the market-implied scores are `(t-s)/2` for the home team and `(t+s)/2` for the away team. The final forecast is **market-implied points + learned adjustment**, floored at zero.
+A ridge-regression score model learns to predict each team's actual points directly. Sportsbook-implied points are ordinary inputs alongside football information; there is no fixed market-score starting value added to the prediction. For a home spread `s` and total `t`, the implied-point features are `(t-s)/2` and `(t+s)/2`. The model learns their weights from training data, and forecasts are floored at zero. It can also be retrained with every sportsbook-derived score feature removed; that is a separate fit, rather than replacing lines with zero during prediction.
 
-Ridge penalizes large coefficients so weak or noisy evidence produces smaller adjustments. The model selects the penalty and how strongly to shrink the team-performance inputs using one chronological validation split inside the earlier training history. It can reduce the entire team-performance group to zero when that earlier validation favors market and context inputs. These choices are made again as training history grows; they are not chosen from the upcoming games.
+The forecast is `max(0, intercept + sum(weight × input))`. The normal release includes sportsbook features, and it can still learn to give them substantial weight. Removing them requires retraining; the betting workflow still needs lines to select and grade bets.
 
-Each game contributes a home-team and an away-team scoring example. Both examples stay together in every chronological split, and team-specific inputs rotate with the team being predicted. Numerical inputs use medians and scales fitted only on the training partition, with indicators for missing values. Categorical inputs use a separate missing category; an unseen category can be handled without learning from the prediction slate.
+Ridge penalizes large coefficients so weak or noisy inputs receive smaller weights. The model selects the penalty and how strongly to shrink the team-performance inputs using one chronological validation split inside the earlier training history. It can reduce the entire team-performance group to zero when that earlier validation favors market and context inputs. These choices are made again as training history grows; they are not chosen from the upcoming games.
+
+Each game contributes a home-team and an away-team scoring example. Both examples stay together in every chronological split, and team-specific inputs rotate with the team being predicted. A home/away indicator lets the model learn venue context independently of the lines. Numerical inputs use medians and scales fitted only on the training partition, with indicators for missing values. Categorical inputs use a separate missing category; an unseen category can be handled without learning from the prediction slate.
 
 A separate, later score holdout supplies confidence-training forecasts. Before each historical week in that holdout, the score model refits on the games available then using the already selected settings. It does not retune on the holdout. Earlier holdout results can inform later weeks only after they become available. A later confidence-health tail checks the probability and Lock selection process. Historical fitting assumes results become available eight hours after kickoff, and split boundaries allow that gap. Finally, the score model refits on eligible completed games before forecasting the upcoming slate. Ordinary training also applies the eight-hour availability guard at the prediction timestamp; an earlier week label cannot admit a postponed or still-unavailable result.
 
@@ -56,7 +58,7 @@ The offense and defense estimates are fitted together across the schedule. This 
 
 For an offensive performance, the model removes half of the estimated opposing defense effect. For a defensive performance, it removes half of the opposing offense effect. For example, if an opponent is estimated to inflate offensive EPA by 0.10 points per play, an observed 0.20 becomes 0.15 after the half-strength correction. This is an illustration, not a current team rating.
 
-The adjusted game performances then pass through the moving averages below. The ridge regression prepares the efficiency inputs; the separate ridge score model uses those inputs and other matchup information to adjust market-implied points.
+The adjusted game performances then pass through the moving averages below. The ridge regression prepares the efficiency inputs; the separate ridge score model uses those inputs and other matchup information to predict team points directly.
 
 ### Early-season ratings and information timing
 
