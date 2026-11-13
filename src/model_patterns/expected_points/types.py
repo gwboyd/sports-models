@@ -24,7 +24,9 @@ class PlayThresholds:
     min_total_win_prob: float = 55.0
     max_combined_plays: int | None = None
     extra_lock_min_probability: float | None = None
+    hard_max_combined_plays: int | None = None
     american_odds: int = -110
+    min_combined_plays: int = 0
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,10 @@ class ExpectedPointsConfig:
     score_n_jobs: int = -1
     confidence_n_jobs: int = -1
     confidence_scoring: str | None = None
+    score_target: str = "points"
+    score_estimator: str = "lightgbm"
+    score_team_features: list[str] = field(default_factory=list)
+    score_holdout_method: str = "static"
     betting_transform: Callable[[pd.DataFrame], pd.DataFrame] | None = None
     prediction_now: pd.Timestamp | None = None
     score_param_grid: dict[str, list] = field(

@@ -149,6 +149,20 @@ remain in the overall results. The goal is usually 2–3 per league across marke
 floor still applies and can leave a week empty. `--extra-lock-min-probability` allows stronger bets beyond the
 ordinary cap; without it the cap is hard. Historical -110 pricing is an assumption, not verified executable juice.
 
+The 2.2 recipe policy selects three supported combined spread/total picks per league when available, ranked
+by win probability, then expected units, edge and stable game keys. NFL stops at three; CFB admits extras at
+q>=.57 up to ten. The minimum bypasses probability/EV floors without changing forecasts; support, readiness and
+nonnegative execution edge still apply. The generic CLI cadence grid remains exploratory research with its own
+defaults, not an automatic reproduction of these settings. For an exact programmatic selection replay, use
+`LockPolicy(minimum_resolved_win_probability=.525, min_locks_per_week=3, max_locks_per_week=3,
+extra_lock_min_probability=.57, hard_max_locks_per_week=10)` for CFB. For NFL set the extra threshold to `None`
+and hard maximum to `3`. Reuse the recorded production head probabilities, push estimates, readiness and quote
+support. Started preserved selections consume minimum and capacity even when absent from refreshed decision rows.
+Each league recipe independently exposes `minimum_weekly_locks`, `maximum_weekly_locks` and
+`extra_lock_min_probability`. Changing them requires the standard comparison and a prepared model release.
+`PlayThresholds.min_combined_plays` and `LockPolicy.min_locks_per_week` default to zero, retaining the legacy
+expected-units ranking and probability/EV eligibility when an explicit minimum is absent.
+
 `--screen-cadence` exposes both development and confirmation seasons and does **not** select/promote a production
 model automatically. Its selection-adjustment limitation is explicit in `screen.json`. Source and code identities,
 all head parameters, policy settings, and the complete ledger are retained. Use the full standard comparison to
@@ -473,6 +487,59 @@ a filename allowlist. Release evidence should name a clean deployed Git SHA. Che
 outputs or execution counts.
 
 ## Fidelity limits
+
+
+The 2.2 candidate predicts actual team points with ridge and optional sportsbook features, with preprocessing fitted inside the chronological partitions.
+`score_holdout_method="walk_forward"` refits the selected estimator before each outer-holdout season/week using
+available earlier results, without another GridSearch. Saved score-holdout frames retain those weekly forecasts
+and their training-through/row-count traces. A subsequent confidence-health tail tests heads fitted on its earlier
+portion; the final score estimator still refits on all eligible completed games. Generic configurations retain
+`score_holdout_method="static"` for legacy recipes. Both leagues use trust 0.2 for their symmetric residual
+probability heads: `q=.5+.1*sign(edge)*F(abs(edge))`, with an 80% shrinkage toward 50%.
+
+Score tuning, the outer score holdout, and confidence health/tuning splits require a gap greater than eight hours
+between the final training kickoff and first validation kickoff. Every game remains in exactly one partition; the
+split chooses the nearest eligible boundary to the requested validation fraction. Ordinary training and historical cutoff fitting also
+require kickoff plus eight hours to precede the prediction timestamp, matching the Lock replay availability assumption.
+Ordinary training retains its prior-season/prior-week restriction as well; week labels cannot bypass the time guard. This
+conservative lag prevents learning from games still in progress at adjacent kickoff times, but does not establish
+exact historical result-publication timestamps or account for every unusually delayed game. Opponent-rating fits
+and smoothed efficiency histories use the same eight-hour guard at their weekly opening-kickoff snapshot. CFB also
+honors explicit completion status, keeping unfinished outcomes/statistics out of training, ratings and grading.
+The current CFB sources cover regular-season games, not bowls/playoffs.
+
+### Frozen-input estimator investigations
+
+For a controlled estimator study, `scripts/experiment_score_models.py` accepts an
+explicit checksummed `--frame`, completed ridge `--baseline`, new `--output`,
+`--league`, and `--variant ridge|tree|compact|blend`. `--seasons` defaults to
+`2023,2024,2025`; `--no-sportsbook` refits without sportsbook score inputs. The
+tree grid and compact matchup transformation are defined in that research script;
+production defaults are unchanged. `scripts/experiment_legacy_score_tree.py`
+retests the original direct-tree grid on explicit seasons, and
+`scripts/experiment_residual_score_tree.py` tests a learned ridge forecast plus
+a shallow tree correction, allowing zero contribution.
+
+These commands reuse the standard weekly fitter, inner chronological tuning,
+rolling score holdout, confidence/Lock policies and paired reports. They disable
+caching, save source snapshots, requests and per-cutoff tuning choices, and reject
+source changes during a run. Use this route only with a documented fixed-input
+research design, verified source provenance and an unchanged evaluation population.
+It does not replace normal release validation for a selected prediction change.
+
+`scripts/analyze_score_model_research.py <study-directory>` builds metric and
+forecast-correction tables. `scripts/diagnose_score_model_research.py` inspects the
+first cutoff's training-only fit; its validation selected parameters and is not
+independent evidence. `scripts/score_research_robustness.py` adds paired
+year-by-year, leave-one-year-out and season-then-week bootstrap diagnostics.
+Optional `--legacy-comparison nfl=<comparison-directory>` (repeat for CFB) includes
+an explicitly supplied comparison with ridge as baseline and trees as candidate, and pools it with a matching
+`<league>-legacy-tree-earlier` study run when present.
+All historical search exposure must remain disclosed. Reproducing deterministic
+forecasts checks implementation parity; it does not establish future performance.
+
+Exact model/decision-line total ties choose Over before any CFB execution shopping; zero execution edge retains
+q=0.5 for a ready residual head. Actual scoring pushes retain their original grading.
 
 Each simulated week freezes immediately before its earliest kickoff and predicts the full weekly slate once. The
 source frame is loaded once; cutoffs filter that in-memory frame rather than calling APIs weekly. Historical feeds can

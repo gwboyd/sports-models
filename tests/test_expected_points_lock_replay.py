@@ -72,6 +72,23 @@ def test_policy_allows_zero_locks_and_profit_uses_one_unit_risked():
     assert metrics["roi"] == pytest.approx(-1 / 22)
 
 
+def test_policy_breaks_numerically_equal_forecasts_by_stable_game_keys():
+    frame = _policy_frame((.56, .56))
+    frame["market"] = "total"
+    frame["edge"] = [2.0, 2.0 + 1e-12]
+    frame["resolved_win_probability"] = [.56, .56 + 1e-15]
+    frame["expected_units"] = [.06, .06 + 1e-15]
+    frame["kickoff"] = pd.Timestamp("2025-09-01", tz="UTC")
+    frame["game_id"] = ["a", "b"]
+    policy = LockPolicy(max_locks_per_week=1)
+    for rows in (frame, frame.iloc[::-1]):
+        selected = select_weekly_locks(rows, policy=policy)
+        assert selected.loc[selected.lock.eq(1), "game_id"].tolist() == ["a"]
+    frame.loc[1, "edge"] = 2.001
+    selected = select_weekly_locks(frame, policy=policy)
+    assert selected.loc[selected.lock.eq(1), "game_id"].tolist() == ["b"]
+
+
 def test_stronger_probability_can_exceed_five_without_forcing_a_quota():
     frame = _policy_frame((.59, .58, .57, .56, .555, .551, .54, .53))
     policy = LockPolicy(minimum_resolved_win_probability=.525, max_locks_per_week=3,
@@ -91,6 +108,40 @@ def test_preserved_locks_count_against_normal_capacity_but_allow_strong_extras()
     ), preserved=preserved)
     assert result["lock"].sum() == 4
     assert result.loc[0:2, "lock_reason"].eq("preserved").all()
+
+
+def test_hard_ceiling_limits_strong_extras_without_changing_probabilities():
+    frame = _policy_frame((.60,) * 24)
+    before = frame.copy(deep=True)
+    policy = LockPolicy(
+        minimum_resolved_win_probability=.525, max_locks_per_week=3,
+        extra_lock_min_probability=.55, hard_max_locks_per_week=10,
+    )
+    selected = select_weekly_locks(frame, policy=policy)
+    assert selected.lock.sum() == 10
+    pd.testing.assert_series_equal(selected.resolved_win_probability, frame.resolved_win_probability)
+    pd.testing.assert_frame_equal(frame, before)
+    assert select_weekly_locks(_policy_frame((.53,) * 24), policy=policy).lock.sum() == 3
+    assert select_weekly_locks(_policy_frame((.51,) * 24), policy=policy).lock.sum() == 0
+
+
+@pytest.mark.parametrize("preserved_count,expected", [(9, 10), (10, 10), (12, 12)])
+def test_preserved_selections_consume_hard_capacity(preserved_count, expected):
+    frame = _policy_frame((.60,) * 24)
+    preserved = frame.iloc[:preserved_count].assign(lock=1)
+    selected = select_weekly_locks(frame, policy=LockPolicy(
+        minimum_resolved_win_probability=.525, max_locks_per_week=3,
+        extra_lock_min_probability=.55, hard_max_locks_per_week=10,
+    ), preserved=preserved)
+    assert selected.lock.sum() == expected
+    assert selected.iloc[:preserved_count].lock.eq(1).all()
+
+
+def test_nfl_context_excludes_game_observed_quarterbacks_and_roof():
+    for group in ("context", "market"):
+        selected = lock_feature_set(ExpectedPointsLeague.NFL, group)
+        assert "roof" not in selected.all
+        assert not any("qbr" in column for column in selected.all)
 
 
 def test_extra_probability_overrides_positive_market_caps_but_not_disabled_markets():
@@ -128,6 +179,8 @@ def test_symmetric_residual_probabilities_are_monotone_shrunken_and_include_push
                                 history, numeric_features=("edge",))
     prediction = head.predict(pd.DataFrame({"edge": [0., 2., 5., 100.]}))
     np.testing.assert_allclose(prediction, [.5, .525, .575, .6])
+    adverse = head.predict(pd.DataFrame({"edge": [-5., -2., np.nan]}))
+    np.testing.assert_allclose(adverse, [.425, .475, .5])
 
 
 def test_outcome_probabilities_sum_to_one_and_require_positive_ev():
@@ -394,6 +447,7 @@ def test_wide_production_policy_uses_one_combined_cap():
             "date_time": f"2025-09-0{index + 1}-13:00",
             "spread_pred": -5.0 - index, "spread_line": -2.5,
             "total_pred": 50.0 + index, "total_line": 45.5,
+            "home_team": "H", "away_team": "A",
             "spread_play": "H", "total_play": "over",
             "spread_win_prob": 70.0 - index, "total_win_prob": 69.5 - index,
             "spread_locks_enabled": True, "total_locks_enabled": True,
@@ -417,6 +471,7 @@ def test_wide_production_policy_enforces_each_market_cap_within_combined_cap():
             "date_time": f"2025-09-0{index + 1}-13:00",
             "spread_pred": -10.0 - index, "spread_line": -2.5,
             "total_pred": 55.0 + index, "total_line": 45.5,
+            "home_team": "H", "away_team": "A",
             "spread_play": "H", "total_play": "over",
             "spread_win_prob": 70.0 - index, "total_win_prob": 69.5 - index,
             "spread_locks_enabled": True, "total_locks_enabled": True,

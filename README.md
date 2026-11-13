@@ -112,8 +112,15 @@ schema-to-code rollout. Run it when no model update is active to avoid waiting o
 
 ## Expected Points Workflows
 
-Version 2.1 keeps the score model unchanged and separates betting probabilities/Lock selection into small shared
-heads. Locks target roughly 2–3 combined weekly picks, not a forced quota; stronger candidates can exceed five.
+The 2.2 candidate predicts actual team points directly with ridge regression and optional sportsbook features; shared score-error probability heads translate forecasts into betting confidence.
+Both leagues use trust 0.2 (80% shrinkage toward 50%) with half-strength ridge opponent adjustment. NFL excludes
+game-observed quarterback ratings and roof status, and CFB freezes Elo before each week’s first kickoff.
+Both leagues rank supported spread/total picks together by estimated win probability and select three when
+available. NFL stops at three; CFB adds other picks with probability at least 57%, capped at ten. The first three
+can have negative expected value at assumed -110; their probabilities are never increased to meet the minimum.
+Fewer picks are possible when quote support, model readiness or the available slate prevents three selections.
+Each league recipe exposes `minimum_weekly_locks`, `maximum_weekly_locks` and `extra_lock_min_probability`.
+These are versioned recipe settings; changes require the normal comparison and release workflow.
 Use `make replay-expected-points-locks LEAGUE=nfl` (or `cfb`) for frozen-score research, with the deployed release as
 the default anchor. `LOCK_SOURCE=version:2.0` pins the earlier cache. The
 [Lock replay guide](docs/expected-points-backtesting.md#lightweight-lock-method-replay) explains cadence screens,
@@ -133,8 +140,10 @@ release during week 1. CFB data uses the direct REST client in
 `src/sports/football/cfb/expected_points/cfbd_client.py`, rather than a Python SDK. When CFBD adds a new game field,
 the notebook retains that API schema and represents the field as null for older historical CSV rows; the same
 alignment applies to advanced game-stat fields. Scheduled games retain their pregame Elo and never update team
-ratings until both final scores are available. Score-model training coerces final scores to numeric values and excludes
-any game missing or invalid for either target.
+ratings until both final scores are available. Explicit CFBD completion status also excludes unfinished scores and
+advanced statistics from training, ratings, efficiency history and grading; scheduled rows remain available for
+prediction. Score-model training coerces final scores to numeric values and excludes any game missing or invalid
+for either target. The current CFB workflow loads regular-season games; bowl/playoff performance is not covered.
 
 Available routes:
 
@@ -237,15 +246,19 @@ CFBD does not expose spread/total prices or provider-update timestamps, so "best
 corroborated point for the direction already selected, not the best expected payout. Provider, reference/opening
 lines, quote counts/ranges, support status, and selection reasons are retained in the existing pick-update JSON; no
 separate market-snapshot table is used. Games at or after kickoff are removed before prediction, even when no earlier
-pick exists.
+pick exists. Exact projected-total ties choose Over (against consensus for CFB, before normal quote shopping).
+The choice does not create an edge or increase confidence; final scores exactly on the execution line still push.
 
 Both football models tune the score estimator with one predefined chronological validation split inside the earlier
-score-training period. A separate outer holdout is strictly later than those training games and supplies genuine
-out-of-time score errors and resolved betting outcomes to the probability heads. Version 2.1 fits the residual-based
-heads and CFB total base rate on that holdout without classifier GridSearch. After parameter selection and evaluation,
-the production score model is refit once on all completed games without repeating GridSearch. Legacy confidence
-classifiers retain a chronological validation split and full-holdout refit. This is intentionally a low-cost temporal
-evaluation design rather than full out-of-fold backtesting.
+score-training period. Each training/validation boundary has a gap greater than eight hours between kickoffs so
+earlier game results are treated as available before the first validation prediction. The same conservative lag
+applies to ordinary training, historical cutoff fits, and Lock replay; it is not an exact reconstruction of result publication times.
+Every game remains assigned to one training or validation partition. The later outer score holdout supplies
+out-of-time score errors and resolved betting outcomes to the probability heads. Within that holdout, the 2.2
+candidate refits the selected score estimator before each historical week using only results available then.
+Score parameters remain fixed throughout this pass; no second GridSearch occurs. Both markets use these weekly
+errors for their probability distributions. After evaluation, the production score model refits on all completed
+games. Legacy confidence classifiers retain their chronological validation and full-holdout refit paths.
 
 Every normal expected-points train also reports a chronology-safe health slice. Team-score, margin, and total
 MAE/RMSE/bias come from the outer score holdout. Confidence, calibration, and lock metrics come from a later untouched
@@ -275,6 +288,9 @@ otherwise each run prepares fresh version-specific inputs. Comparisons retain in
 input bundles, requests, notebooks, status, and logs. Completed artifacts remain reusable after a later failure.
 For repeated opponent-adjustment research on frozen inputs, the backtesting guide also documents an optional
 experiment runner; it uses the same fitter and paired reports. The normal command above remains the default.
+The [frozen-input estimator guide](docs/expected-points-backtesting.md#frozen-input-estimator-investigations)
+documents controlled ridge/tree, matchup-feature and blend investigations with source snapshots, chronological
+tuning and season-sensitivity checks. These research commands do not change production defaults.
 An explicit [training-history study](docs/expected-points-backtesting.md#explicit-training-history-experiments)
 can add older CFB training rows while freezing existing features and evaluated games; it requires saved frame
 bundles and checks actual season coverage. The normal command also supports changes to earlier training windows:
@@ -320,7 +336,7 @@ The runner is read-only with respect to Supabase. It uses currently available hi
 labels its output as a weekly pre-first-kickoff approximation rather than exact intraday line or roster replay.
 
 The retained CFB classifier feature experiments use the selected execution-line edge and tune with log loss; these
-legacy classifiers are not the version 2.1 production probability heads.
+legacy classifiers are separate from the residual-distribution production probability heads.
 Raw home moneyline is not an eligibility gate; paired provider moneylines are converted to an optional median no-vig
 home probability with an explicit missing indicator. Opening-line, movement, market-depth, and no-vig feature groups
 must pass a genuine out-of-time gate before production use: pooled Brier score improves by at least one percent, log
@@ -334,11 +350,12 @@ contract drift, while `False` logs warnings for feed investigation. Leakage-prev
 and the ordering of lagged features—always fail when their time ordering cannot be proved.
 
 CFB advanced metrics are placed on the complete team-game schedule before lagging. Completed rows contribute the raw
-observations; scheduled rows receive an EWMA derived only from strictly earlier kickoffs. A current prediction row
+observations; opponent ratings and smoothed efficiency use only results whose kickoff plus eight hours precedes
+the opening kickoff of the target week. A current prediction row
 whose monitored efficiency features are all null is a contract failure instead of silently becoming a median-only
 prediction.
 
-The supplemental NFL power-ranking classifier also uses a predefined train-before-validation split. It is used only
+The supplemental NFL LightGBM power-ranking classifier also uses a predefined train-before-validation split. It is used only
 for chart generation and never supplies pick or confidence features.
 
 The mobile-first NFL and CFB frontend presents favorites, separate spread/total lock cards, and a single game-centered
@@ -548,12 +565,10 @@ provided; there is no post-deployment archive step.
 Release notes flow from `UNRELEASED.md` through the prepared `releases/vN.N.md` into
 `sports_models.model_releases`: the title maps to `title`, `## Public Summary` to `public_summary`, and `## Changes`
 to `changes_md`. Use a plain-language summary and 2–3 concise change bullets explaining meaningful implementation
-details, such as estimator family, chronological training, shrinkage, or selection thresholds. Optionally add one
-evaluation-versus-baseline bullet under `## Changes`, naming the baseline, period/population, assumptions, and material
-uncertainty or selection limitations. Use verified results for the actual recipe; omit the bullet if those caveats
-cannot fit responsibly. Avoid file paths, commands, infrastructure details, and experiment ledgers. Omitted optional
-headings become null `evaluation_md`/`internal_notes_md`; do not add separate evaluation/internal headings to new drafts.
-Keep complete evaluation evidence in Git-ignored
+details, such as estimator family, chronological training, shrinkage, or selection thresholds. Keep evaluation
+results, experiment controls, source paths, commands, and infrastructure details out of public release notes.
+Omitted optional headings become null `evaluation_md`/`internal_notes_md`; do not add separate evaluation/internal
+headings to new drafts. Keep complete evaluation evidence and its limitations in Git-ignored
 `.backtests/expected_points/reports/`. The manifest selects versions; the Markdown title does not. Deployment supplies
 the model key, major/minor numbers, verified source SHA, and deployment timestamp; no manual release-row SQL is needed.
 

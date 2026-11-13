@@ -1,6 +1,21 @@
+import numpy as np
 import pandas as pd
 
 from .types import PlayThresholds
+
+
+def directional_bet_edge(frame: pd.DataFrame, market: str) -> pd.Series:
+    """Return points of advantage for the selected pick at its execution quote."""
+    if market not in {"spread", "total"}:
+        raise ValueError(f"Unsupported market: {market}")
+    delta = pd.to_numeric(frame[f"{market}_line"], errors="coerce") - pd.to_numeric(
+        frame[f"{market}_pred"], errors="coerce"
+    )
+    delta = delta.where(delta.abs().lt(float("inf")))
+    play = frame[f"{market}_play"]
+    positive = play.eq(frame["home_team"]) if market == "spread" else play.eq("under")
+    negative = play.eq(frame["away_team"]) if market == "spread" else play.eq("over")
+    return delta.where(positive, -delta).where(positive | negative)
 
 
 def scores_to_bets(results: pd.DataFrame) -> pd.DataFrame:
@@ -11,7 +26,7 @@ def scores_to_bets(results: pd.DataFrame) -> pd.DataFrame:
         lambda row: row["home_team"] if row["spread_pred"] < row["spread_line"] else row["away_team"], axis=1
     )
     output["total_play"] = output.apply(
-        lambda row: "under" if row["total_pred"] < row["total_line"] else ("over" if row["total_pred"] > row["total_line"] else None),
+        lambda row: "under" if row["total_pred"] < row["total_line"] else ("over" if row["total_pred"] >= row["total_line"] else None),
         axis=1,
     )
     output["spread_diff"] = (output["spread_line"] - output["spread_pred"]).abs()
@@ -119,6 +134,8 @@ def _determine_combined_plays(
         max_spreads_per_week=thresholds.max_spreads_plays,
         max_totals_per_week=thresholds.max_total_plays,
         extra_lock_min_probability=thresholds.extra_lock_min_probability,
+        hard_max_locks_per_week=thresholds.hard_max_combined_plays,
+        min_locks_per_week=thresholds.min_combined_plays,
     )
     decisions = []
     for market in ("spread", "total"):
@@ -132,7 +149,7 @@ def _determine_combined_plays(
             parse_eastern_kickoffs(output["date_time"])
             if "date_time" in output else pd.Timestamp("1970-01-01", tz="UTC")
         )
-        part["edge"] = (output[f"{market}_pred"] - output[f"{market}_line"]).abs()
+        part["edge"] = directional_bet_edge(output, market)
         probability = pd.to_numeric(output[f"{market}_win_prob"], errors="coerce") / 100.0
         push = pd.to_numeric(
             output.get(f"{market}_push_prob", pd.Series(0.0, index=output.index)),
@@ -147,10 +164,10 @@ def _determine_combined_plays(
         part["lock"] = pd.to_numeric(
             output.get(f"{market}_lock", pd.Series(0, index=output.index)), errors="coerce"
         ).fillna(0).astype(int)
+        part["probability_eligible"] = probability.ge(getattr(thresholds, f"min_{market}_win_prob") / 100.0)
         part["policy_eligible"] = (
-            probability.ge(getattr(thresholds, f"min_{market}_win_prob") / 100.0)
-            & probability.le(1.0)
-            & part["edge"].ge(getattr(thresholds, f"min_{market}_diff"))
+            part["edge"].ge(getattr(thresholds, f"min_{market}_diff"))
+            & np.isfinite(pd.to_numeric(output[f"{market}_line"], errors="coerce"))
             & output.get(f"{market}_play", pd.Series(True, index=output.index)).notna()
             & ~part["game_id"].isin(frozen_ids)
         )

@@ -3,19 +3,31 @@
 The CFB expected-points notebook uses the shared expected-points training, tracking, grading, and Supabase
 persistence workflow. CFB-specific acquisition and feature preparation remain in this directory. Production notebook
 runs use strict validation, chronological training splits, and the direct CFBD client described in the repository
-README and `AGENTS.md`.
+README and `AGENTS.md`. Use the notebook
+inspection helpers for individual games; the shared model frame is displayed once, without hardcoded historical
+matchup scratch cells.
+
+Score and confidence validation boundaries require more than eight hours between training and validation kickoffs,
+matching historical replay's result-availability assumption. Every game remains in one partition. Historical cutoff
+fitting applies the same lag; exact result publication times are not reconstructed. The score pipeline rotates both
+suffix-named team inputs and prefix-named pregame Elo inputs toward the team whose points are being predicted.
 
 The CFB recipe uses opponent-adjusted offense/defense explosiveness, overall PPA, and success rate.
 Existing explosiveness names stay stable; new efficiency columns use the same descriptive EWMA naming convention.
-The shared transform fits ridge offense/defense effects from strictly earlier games and applies half of the
-estimated opponent correction before the established moving average. FCS teams share one pooled entity by default.
-Ratings use the opening kickoff of each game week; exact per-kickoff snapshots remain an optional alternative.
+The shared transform fits ridge offense/defense effects only from results whose kickoff plus eight hours precedes
+the snapshot, and applies half of the estimated opponent correction before the established moving average.
+The same availability guard applies to the efficiency history being smoothed. FCS teams share one pooled entity by default.
+Ratings use the opening kickoff of each game week; per-kickoff snapshots remain an optional historical approximation.
 
 Score training defaults to 2018, with 2017 efficiency warmup. `history.py` owns the explicit policy:
 `training_start_year` overrides the first score-training season, `feature_history_start_year` overrides efficiency
 warmup (default: one year before training), and `excluded_history_seasons` defaults to `[2020]`. Exclusions apply
 before feed loading, Elo updates, and efficiency construction, so COVID games cannot enter any of those paths.
 The separate `efficiency_schedule` supplies warmup opponents without making warmup games score-training examples.
+The workflow loads regular-season CFB games; its historical evidence does not cover bowls or playoffs.
+Explicit CFBD completion status masks unfinished scores before training, Elo and grading and excludes unfinished
+game statistics from efficiency history. Schedule rows are retained. Older status-free inputs retain their legacy
+interpretation; a supplied false completion flag cannot be overridden by a historical status field.
 Changing the history policy regenerates every feature under that policy; the earlier frozen-feature research
 experiment is retained as separate evidence, not used as a production input artifact.
 
@@ -56,6 +68,8 @@ variable `CACHE_WORKING_TREE=1` only when resumable candidate caching is desired
 snapshots, so reports label this as weekly historical approximation. See
 the root [`backtesting guide`](../../../../../docs/expected-points-backtesting.md) for baseline references, expense
 controls, artifacts, cache behavior, and metric interpretation.
+The guide also documents [frozen-input estimator investigations](../../../../../docs/expected-points-backtesting.md#frozen-input-estimator-investigations),
+which keep production settings unchanged and distinguish reproducibility from evidence of future accuracy.
 
 `CFBExpectedPointsRecipe` owns final schedule/pregame-feature/market joins, eligibility filtering, kickoff and column
 normalization, validation, feature selection, tuning grids, confidence inputs, betting transform, and lock thresholds.
@@ -110,10 +124,10 @@ Those local reports are not shipped or pushed; do not force-add them.
 Author CFB release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
 release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
 a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
-(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
-verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
-limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
-experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Keep evaluation results and experiment controls
+in Git-ignored `.backtests/expected_points/reports/`, including the evidence population and its limitations.
+Omit source paths, commands, infrastructure details, and separate evaluation/internal headings from public notes.
+See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
@@ -167,13 +181,39 @@ The optional `smoothing_span` adjustment parameter overrides the base EWMA span 
 10-game span); dynamic metrics still use the larger of that base span and the target week. Research CLI `--span`
 sets the same lever. Changing it requires new candidate features and normal comparison evidence.
 
-## Version 2.1 betting probabilities
+## Version 2.2 candidate score and betting models
 
-Spread probabilities use `q=.5+.1*F(e)`, where `e` is the absolute execution-line edge and `F` is the absolute margin
-error CDF on the chronological score holdout. Symmetric errors and the 80% discount toward even chance are modeling
-assumptions. Totals use a shrunken historical rate with Locks disabled. Locks require q>=.525, positive expected units
-at assumed -110, and two corroborating sportsbook quotes. The normal combined limit is three spreads; q>=.55 permits
-extras without a hard five-bet ceiling. Started Locks retain their version/status and count toward weekly capacity.
+The score model learns actual team points with ridge regression; sportsbook-implied points are optional inputs. One chronological inner split selects
+alpha and relative team-feature shrinkage; training-only imputation/scaling/encoding stays inside the estimator.
+Each outer-holdout week refits the selected score parameters on available earlier results without retuning. The
+final production score refit uses all eligible completed games. Home/away Elo inputs rotate with the predicted team.
+
+Set `include_sportsbook_features=False` on the league recipe or in the notebook parameters to refit the
+score model using analytics alone. This removes every sportsbook-derived score input; it does not fill lines
+with zeros or remove markets from downstream betting evaluation. The normal release keeps this parameter true.
+
+Both spread and total probabilities use `q=.5+.1*sign(e)*F(abs(e))`, with pick-aligned execution edge `e` and the
+market-specific absolute-error CDF from those chronological weekly forecasts. Trust 0.2 shrinks the symmetric
+error estimate 80% toward 50%, matching NFL. Symmetry is a modeling assumption,
+not proof of calibration. Negative execution advantage cannot become a Lock even when the quote is corroborated.
+The shared selector ranks both markets by resolved win probability, then expected units, edge and stable game
+keys. CFB selects three supported picks when available, then adds other picks at q>=.57 up to ten. The first
+three can have negative expected units at -110; probabilities remain unchanged. Two corroborating sportsbook
+quotes, model readiness and nonnegative execution edge remain mandatory, so the minimum can be underfilled.
+Neither market has a separate allocation cap. Started Locks retain
+their version/status and consume capacity even when absent from refreshed predictions. Exact projected-total
+ties choose Over against consensus before normal quote shopping. At zero execution edge a ready residual head
+returns q=0.5; a better execution quote can create a real edge. Actual scoring pushes remain pushes.
+
+### Adjustable weekly selection
+
+`CFBExpectedPointsRecipe` owns independent `minimum_weekly_locks=3`,
+`maximum_weekly_locks=10` and `extra_lock_min_probability=.57` settings. The minimum is also the
+normal selection count; the maximum caps extras. Changing the count or thresholds is a prediction-affecting recipe change requiring a standard comparison
+and release preparation. The notebook and production path both consume `build_config()`.
+Shared `PlayThresholds.min_combined_plays` maps to `LockPolicy.min_locks_per_week`; zero retains the legacy
+probability/EV floors and expected-units ranking. A positive minimum uses probability-first ranking and waives
+only the probability/EV floors until that minimum is filled. Started selections consume both minimum and capacity.
 
 ## Lightweight Lock replay
 
@@ -185,3 +225,6 @@ labels all evaluated seasons as exposed research. New standard runs retain check
 those exact calibration inputs. Older caches support weekly-history research, not identical production calibration
 history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
 documents controls, provenance, uncertainty and mandatory production-path comparisons.
+
+
+CFB Elo inputs are built by `build_weekly_pregame_elo` in `features.py`. Every game in a season/week shares the opening-kickoff rating snapshot, using only completed results older than eight hours. Initial FBS/FCS ratings, K25, rounding, history exclusions, and chronological postgame diagnostics are retained. Postgame columns are never score inputs. This prevents opening-week double appearances from using an intervening result in a weekly forecast.

@@ -6,7 +6,12 @@ from collections.abc import Mapping, Sequence
 
 import pandas as pd
 
+from src.model_patterns.expected_points.chronology import RESULT_AVAILABILITY_LAG
 from src.sports.data_validation import validate_frame
+from src.sports.football.cfb.expected_points.completion import (
+    cfb_completed_game_mask,
+    mask_incomplete_cfb_scores,
+)
 from src.sports.football.transforms import (
     OpponentAdjustmentConfig,
     OpponentMetricSpec,
@@ -30,6 +35,63 @@ DEFAULT_CFB_OPPONENT_ADJUSTMENT = OpponentAdjustmentConfig(
 )
 
 
+def build_weekly_pregame_elo(schedule: pd.DataFrame) -> pd.DataFrame:
+    """Freeze pregame Elo before each week; retain chronological postgame diagnostics."""
+    required = (
+        "game_id", "season", "week", "start_date", "home_team", "away_team",
+        "home_classification", "away_classification", "home_points", "away_points",
+    )
+    validate_frame(
+        schedule, label="CFB Elo schedule", required_columns=required,
+        non_null_columns=required[:6], unique_keys=(("game_id",),), strict=True,
+    )
+    output = mask_incomplete_cfb_scores(schedule).reset_index(drop=True)
+    for side in ("home", "away"):
+        output[f"{side}_pregame_elo"] = float("nan")
+        output[f"{side}_postgame_elo"] = float("nan")
+    ordered = output.copy()
+    ordered["__kickoff"] = pd.to_datetime(ordered["start_date"], utc=True, errors="raise")
+    if ordered["__kickoff"].isna().any():
+        raise ValueError("CFB Elo schedule has missing kickoff times")
+    ordered = ordered.sort_values(["__kickoff", "game_id"], kind="stable")
+    completed = ordered.loc[ordered[["home_points", "away_points"]].notna().all(axis=1)]
+    events = list(completed.iterrows())
+    ratings: dict[str, int] = {}
+    position = 0
+
+    def rating(row: pd.Series, side: str) -> int:
+        return ratings.get(row[f"{side}_team"], 1500 if row[f"{side}_classification"] == "fbs" else 1200)
+
+    def update(index, row: pd.Series) -> None:
+        home, away = rating(row, "home"), rating(row, "away")
+        margin = float(row["home_points"]) - float(row["away_points"])
+        outcome = 1.0 if margin > 0 else 0.0 if margin < 0 else 0.5
+        expected_home = 1.0 / (1.0 + 10 ** ((away - home) / 400))
+        expected_away = 1.0 / (1.0 + 10 ** ((home - away) / 400))
+        new_home = round(home + 25 * (outcome - expected_home))
+        new_away = round(away + 25 * ((1.0 - outcome) - expected_away))
+        ratings[row["home_team"]], ratings[row["away_team"]] = new_home, new_away
+        output.loc[index, ["home_postgame_elo", "away_postgame_elo"]] = [new_home, new_away]
+
+    periods = sorted(
+        ordered.groupby(["season", "week"], sort=False),
+        key=lambda item: item[1]["__kickoff"].min(),
+    )
+    for _, period in periods:
+        cutoff = period["__kickoff"].min()
+        while position < len(events) and events[position][1]["__kickoff"] + RESULT_AVAILABILITY_LAG < cutoff:
+            update(*events[position])
+            position += 1
+        for index, row in period.iterrows():
+            output.loc[index, ["home_pregame_elo", "away_pregame_elo"]] = [rating(row, "home"), rating(row, "away")]
+    # Postgame columns are inspection-only. Filling them after the last snapshot
+    # cannot alter any stored pregame value, including scheduled future games.
+    for index, row in events[position:]:
+        update(index, row)
+    output.index = schedule.index
+    return output
+
+
 def build_cfb_efficiency_schedule(
     schedule: pd.DataFrame,
     historical_games: pd.DataFrame,
@@ -45,18 +107,20 @@ def build_cfb_efficiency_schedule(
     first_season = int(pd.to_numeric(schedule["season"], errors="raise").min())
     if history_start_season > first_season:
         raise ValueError("Efficiency history cannot start after the score schedule")
-    history = historical_games.copy()
+    history = mask_incomplete_cfb_scores(historical_games)
+    history["completed"] = cfb_completed_game_mask(historical_games)
     if "game_id" not in history:
         history = history.rename(columns={"id": "game_id"})
     seasons = pd.to_numeric(history["season"], errors="raise")
     history = history.loc[(seasons >= history_start_season) & (seasons < first_season)]
     columns = ["game_id", "season", "week", "home_team", "away_team", "start_date",
-               "home_classification", "away_classification"]
+               "home_classification", "away_classification", "completed"]
     validate_frame(history, label="CFB efficiency warmup schedule", required_columns=columns,
                    non_null_columns=columns[:6], unique_keys=(("game_id",),), strict=True)
     if "neutral_site" in history:
         columns.append("neutral_site")
-    result = pd.concat([history[columns], schedule.copy()], ignore_index=True, sort=False)
+    current = schedule.assign(completed=cfb_completed_game_mask(schedule))
+    result = pd.concat([history[columns], current], ignore_index=True, sort=False)
     result["start_date"] = pd.to_datetime(result["start_date"], utc=True, errors="raise")
     return result
 
@@ -146,6 +210,8 @@ def build_opponent_adjusted_advanced_stats(
     metrics = DEFAULT_CFB_EFFICIENCY_METRICS if metrics is None else tuple(metrics)
     if not metrics or len(set(metrics)) != len(metrics) or set(metrics) - set(CFB_EFFICIENCY_METRICS):
         raise ValueError("CFB metrics must be unique registered efficiency metrics")
+    incomplete_ids = schedule.loc[~cfb_completed_game_mask(schedule), "game_id"]
+    advanced_stats = advanced_stats.loc[~advanced_stats["game_id"].isin(incomplete_ids)].copy()
     required = (*TEAM_GAME_KEYS, "start_date", *[f"offense_{metric}" for metric in metrics])
     validate_frame(
         advanced_stats,
@@ -183,4 +249,5 @@ __all__ = [
     "build_cfb_efficiency_schedule",
     "build_opponent_adjusted_advanced_stats",
     "build_pregame_advanced_stats",
+    "build_weekly_pregame_elo",
 ]

@@ -68,7 +68,8 @@ def build_pregame_quarterback_metrics(starting_qbs: pd.DataFrame) -> pd.DataFram
 
     The caller joins scheduled starters to game-level passer ratings. Never fill
     a debut from a full-dataset average: that would incorporate future outcomes.
-    Missing inputs are handled natively by the score estimator inside each fit.
+    These columns remain notebook diagnostics in the current recipe. A model
+    consuming them must fit its missing-value handling within its training data.
     """
     required = {"player_id", "season", "week", "gameday", "gametime", "qbr", "passer_rating", "player_name"}
     missing = sorted(required - set(starting_qbs.columns))

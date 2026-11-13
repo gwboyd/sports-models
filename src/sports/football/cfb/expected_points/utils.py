@@ -1,6 +1,7 @@
 import pandas as pd
 
 from src.sports.football.kickoff import EASTERN_TIME_ZONE, KICKOFF_FORMAT
+from src.sports.football.cfb.expected_points.completion import mask_incomplete_cfb_scores
 
 
 def cfbd_kickoffs_to_eastern_strings(values: pd.Series) -> pd.Series:
@@ -10,7 +11,7 @@ def cfbd_kickoffs_to_eastern_strings(values: pd.Series) -> pd.Series:
 
 
 def prepare_cfb_expected_points_df(df):
-    output = df.copy()
+    output = mask_incomplete_cfb_scores(df)
 
     rename_map = {
         "home_points": "home_score",

@@ -5,18 +5,25 @@ The visitor-facing, copyedited explanation rendered by the frontend is maintaine
 
 The model predicts **expected points scored** for each NFL team in a game, getting to a predicted score from which a spread and total can be derived. We then compare those spreads and totals to the Vegas prices to make the picks each week. 
 
-Metrics derived from play by play data is used starting from 2010 to now. EPA (expected points added) Per Play and Success Rate are the features the model has found the most useful to predict outcomes, but other features like starting-quarterback NFL passer rating (retained under the historical `qbr` feature name), days of rest, and the Vegas odds themselves are used.
+Score and confidence validation boundaries require more than eight hours between training and validation kickoffs,
+matching the historical replay assumption for result availability. The split retains all games in one of the two
+partitions. Historical cutoff fitting applies the same lag; exact result publication times are not reconstructed.
 
-`build_pregame_quarterback_metrics` constructs quarterback history in kickoff order and keeps the existing
+The score model uses play-by-play data beginning in 2010. EPA, success rate, rest, and optional sportsbook/context inputs predict actual team points through a regularized fit.
+
+Starting-quarterback ratings and actual roof status are excluded from the score recipe because the available feed does not preserve reliable pregame snapshots for those fields. Notebook diagnostics retain those columns.
+
+`build_pregame_quarterback_metrics` constructs diagnostic quarterback history in kickoff order and keeps the existing
 `ewma_qbr`/passer-rating feature names. Debut and unknown starters remain missing; never fill from a full-dataset
-average of first starts. Score LightGBM handles missing inputs natively. Legacy confidence classifiers fit imputation
-inside each chronological training split; version 2.1 probability heads use score errors instead of quarterback
+average of first starts. Score ridge preprocessing fits imputation and scaling only inside its training partition. Legacy confidence
+classifiers also fit imputation chronologically; residual probability heads use score errors instead of quarterback
 inputs. The September 2026 production audit removed the old future-dependent fallback;
 the saved NFL 2.0 comparison predates that fix. A fresh performance comparison was explicitly waived by the user,
 so do not attribute those measured gains to the final quarterback-history recipe.
 
 The existing EPA and success-rate feature names now contain opponent-adjusted values. Before each game's kickoff,
-the shared football transform fits ridge-regularized offense and defense effects only from earlier games, reassesses
+the shared football transform fits ridge-regularized offense and defense effects only from results available at
+the snapshot, requiring kickoff plus eight hours to precede that snapshot. It reassesses
 each prior team performance against the defense or offense it faced, and then applies the existing moving-average
 calculation. The adjustment therefore adds no future-game information and leaves downstream score and confidence
 schemas unchanged. Its ridge penalty and cross-season carryover are recipe parameters for backtesting. Ratings use
@@ -32,8 +39,8 @@ screening weeks and evaluated on the standard 2023–2025 comparison recorded in
 `adjustment_strength` scales the opponent correction from zero (unadjusted history) to one (full correction); the moving-average calculation is unchanged. `excluded_seasons` removes listed seasons from both rating estimation and team efficiency history. A zero carryover with no current-season observations uses a neutral correction instead of attempting a zero-weight fit. These controls do not remove score-training games.
 
 After picks are made, separate spread and total probability heads estimate the chance of a resolved bet winning
-from out-of-time score errors. Version 2.1 strongly discounts the implied advantage toward an even chance and ranks
-eligible Locks by expected profit. The probability floor and combined weekly policy are described below.
+from out-of-time score errors. The 2.2 recipe uses the symmetric error distribution with trust 0.2 and ranks eligible Locks by
+estimated win probability under a top-three weekly policy. The selection minimum and value limitations are described below.
 
 ## Picks Update Cadence
 
@@ -79,14 +86,22 @@ Kickoffs are stored as `America/New_York` wall time for both football leagues. N
 source timezone and are validated during frame preparation; comparisons with the current instant are timezone-aware.
 Games at or after kickoff never enter the live prediction frame.
 
+Set `include_sportsbook_features=False` on the league recipe or in the notebook parameters to refit the
+score model using analytics alone. This removes every sportsbook-derived score input; it does not fill lines
+with zeros or remove markets from downstream betting evaluation. The normal release keeps this parameter true.
+Power rankings retain their existing separate workflow.
+
 ## Temporal Training and Evaluation
 
-Completed games are sorted by kickoff. The latest 20% form an outer score-model holdout, so every confidence-training
-prediction comes from games later than the score model's training data. Score-model GridSearch uses one chronological
-validation split inside the earlier 80%. Version 2.1 probability heads fit separate absolute margin/total error
-distributions on the outer holdout, discounted 80% toward an even chance; they do not run a classifier GridSearch. The chosen score parameters are then refit once on all completed games for production;
-GridSearch is not repeated. This keeps update-time cost modest while removing random-split leakage, but it is not a
-full out-of-fold season backtest.
+Completed games are sorted by kickoff. The latest 20% form an outer score-model holdout. One chronological
+validation split inside the earlier 80% selects ridge alpha and relative shrinkage of the team-feature group.
+Preprocessing, including American-odds conversion, training-only imputation/scaling, and categorical encoding,
+remains inside the fitted score pipeline. The score target is actual team points. Sportsbook inputs are removable features, not a fixed prediction offset.
+
+Before each outer-holdout week, the selected estimator refits on results available then without another GridSearch.
+These weekly out-of-time forecasts train separate margin/total error distributions. The confidence-health tail
+uses heads fitted only on earlier holdout forecasts. Finally, the selected score estimator refits on all eligible
+completed games for production. The generic static holdout remains available for older recipe configurations.
 
 The notebook remains the interactive analysis surface while `recipe.py` supplies the reproducible configuration used
 by historical runs. After training, `health_metrics` displays score-error, confidence, calibration, and weekly lock
@@ -105,6 +120,8 @@ invalidate affected fits. Working-tree fits are fresh by default; set notebook p
 desired. Historical line and roster values are the best currently available feed values, not exact
 intraday snapshots. See the root [`backtesting guide`](../../../../../docs/expected-points-backtesting.md) for
 baseline references, expense controls, artifacts, cache behavior, and metric interpretation.
+The guide also documents [frozen-input estimator investigations](../../../../../docs/expected-points-backtesting.md#frozen-input-estimator-investigations),
+which keep production settings unchanged and distinguish reproducibility from evidence of future accuracy.
 
 `NFLExpectedPointsRecipe` owns final schedule/score/feature-frame joins, column normalization, kickoff conversion,
 line orientation, validation, feature selection, tuning grids, and lock thresholds. The notebook calls that assembly
@@ -165,10 +182,10 @@ Those local reports are not shipped or pushed; do not force-add them.
 Author NFL release notes in `UNRELEASED.md`; an empty draft means no unprepared changes, not necessarily no prepared
 release. Do not add frontend, API-output, infrastructure, or database-only changes to model notes. Use a `#` title,
 a plain-language `## Public Summary`, and `## Changes` with 2–3 concise bullets giving meaningful technical detail
-(estimator, chronology, shrinkage, thresholds, or bet accounting). Optionally add one baseline-comparison bullet with
-verified results for the actual recipe, the period/population, assumptions, and material uncertainty or selection
-limitations. Keep complete evidence in Git-ignored `.backtests/expected_points/reports/`; omit source paths, commands,
-experiment ledgers, and separate evaluation/internal headings. See the root README for the complete writing guidance.
+(estimator, chronology, shrinkage, thresholds, or bet accounting). Keep evaluation results and experiment controls
+in Git-ignored `.backtests/expected_points/reports/`, including the evidence population and its limitations.
+Omit source paths, commands, infrastructure details, and separate evaluation/internal headings from public notes.
+See the root README for the complete writing guidance.
 
 Before committing/merging a model release, run `make prepare-model-release` on the feature branch. It reads
 registered versions, prompts for major/minor for each populated NFL/CFB draft, and confirms before copying the exact
@@ -198,30 +215,31 @@ README for recovery and preparation details. Prediction-neutral changes keep the
 
 ## Features
 
-The model is primarily powered by EPA per play and Success Rate (broken up by offense/defense and pass/rush). Both of these are efficiency metrics that are impressively predictive.
+The score model uses EPA per play and success rate, split across offense/defense and passing/rushing, alongside market and matchup context.
 
-**EPA (Expected Points Added):** Measures how many expected points a play added to a total. The sum of all expected points added for plays in a drive should be 7, with the more impactful plays relative to expectations carrying more value.
+**EPA (Expected Points Added):** Measures the change in expected points on a play, accounting for the game situation before and after it.
 
 **Success Rate:** "Success" is a tightly defined binary metric that determines if a play is successful or not dependent on the situation the offense is in. I used a custom success rate formula for this model that is as follows:
-- On 1st down if yards gained was more than *0.4 * yards to go* (More than 4 yards on a first and 10)
-- On 2nd down if yards gained was more than *0.6 * yards to go* (More than 6 yards on a second and 10)
-- On 3rd and 4th down if the first down marker was reached
+
+- On first down, gain at least 40% of the yards needed.
+- On second down, gain at least 60% of the yards needed.
+- On third or fourth down, reach the first-down marker.
 
 In the **charts** section, there should be some graphics that show Offensive and Defensive EPA metrics for teams as the model currently sees them. These can be helpful if you are trying to peel back the curtain and understand why the model made a certain pick.
 
-### Feature Importance
+### Score model weights
 
-Sometimes in machine learning, we will throw a bunch of features at the model and it will choose a "set of weights" for the features that result in the smallest amount of error. This specific model uses a gradient-boosted framework, so that's not exactly how it works, but we can still see overal feature importances which can give us a good idea of what the model finds predictive.
-
-![Model feature importances](https://nfl-metrics.s3.us-east-1.amazonaws.com/charts/feature_importance.png)
-
-These importance can technically change as more data gets introduced, but the model has seen enough games to where the feature importance remains fairly steady. It's also interesting to me that the model finds the efficiency metrics more predictive than anything origionating from Vegas data.
-
-The **pred_team** feature is indicitive how important the model thinks home field advantage is.
+The direct ridge score model learns actual points from matchup inputs and penalizes large coefficients.
+Sportsbook-implied points are ordinary features with learned weights, without a fixed market-score offset.
+Its coefficients depend on training-only scaling and correlated inputs; they should not be interpreted as causal
+feature importance. The old tree-feature-importance chart does not describe this score estimator.
 
 ### Moving Averages for Metrics
 
-We calculate the advanced metrics using play by play data, but end up aggregating up to a game. From there, we take an exponentially weighted moving average to smoothe other some of the variance. Finally, we make the window over which weight games dynamic. Typically, it averages over the whole season, but if it is earlier than week 10, it will use the last 10 games, going into the previous year. 
+Play-level metrics are aggregated to games, adjusted for opponents, and smoothed with exponentially weighted
+moving averages. EPA uses a span equal to the larger of ten games and the target week number; success rate uses
+a ten-game span. These spans control decay rather than imposing a hard ten-game cutoff. Earlier games, including
+previous seasons, can still contribute with diminishing weight.
 
 Below is an example of the various calculations for the Dallas Cowboys. It should be fairly obvious why opt to smoothe out the metrics so much.
 
@@ -229,31 +247,37 @@ Below is an example of the various calculations for the Dallas Cowboys. It shoul
 
 ## Determining what Picks to Play
 
-Version 2.1 separates score prediction from bet selection. Spread and total probabilities are `q=.5+.1*F(e)`, where
-`e` is the absolute execution-line edge and `F` is the market-specific absolute score-error CDF on the chronological
-score holdout. This assumes symmetric errors and discounts the inferred advantage 80%; it is not perfect calibration.
-Locks require q>=.525 and positive expected units at assumed -110, including estimated pushes. The normal combined
-weekly limit is three, with up to two spreads and one total; q>=.55 permits additional bets beyond those positive
-caps. A zero market cap remains disabled. Started saved Locks consume capacity and retain their original version.
-Volume is a target, not a forced minimum. See the public methodology for the complete explanation and limitations.
+The 2.2 recipe separates score prediction from bet selection. Both markets use `q=.5+.1*sign(e)*F(abs(e))`, where
+`e` is the execution advantage in the selected pick's direction and `F` is the market-specific absolute-error CDF
+from the weekly chronological score holdout. Symmetric errors are an assumption, not proof of calibration.
+The shared selector ranks both markets by resolved win probability, then expected units, edge and stable game
+keys. NFL selects its top three supported picks, even below estimated break-even at -110; extras are disabled.
+Probabilities and expected units are unchanged. Model readiness, quote support and nonnegative execution edge
+remain mandatory, so insufficient supported opportunities can leave fewer than three picks. Neither market has
+a separate allocation cap. Started saved Locks consume
+capacity even when absent from refreshed predictions and retain their original version. Exact projected-total
+ties choose Over with zero edge and, for a ready residual head, q=0.5; actual scoring pushes remain pushes.
+See the public methodology for the complete explanation and limitations.
 
 ## Misc
 
 ### Power Rankings
 
-The power rankings seen above in the chart are created by taking all of the metrics (so not inclusing odds, enviroment, rest, etc) for teams, training a classification model that predicts winning, and them creating simulations to where each team plays every other team home and away. The model outputs a win probability for esach game, so the teams "win percentage" is just and average of the win probabilities for all 62 (31 * 2) games a team would play.
-
-The game simulations mimick each team's form for the current week (the next week if a team is on a bye), so it would be as if they all played eachother "today."
+A separate LightGBM win classifier uses team-efficiency metrics, without odds, rest or other matchup context,
+to simulate every team against every other team at home and away. A team's ranking averages its win probabilities
+across those 62 hypothetical games. These simulations use current-week form, or next-week form for a team on a bye.
 The power-ranking classifier tunes against one chronological train-before-validation split; it is supplemental chart
-logic and does not feed the expected-points picks or betting probability heads.
+logic and does not feed the expected-points picks or betting probability heads. The notebook retains the current
+rankings, offense/defense charts, and a team-smoothing inspection example; dated scratch plots and unused
+play-by-play chart aggregates are omitted.
 
 ### Ideas for the future
 
-- Add in more player specific data besides just quarterbacks to better account for injuries/trades
+- Add announced starters and player-specific data with reliable pregame timestamps for injuries/trades
 - Include explosiveness data 
 - Add some 3rd down specifc metrics data
 - Include some position group specific data to better catch matchup advantages
-- Revamp how metrics are handled for rookies (only player specific metric right now is QBR)
+- Evaluate rookie and unknown-player handling when a pregame player-data source is available
 - Get to a place where I can remove any information that relies on Vegas odds.. it helps but sorta feels like cheating
 - If I do keep Vegas lines, find a way to get opening odds or where the public is so I better arbitrage the "vibes vs metrics" dynamic
 
@@ -280,6 +304,17 @@ The shared standard comparison permits different training histories before the f
 those differences, keeps every side's training rows, and requires matching evaluation inputs and shared historical
 outcomes/markets. Full-history identities remain attached to saved runs and caches. NFL training defaults are unchanged.
 
+### Adjustable weekly selection
+
+`NFLExpectedPointsRecipe` owns independent `minimum_weekly_locks=3`,
+`maximum_weekly_locks=3` and `extra_lock_min_probability=None` settings. The minimum is also the
+normal selection count; the maximum caps extras. To enable NFL extras, set a probability threshold and raise its
+maximum. Changing the count or thresholds is a prediction-affecting recipe change requiring a standard comparison
+and release preparation. The notebook and production path both consume `build_config()`.
+Shared `PlayThresholds.min_combined_plays` maps to `LockPolicy.min_locks_per_week`; zero retains the legacy
+probability/EV floors and expected-units ranking. A positive minimum uses probability-first ranking and waives
+only the probability/EV floors until that minimum is filled. Started selections consume both minimum and capacity.
+
 ## Lightweight Lock replay
 
 Use `make replay-expected-points-locks LEAGUE=nfl` to anchor to the deployed release's latest matching local
@@ -290,3 +325,5 @@ labels all evaluated seasons as exposed research. New standard runs retain check
 those exact calibration inputs. Older caches support weekly-history research, not identical production calibration
 history. The [backtesting guide](../../../../../docs/expected-points-backtesting.md#lightweight-lock-method-replay)
 documents controls, provenance, uncertainty and mandatory production-path comparisons.
+
+The NFL confidence head retains the 2.1 trust 0.2 discount (80% shrinkage toward 50%). The top-three rule can select negative-EV picks; it does not change this conservative probability estimate or establish profitability.

@@ -155,9 +155,9 @@ class SymmetricResidualHead:
     trust: float
 
     def predict(self, frame: pd.DataFrame) -> np.ndarray:
-        edge = pd.to_numeric(frame["edge"], errors="coerce").fillna(0.0).clip(lower=0).to_numpy(float)
-        inside = np.searchsorted(self.absolute_errors, edge, side="left")
-        return 0.5 + 0.5 * self.trust * inside / len(self.absolute_errors)
+        edge = pd.to_numeric(frame["edge"], errors="coerce").fillna(0.0).to_numpy(float)
+        inside = np.searchsorted(self.absolute_errors, np.abs(edge), side="left")
+        return 0.5 + 0.5 * self.trust * np.sign(edge) * inside / len(self.absolute_errors)
 
 
 @dataclass

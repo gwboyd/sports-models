@@ -585,7 +585,9 @@ def test_league_recipes_select_only_registered_features_in_stable_order():
     nfl = NFLExpectedPointsRecipe().build_config(frame, season=2026, week=1)
     assert [c for c in nfl.features if c in nfl_metrics] == nfl_metrics
     cfb = CFBExpectedPointsRecipe(efficiency_metrics=("explosiveness",)).build_config(frame, season=2026, week=1)
-    assert cfb.features == cfb_metrics
+    assert cfb.features == [
+        "pred_team", *cfb_metrics, "implied_points_home", "implied_points_away",
+    ]
     assert "future_outcome_ewma_dynamic" not in nfl.features + cfb.features
     assert cfb.confidence_scoring == "neg_log_loss"
     assert cfb.betting_transform is not None
@@ -595,6 +597,7 @@ def test_league_recipes_select_only_registered_features_in_stable_order():
                            (CFBExpectedPointsRecipe(efficiency_metrics=("explosiveness",)), cfb_metrics[0])):
         with pytest.raises(ValueError, match="features are missing"):
             recipe.build_config(frame.drop(columns=column), season=2026, week=1)
+
 
 
 def test_run_remains_loadable_when_report_rendering_fails(tmp_path, monkeypatch):

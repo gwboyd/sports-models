@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 
+from src.model_patterns.expected_points.chronology import RESULT_AVAILABILITY_LAG
 from src.sports.data_validation import enforce_contract, validate_frame
 
 LOGGER = logging.getLogger(__name__)
@@ -79,9 +80,9 @@ def build_opponent_adjusted_team_metrics(
 
     ``observations`` has one row per offensive team/game/metric and contains
     ``game_id``, ``team``, ``metric``, and ``value``. By default, ratings are
-    fit once at the opening kickoff of each game week, so no same-week outcome
-    can enter any pregame feature. ``rating_snapshot='kickoff'`` is available
-    for an exact, more expensive intraday simulation. Earlier games are then
+    fit once at the opening kickoff of each game week. Both snapshot modes admit
+    results only more than eight hours after kickoff. ``rating_snapshot='kickoff'``
+    is available for a more expensive per-kickoff approximation. Earlier games are then
     reassessed with the applicable snapshot before the original EWMA is
     calculated.
     """
@@ -226,14 +227,14 @@ def _adjust_metric_at_targets(
             else pd.Timestamp(target.start_date)
         )
         if cutoff not in cache:
-            history = observations.loc[observations["start_date"] < cutoff]
+            history = observations.loc[observations["start_date"] + RESULT_AVAILABILITY_LAG < cutoff]
             cache[cutoff] = (
                 _fit_snapshot(history, int(target.season), config)
                 if config.adjustment_strength else ({}, {})
             )
         offense_ratings, defense_ratings = cache[cutoff]
         team_history = team_histories.get(target.team, observations.iloc[0:0])
-        team_history = team_history.loc[team_history["start_date"] < cutoff]
+        team_history = team_history.loc[team_history["start_date"] + RESULT_AVAILABILITY_LAG < cutoff]
         # Many lower-division schedule rows have no consumed metric history.
         # Their result is exactly missing; avoid building two empty dataframes.
         rendered = (

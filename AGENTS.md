@@ -117,14 +117,16 @@ NFL expected-points acquisition is isolated in `src/sports/football/nfl/expected
 loads source data as Polars, selects model fields, and converts to pandas at the notebook boundary with caching off.
 CFB expected-points uses `src/sports/football/cfb/expected_points/cfbd_client.py` for direct authenticated REST
 requests; do not add a conflicting Python SDK dependency.
-NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
-missing; never calculate a fallback using all future players or seasons. Native score-model missing handling and
-legacy confidence imputation fitted within chronological training data handle those inputs. Version 2.1 probability
+The NFL 2.2 recipe excludes starting-quarterback ratings and actual roof status from prediction inputs because the schedule feed does not preserve their pregame availability. Keep these fields as notebook diagnostics only until a suitable as-of source is available. Diagnostic NFL quarterback features must use only starts strictly earlier than the target kickoff. Debut/unknown history stays
+missing; never calculate a fallback using all future players or seasons. Score-pipeline imputation/scaling and
+legacy confidence imputation must be fitted within chronological training data. Residual probability
 heads use valid historical score errors/outcomes directly and do not impute quarterback features. Explicit NFL/CFB efficiency
 selections must fail when any selected column is missing; never fall back to substring-based column discovery.
 Opponent-adjusted football efficiency features are implemented in
 `src/sports/football/transforms/opponent_adjustment.py`. It fits pre-kickoff ridge offense/defense effects, then
 recomputes each team's historical performance against the opponent it faced before applying the established smoother.
+Both the rating fit and rendered efficiency history require kickoff plus eight hours to precede the snapshot,
+including when correction strength is zero.
 Keep downstream feature names stable. Ridge strength, season carryover, CFB's FCS pooling policy, and rating snapshot
 cadence are versioned recipe/backtest levers; any change requires regenerated candidate frames and normal baseline
 comparison evidence. The correction strength is independently configurable from zero to one; excluded seasons
@@ -137,7 +139,10 @@ schedule retains 2017 warmup opponents while score training starts in 2018. `CFB
 owns the training start and historical exclusions. Notebook overrides are `training_start_year`,
 `feature_history_start_year`, and `excluded_history_seasons`; 2020 is excluded before feed loading, Elo updates,
 and efficiency calculations by default. Notebook metric selections must match the recipe; partial parameter overrides preserve
-league defaults.
+league defaults. CFB completion status must exclude unfinished scores from training, Elo and grading and unfinished
+statistics from efficiency history, while retaining scheduled rows. Explicit false completion flags override CSV
+status; legacy status-free inputs retain their prior interpretation. The CFB notebook loads regular-season games;
+do not describe that historical coverage as including bowls or playoffs.
 
 Current expected-points schema model, mirrored for the `nfl` and `cfb` prefixes:
 - `<league>_expected_points_picks`: latest pick per `(year_week, game_id)`
@@ -228,15 +233,38 @@ providers alphabetically. A market without two corroborating providers remains v
 become a lock. The execution line drives model edge, confidence, persistence, display, and grading. Synthetic CFBD
 providers are not executable quotes, and CFBD provider ordering must never affect selection.
 Neither football model may predict a game at or after kickoff, including a game with no pre-existing pick.
+Exact projected-total ties choose Over; CFB chooses against consensus before normal quote shopping. At zero
+execution edge, a ready residual head returns q=0.5. The direction rule does not change grading of actual pushes.
+
+Ordinary expected-points training also applies the eight-hour result-availability guard at `prediction_now`
+(or current UTC when omitted), in addition to its prior-season/prior-week restriction. Earlier week labels cannot
+admit a postponed or still-unavailable result. Historical cutoff fitting uses the same availability helper.
 
 Expected-points training uses an outer chronological score holdout, a single inner chronological GridSearch split,
-and one final refit on all completed games with the selected score parameters. Version 2.1 Lock heads use the outer
-out-of-time score-error distribution: NFL spreads/totals and CFB spreads use `q=.5+.1*F(abs(edge))`, where F is the
-empirical absolute-error CDF; CFB totals use a shrunken base rate with Locks disabled. Legacy confidence classifiers
-retain their chronological tuning path. Do not replace chronology with random splitting or rerun score GridSearch.
-Locks require q>=.525 and positive EV at assumed -110. The normal combined weekly limit is three: NFL up to two
-spreads and one total, CFB spreads only. q>=.55 can exceed positive market/combined caps; a zero market cap remains
-hard-disabled. The aim is 2–3 combined Locks most weeks, not a quota and not 2–3 per market. Preserve started Locks
+and one final refit on all completed games with the selected score parameters. Splits require a gap greater than
+eight hours between the last training kickoff and first validation kickoff so earlier game
+results are treated as available before fitting the validation forecast. The split keeps every game in one partition
+and chooses the nearest eligible boundary; historical cutoff fitting applies the same eight-hour availability lag.
+This matches Lock replay's conservative assumption and is not an exact reconstruction of result publication times.
+The 2.2 candidate score model predicts actual points directly with ridge regression and optional sportsbook features.
+There is no market-score offset. `include_sportsbook_features=False` refits without sportsbook-derived score inputs;
+market lines remain downstream betting/evaluation inputs. Power rankings are unchanged. Chronology selects L2 penalty and the
+team-feature group's relative shrinkage. Numeric imputation, missing indicators, scaling, and categorical encoding
+fit inside each training partition. Earlier outer-holdout weeks can train later holdout forecasts only after result
+availability; the selected score parameters stay fixed, with no repeated GridSearch. Both leagues use these
+out-of-time errors with trust 0.2: `q=.5+.1*sign(edge)*F(abs(edge))`, an 80% shrinkage toward 50%.
+F is the empirical absolute-error CDF.
+Execution edge is signed in the selected pick's direction, including when a CFB quote cluster opposes consensus.
+Legacy confidence classifiers retain their chronological tuning path. Never replace chronology with random splits.
+Both leagues use the shared combined selector with an explicit minimum of three supported selections, ranked by
+resolved win probability, then expected units, edge and stable game keys. NFL stops at three with extras disabled;
+CFB permits extras at q>=.57 up to ten. The minimum bypasses probability/positive-EV floors only; never alter
+probabilities, bypass readiness or quote support, admit an adverse execution edge, or invent unavailable markets.
+Neither market has a separate allocation cap. The minimum, hard maximum and extra threshold are independently
+configurable per league recipe as `minimum_weekly_locks`, `maximum_weekly_locks` and
+`extra_lock_min_probability`. Shared `PlayThresholds.min_combined_plays` / `LockPolicy.min_locks_per_week`
+default to zero, retaining legacy probability/EV eligibility and expected-units ranking when no minimum is set.
+Preserve started Locks
 and count them toward capacity even when their games are absent from the new prediction slate. Shared replay and
 production use the same head factory and selector. New historical runs save checksummed per-cutoff score-holdout
 frames for exact-head replay; older caches remain usable with explicitly disclosed weekly-history approximation.
@@ -281,7 +309,9 @@ Zero-decision win rates are undefined/null rather than zero percent. Single-run 
 absolute block-bootstrap intervals, confidence AUC/calibration diagnostics, model-versus-market MAE benchmarks, and
 per-cutoff elapsed/cache timing. The CLI must log cutoff progress and ETA so long runs are observable.
 
-NFL and CFB notebooks remain first-class inspection surfaces. They expose schedules, intermediate feature frames,
+NFL and CFB notebooks remain first-class inspection surfaces. Keep their inspection cells focused on
+the current workflow and reusable examples; remove dated matchup scratch cells, duplicate previews, and retired no-op
+cells rather than retaining dead analysis scaffolding. They expose schedules, intermediate feature frames,
 the complete model `df`, configuration, health results, current predictions, and picks. Notebook helpers trace exact
 score/confidence inputs and earlier team rows for a game. Full comparisons are guarded by
 `run_historical_backtest=False` and must never run in Papermill/API mode. Backtests use currently available historical
@@ -319,6 +349,11 @@ record every attempted variant and uncertainty in local studies/reports; select 
 update public release notes and the whole-model explanation; run `make prepare-model-release` before the original
 commit/merge; complete the required review and clean-main deployment. The detailed optimization and release-preparation
 workflow is in [`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md#from-an-improvement-idea-to-a-release).
+Controlled estimator investigations may use the explicit frozen-frame research commands documented in that guide.
+Keep production defaults unchanged, preserve the game population and chronological fitter, and save the exact
+research source and configurations. Require a stated mechanism before measuring a variant. Deterministic rerun
+parity is an implementation check, not evidence against historical sampling luck; include season sensitivity and
+research-exposure limitations. A selected prediction change still requires normal release validation.
 If the user explicitly waives a fresh comparison after a prediction change, record that gap in the existing evaluation report
 and index. Do not present earlier results as measurements of the changed recipe or assume a correctness fix improves
 accuracy. Later comparisons must rebuild from the current source and preserve the deployed baseline unchanged.
@@ -361,11 +396,9 @@ Keep the three documentation surfaces distinct:
 - `UNRELEASED.md` is the authoring surface for public release notes. Use a title, `## Public Summary`, and
   `## Changes`. Keep the summary plain-language, then use 2–3 concise change bullets with useful technical detail
   (for example estimator family, chronological training, probability shrinkage, selection thresholds, or bet accounting).
-  Optionally add one evaluation-versus-baseline bullet under `## Changes`, naming the baseline, period/population,
-  relevant assumptions, and material uncertainty or selection limitations. Use verified evidence for the actual recipe;
-  omit the bullet if it cannot be summarized responsibly. Keep full results in local reports. Avoid source-file paths,
-  commands, infrastructure details, and experiment ledgers. Separate evaluation/internal headings remain parser-compatible
-  but are not part of new drafts.
+  Keep evaluation results, experiment controls, source-file paths, commands, and infrastructure details out of public
+  release notes. Keep complete evidence and its limitations in local reports. Separate evaluation/internal headings
+  remain parser-compatible but are not part of new drafts.
 - Public How It Works pages explain how the applicable version operates, including useful mathematical detail and
   limitations. Update them alongside release notes as described above; they are not experiment ledgers.
 - Consolidated model improvement, experiment, and optimization reports belong in Git-ignored
