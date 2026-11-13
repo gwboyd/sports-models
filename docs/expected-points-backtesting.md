@@ -489,7 +489,7 @@ outputs or execution counts.
 ## Fidelity limits
 
 
-The 2.2 candidate uses market-residual ridge with preprocessing fitted inside the chronological partitions.
+The 2.2 candidate predicts actual team points with ridge and optional sportsbook features, with preprocessing fitted inside the chronological partitions.
 `score_holdout_method="walk_forward"` refits the selected estimator before each outer-holdout season/week using
 available earlier results, without another GridSearch. Saved score-holdout frames retain those weekly forecasts
 and their training-through/row-count traces. A subsequent confidence-health tail tests heads fitted on its earlier
@@ -507,6 +507,36 @@ exact historical result-publication timestamps or account for every unusually de
 and smoothed efficiency histories use the same eight-hour guard at their weekly opening-kickoff snapshot. CFB also
 honors explicit completion status, keeping unfinished outcomes/statistics out of training, ratings and grading.
 The current CFB sources cover regular-season games, not bowls/playoffs.
+
+### Frozen-input estimator investigations
+
+For a controlled estimator study, `scripts/experiment_score_models.py` accepts an
+explicit checksummed `--frame`, completed ridge `--baseline`, new `--output`,
+`--league`, and `--variant ridge|tree|compact|blend`. `--seasons` defaults to
+`2023,2024,2025`; `--no-sportsbook` refits without sportsbook score inputs. The
+tree grid and compact matchup transformation are defined in that research script;
+production defaults are unchanged. `scripts/experiment_legacy_score_tree.py`
+retests the original direct-tree grid on explicit seasons, and
+`scripts/experiment_residual_score_tree.py` tests a learned ridge forecast plus
+a shallow tree correction, allowing zero contribution.
+
+These commands reuse the standard weekly fitter, inner chronological tuning,
+rolling score holdout, confidence/Lock policies and paired reports. They disable
+caching, save source snapshots, requests and per-cutoff tuning choices, and reject
+source changes during a run. Use this route only with a documented fixed-input
+research design, verified source provenance and an unchanged evaluation population.
+It does not replace normal release validation for a selected prediction change.
+
+`scripts/analyze_score_model_research.py <study-directory>` builds metric and
+forecast-correction tables. `scripts/diagnose_score_model_research.py` inspects the
+first cutoff's training-only fit; its validation selected parameters and is not
+independent evidence. `scripts/score_research_robustness.py` adds paired
+year-by-year, leave-one-year-out and season-then-week bootstrap diagnostics.
+Optional `--legacy-comparison nfl=<comparison-directory>` (repeat for CFB) includes
+an explicitly supplied comparison with ridge as baseline and trees as candidate, and pools it with a matching
+`<league>-legacy-tree-earlier` study run when present.
+All historical search exposure must remain disclosed. Reproducing deterministic
+forecasts checks implementation parity; it does not establish future performance.
 
 Exact model/decision-line total ties choose Over before any CFB execution shopping; zero execution edge retains
 q=0.5 for a ready residual head. Actual scoring pushes retain their original grading.

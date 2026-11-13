@@ -68,6 +68,8 @@ variable `CACHE_WORKING_TREE=1` only when resumable candidate caching is desired
 snapshots, so reports label this as weekly historical approximation. See
 the root [`backtesting guide`](../../../../../docs/expected-points-backtesting.md) for baseline references, expense
 controls, artifacts, cache behavior, and metric interpretation.
+The guide also documents [frozen-input estimator investigations](../../../../../docs/expected-points-backtesting.md#frozen-input-estimator-investigations),
+which keep production settings unchanged and distinguish reproducibility from evidence of future accuracy.
 
 `CFBExpectedPointsRecipe` owns final schedule/pregame-feature/market joins, eligibility filtering, kickoff and column
 normalization, validation, feature selection, tuning grids, confidence inputs, betting transform, and lock thresholds.

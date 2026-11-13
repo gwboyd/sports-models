@@ -120,6 +120,8 @@ invalidate affected fits. Working-tree fits are fresh by default; set notebook p
 desired. Historical line and roster values are the best currently available feed values, not exact
 intraday snapshots. See the root [`backtesting guide`](../../../../../docs/expected-points-backtesting.md) for
 baseline references, expense controls, artifacts, cache behavior, and metric interpretation.
+The guide also documents [frozen-input estimator investigations](../../../../../docs/expected-points-backtesting.md#frozen-input-estimator-investigations),
+which keep production settings unchanged and distinguish reproducibility from evidence of future accuracy.
 
 `NFLExpectedPointsRecipe` owns final schedule/score/feature-frame joins, column normalization, kickoff conversion,
 line orientation, validation, feature selection, tuning grids, and lock thresholds. The notebook calls that assembly

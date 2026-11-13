@@ -288,6 +288,9 @@ otherwise each run prepares fresh version-specific inputs. Comparisons retain in
 input bundles, requests, notebooks, status, and logs. Completed artifacts remain reusable after a later failure.
 For repeated opponent-adjustment research on frozen inputs, the backtesting guide also documents an optional
 experiment runner; it uses the same fitter and paired reports. The normal command above remains the default.
+The [frozen-input estimator guide](docs/expected-points-backtesting.md#frozen-input-estimator-investigations)
+documents controlled ridge/tree, matchup-feature and blend investigations with source snapshots, chronological
+tuning and season-sensitivity checks. These research commands do not change production defaults.
 An explicit [training-history study](docs/expected-points-backtesting.md#explicit-training-history-experiments)
 can add older CFB training rows while freezing existing features and evaluated games; it requires saved frame
 bundles and checks actual season coverage. The normal command also supports changes to earlier training windows:

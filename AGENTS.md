@@ -349,6 +349,11 @@ record every attempted variant and uncertainty in local studies/reports; select 
 update public release notes and the whole-model explanation; run `make prepare-model-release` before the original
 commit/merge; complete the required review and clean-main deployment. The detailed optimization and release-preparation
 workflow is in [`docs/expected-points-backtesting.md`](docs/expected-points-backtesting.md#from-an-improvement-idea-to-a-release).
+Controlled estimator investigations may use the explicit frozen-frame research commands documented in that guide.
+Keep production defaults unchanged, preserve the game population and chronological fitter, and save the exact
+research source and configurations. Require a stated mechanism before measuring a variant. Deterministic rerun
+parity is an implementation check, not evidence against historical sampling luck; include season sensitivity and
+research-exposure limitations. A selected prediction change still requires normal release validation.
 If the user explicitly waives a fresh comparison after a prediction change, record that gap in the existing evaluation report
 and index. Do not present earlier results as measurements of the changed recipe or assume a correctness fix improves
 accuracy. Later comparisons must rebuild from the current source and preserve the deployed baseline unchanged.
